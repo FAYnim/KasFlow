@@ -1,5 +1,5 @@
 <?php
-session_start();
+@session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/config/database.php';
 
@@ -47,6 +47,36 @@ try {
             $stmt->execute([$siswa_id, $bulan, $tahun]);
             $row = $stmt->fetch();
             echo json_encode(['ok' => true, 'total_bayar' => (float)$row['total_bayar']]);
+            break;
+        }
+        case 'add_jurnal': {
+            $tgl   = $_POST['tanggal'] ?? date('Y-m-d');
+            $ket   = trim($_POST['keterangan'] ?? '');
+            $jenis = $_POST['jenis'] ?? '';
+            $nom   = (float)($_POST['nominal'] ?? 0);
+            if ($ket === '' || !in_array($jenis, ['masuk','keluar'], true) || $nom <= 0) {
+                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
+            }
+            $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal) VALUES (?,?,?,?)")
+                ->execute([$tgl, $ket, $jenis, $nom]);
+            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
+            break;
+        }
+        case 'update_jurnal': {
+            $id   = (int)($_POST['id'] ?? 0);
+            $tgl  = $_POST['tanggal'];
+            $ket  = trim($_POST['keterangan'] ?? '');
+            $jenis= $_POST['jenis'];
+            $nom  = (float)$_POST['nominal'];
+            $pdo->prepare("UPDATE jurnal_kas SET tanggal=?, keterangan=?, jenis=?, nominal=? WHERE id=?")
+                ->execute([$tgl,$ket,$jenis,$nom,$id]);
+            echo json_encode(['ok' => true]);
+            break;
+        }
+        case 'delete_jurnal': {
+            $id = (int)($_REQUEST['id'] ?? 0);
+            $pdo->prepare("DELETE FROM jurnal_kas WHERE id=?")->execute([$id]);
+            echo json_encode(['ok' => true]);
             break;
         }
         default:
