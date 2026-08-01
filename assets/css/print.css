@@ -1,0 +1,6 @@
+@media print {
+    nav, #sidebar, #btn-hamburger, a[href] { display: none !important; }
+    .tab-content { display: block !important; }
+    body { background: white !important; }
+    main { padding: 0 !important; max-width: none !important; }
+}
