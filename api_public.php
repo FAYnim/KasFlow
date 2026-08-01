@@ -24,6 +24,22 @@ try {
             ]);
             break;
         }
+        case 'get_kas': {
+            $bulan = $_GET['bulan'] ?? date('F');
+            $tahun = (int)($_GET['tahun'] ?? date('Y'));
+            $stmt = $pdo->prepare("
+                SELECT s.id, s.nis, s.nama,
+                       COALESCE(k.minggu_1,0) m1, COALESCE(k.minggu_2,0) m2,
+                       COALESCE(k.minggu_3,0) m3, COALESCE(k.minggu_4,0) m4,
+                       COALESCE(k.minggu_5,0) m5, COALESCE(k.total_bayar,0) total_bayar
+                FROM siswa s
+                LEFT JOIN kas_mingguan k ON k.siswa_id = s.id AND k.bulan = ? AND k.tahun = ?
+                ORDER BY s.nama ASC
+            ");
+            $stmt->execute([$bulan, $tahun]);
+            echo json_encode($stmt->fetchAll());
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);
