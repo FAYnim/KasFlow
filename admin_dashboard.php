@@ -10,6 +10,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Bendahara - Cashflow Kelas</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/print.css" media="print">
 </head>
@@ -18,7 +19,9 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
     <aside class="w-full md:w-60 bg-[#0f1011] border-r border-[#23252a] min-h-screen p-4 flex-shrink-0 flex flex-col justify-between">
         <div>
             <div class="brand-mark mb-6 px-2 py-1">
-                <div class="brand-icon">⚡</div>
+                <div class="brand-icon">
+                    <i class="fa-solid fa-bolt text-xs"></i>
+                </div>
                 <div class="flex flex-col">
                     <span class="text-sm font-semibold">Admin Bendahara</span>
                     <span class="text-[11px] text-[#8a8f98] font-normal">Cashflow RPL 1</span>
@@ -28,40 +31,40 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
             <div class="eyebrow px-2 text-[11px] mb-2">Manajemen</div>
             <nav class="space-y-0.5">
                 <a data-tab="dashboard" class="sidebar-nav-item active">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                    Dashboard
+                    <i class="fa-solid fa-gauge w-4 text-center"></i>
+                    <span>Dashboard</span>
                 </a>
                 <a data-tab="siswa" class="sidebar-nav-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                    Kelola Siswa
+                    <i class="fa-solid fa-users w-4 text-center"></i>
+                    <span>Kelola Siswa</span>
                 </a>
                 <a data-tab="kas" class="sidebar-nav-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Input Kas
+                    <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
+                    <span>Input Kas</span>
                 </a>
                 <a data-tab="jurnal" class="sidebar-nav-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                    Kelola Jurnal
+                    <i class="fa-solid fa-receipt w-4 text-center"></i>
+                    <span>Kelola Jurnal</span>
                 </a>
                 <a data-tab="denda" class="sidebar-nav-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    Kelola Denda
+                    <i class="fa-solid fa-triangle-exclamation w-4 text-center"></i>
+                    <span>Kelola Denda</span>
                 </a>
                 <a data-tab="bank" class="sidebar-nav-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
-                    Mutasi Bank
+                    <i class="fa-solid fa-building-columns w-4 text-center"></i>
+                    <span>Mutasi Bank</span>
                 </a>
                 <a data-tab="ekspor" class="sidebar-nav-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Ekspor Laporan
+                    <i class="fa-solid fa-file-export w-4 text-center"></i>
+                    <span>Ekspor Laporan</span>
                 </a>
             </nav>
         </div>
 
         <div class="mt-8 pt-4 border-t border-[#23252a]">
             <a href="logout.php" class="btn-danger w-full justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                Keluar (Logout)
+                <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                <span>Keluar (Logout)</span>
             </a>
         </div>
     </aside>
@@ -73,9 +76,9 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 <div class="eyebrow">Sesi Aktif</div>
                 <div class="text-sm text-[#8a8f98]">Login sebagai <b class="text-[#f7f8f8]"><?= htmlspecialchars($nama) ?></b></div>
             </div>
-            <a href="index.php" target="_blank" class="btn-secondary text-xs gap-1">
+            <a href="index.php" target="_blank" class="btn-secondary text-xs gap-2">
                 <span>Buka Web Publik</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
             </a>
         </div>
 
@@ -92,7 +95,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
             <form id="form-siswa" class="flex flex-col sm:flex-row gap-2 mb-6 card-linear p-4">
                 <input name="nis" placeholder="NIS (opsional)" class="input-linear w-full sm:w-44">
                 <input name="nama" placeholder="Nama lengkap siswa" required class="input-linear flex-1">
-                <button class="btn-primary">Tambah Siswa</button>
+                <button class="btn-primary gap-2">
+                    <i class="fa-solid fa-user-plus text-xs"></i>
+                    <span>Tambah Siswa</span>
+                </button>
             </form>
             <div id="siswa-wrap" class="table-container overflow-x-auto"></div>
         </section>
@@ -115,8 +121,9 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <h2 class="display-md">Kelola Jurnal Kas</h2>
                     <p class="text-sm text-[#8a8f98]">Catat pengeluaran dan pemasukan kas secara akurat.</p>
                 </div>
-                <button id="btn-add-jurnal" class="btn-primary gap-1">
-                    <span>+ Tambah Transaksi</span>
+                <button id="btn-add-jurnal" class="btn-primary gap-2">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Tambah Transaksi</span>
                 </button>
             </div>
             <div id="jurnal-wrap" class="table-container overflow-x-auto"></div>
@@ -143,7 +150,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <label class="eyebrow block mb-1">Jumlah (Rp)</label>
                     <input type="number" name="jumlah" placeholder="Contoh: 5000" required min="1" class="input-linear">
                 </div>
-                <button class="btn-primary sm:col-span-2 lg:col-span-4 mt-2">Tambah Tagihan Denda</button>
+                <button class="btn-primary sm:col-span-2 lg:col-span-4 mt-2 gap-2 justify-center">
+                    <i class="fa-solid fa-circle-plus text-xs"></i>
+                    <span>Tambah Tagihan Denda</span>
+                </button>
             </form>
             <div id="denda-wrap" class="table-container overflow-x-auto"></div>
         </section>
@@ -169,7 +179,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <label class="eyebrow block mb-1">Jumlah (Rp)</label>
                     <input type="number" name="jumlah" placeholder="Contoh: 50000" required min="1" class="input-linear">
                 </div>
-                <button class="btn-primary sm:col-span-2 lg:col-span-4 mt-2">Simpan Mutasi Bank</button>
+                <button class="btn-primary sm:col-span-2 lg:col-span-4 mt-2 gap-2 justify-center">
+                    <i class="fa-solid fa-building-columns text-xs"></i>
+                    <span>Simpan Mutasi Bank</span>
+                </button>
             </form>
             <div id="bank-wrap" class="table-container overflow-x-auto"></div>
         </section>
@@ -187,8 +200,14 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <label class="eyebrow block mb-1">Sampai Tanggal</label>
                     <input type="date" name="sampai" class="input-linear">
                 </div>
-                <button class="btn-secondary" id="btn-csv">Unduh CSV</button>
-                <button type="button" class="btn-primary" id="btn-pdf">Cetak PDF</button>
+                <button class="btn-secondary gap-2" id="btn-csv">
+                    <i class="fa-solid fa-file-csv text-xs text-[#60a5fa]"></i>
+                    <span>Unduh CSV</span>
+                </button>
+                <button type="button" class="btn-primary gap-2" id="btn-pdf">
+                    <i class="fa-solid fa-file-pdf text-xs"></i>
+                    <span>Cetak PDF</span>
+                </button>
             </form>
             <div id="ekspor-preview" class="table-container overflow-x-auto"></div>
         </section>
@@ -198,8 +217,13 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
     <div id="modal-jurnal" class="modal-overlay hidden">
         <form id="form-jurnal" class="modal-card">
             <div class="flex items-center justify-between mb-4 pb-2 border-b border-[#23252a]">
-                <h3 class="headline text-lg">Transaksi Jurnal</h3>
-                <button type="button" id="modal-close" class="text-[#8a8f98] hover:text-[#f7f8f8]">✕</button>
+                <h3 class="headline text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-sm text-[#5e6ad2]"></i>
+                    <span>Transaksi Jurnal</span>
+                </h3>
+                <button type="button" id="modal-close" class="text-[#8a8f98] hover:text-[#f7f8f8]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
             </div>
             <input type="hidden" name="id">
             <div class="space-y-3 mb-6">
@@ -225,7 +249,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
             </div>
             <div class="flex justify-end gap-2">
                 <button type="button" id="modal-close-btn" class="btn-secondary">Batal</button>
-                <button class="btn-primary">Simpan Transaksi</button>
+                <button class="btn-primary gap-2">
+                    <i class="fa-solid fa-floppy-disk text-xs"></i>
+                    <span>Simpan Transaksi</span>
+                </button>
             </div>
         </form>
     </div>

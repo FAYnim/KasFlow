@@ -38,16 +38,16 @@ $(function () {
     function loadDashboard() {
         $.getJSON('api_public.php?action=get_summary', function (s) {
             const cards = [
-                ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '⚡'],
-                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '💵'],
-                ['Cash in Bank', fmt(s.cash_in_bank), 'text-[#60a5fa]', '🏦'],
-                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[#f87171]', '⚠️'],
+                ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
+                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
+                ['Cash in Bank', fmt(s.cash_in_bank), 'text-[#60a5fa]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
+                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[#f87171]', '<i class="fa-solid fa-circle-exclamation text-sm"></i>'],
             ];
             $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
                     <div class="flex items-center justify-between mb-2">
                         <span class="eyebrow">${t}</span>
-                        <span class="text-sm">${icon}</span>
+                        <span class="text-[#8a8f98]">${icon}</span>
                     </div>
                     <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
                 </div>`
@@ -85,7 +85,7 @@ $(function () {
                     <td class="font-mono text-xs text-[#8a8f98]">${r.nis||'-'}</td>
                     <td class="font-medium text-[#f7f8f8]">${r.nama}</td>
                     ${[r.m1,r.m2,r.m3,r.m4,r.m5].map(v => 
-                        `<td class="text-center">${v ? '<span class="text-[#4ade80]">✓</span>' : '<span class="text-[#62666d]">·</span>'}</td>`
+                        `<td class="text-center">${v ? '<i class="fa-solid fa-circle-check text-[#4ade80] text-xs"></i>' : '<i class="fa-solid fa-circle-xmark text-[#34343a] text-xs"></i>'}</td>`
                     ).join('')}
                     <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(r.total_bayar)}</td>
                 </tr>`
@@ -103,7 +103,6 @@ $(function () {
             const labels = r.line_chart.map(x => x.tanggal);
             const data   = r.line_chart.map(x => x.saldo);
 
-            // Chart Defaults for Dark Mode
             Chart.defaults.color = '#8a8f98';
             Chart.defaults.font.family = "'Inter', sans-serif";
 
@@ -173,8 +172,9 @@ $(function () {
                         <td class="font-mono text-xs text-[#8a8f98]">${t.tanggal}</td>
                         <td class="text-[#f7f8f8]">${t.keterangan}</td>
                         <td>
-                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'}">
-                                ${t.jenis==='masuk' ? '▲ Masuk' : '▼ Keluar'}
+                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
+                                <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
+                                <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
                             </span>
                         </td>
                         <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(t.nominal)}</td>
@@ -209,8 +209,9 @@ $(function () {
                         <td class="text-[#d0d6e0]">${p.keterangan}</td>
                         <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(p.jumlah)}</td>
                         <td>
-                            <span class="badge-status ${p.status==='sudah_dibayar'?'badge-success':'badge-danger'}">
-                                ${p.status==='sudah_dibayar' ? '✓ Sudah Dibayar' : '✕ Belum Dibayar'}
+                            <span class="badge-status ${p.status==='sudah_dibayar'?'badge-success':'badge-danger'} font-medium">
+                                <i class="fa-solid ${p.status==='sudah_dibayar' ? 'fa-circle-check' : 'fa-clock'} text-[10px]"></i>
+                                <span>${p.status==='sudah_dibayar' ? 'Sudah Dibayar' : 'Belum Dibayar'}</span>
                             </span>
                         </td>
                     </tr>`
@@ -241,8 +242,9 @@ $(function () {
                         <td class="font-mono text-xs text-[#8a8f98]">${b.tanggal}</td>
                         <td class="text-[#f7f8f8]">${b.keterangan}</td>
                         <td>
-                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'}">
-                                ${b.jenis==='setor' ? '↗ Setor' : '↘ Tarik'}
+                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">
+                                <i class="fa-solid ${b.jenis==='setor' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket'} text-[10px]"></i>
+                                <span>${b.jenis==='setor' ? 'Setor' : 'Tarik'}</span>
                             </span>
                         </td>
                         <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(b.jumlah)}</td>

@@ -36,16 +36,16 @@ $(function () {
     function lDash() {
         $.getJSON('api_public.php?action=get_summary', s => {
             const cards = [
-                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '⚡'],
-                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '💵'],
-                ['Cash in Bank', fmt(s.cash_in_bank), 'text-[#60a5fa]', '🏦'],
-                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[#f87171]', '⚠️'],
+                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
+                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
+                ['Cash in Bank', fmt(s.cash_in_bank), 'text-[#60a5fa]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
+                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[#f87171]', '<i class="fa-solid fa-circle-exclamation text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
                     <div class="flex items-center justify-between mb-2">
                         <span class="eyebrow">${t}</span>
-                        <span class="text-sm">${icon}</span>
+                        <span class="text-[#8a8f98]">${icon}</span>
                     </div>
                     <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
                 </div>`
@@ -72,7 +72,10 @@ $(function () {
                         <td class="font-mono text-xs text-[#8a8f98]">${s.nis||'-'}</td>
                         <td class="font-medium text-[#f7f8f8]">${s.nama}</td>
                         <td class="text-right">
-                            <button class="btn-danger del-s text-xs" data-id="${s.id}">Hapus</button>
+                            <button class="btn-danger del-s text-xs gap-1" data-id="${s.id}">
+                                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                <span>Hapus</span>
+                            </button>
                         </td>
                     </tr>`
                 ).join('');
@@ -179,7 +182,7 @@ $(function () {
                         <th>Keterangan</th>
                         <th class="w-28">Jenis</th>
                         <th class="text-right w-36">Nominal</th>
-                        <th class="w-32 text-right">Aksi</th>
+                        <th class="w-36 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -191,14 +194,21 @@ $(function () {
                         <td class="font-mono text-xs text-[#8a8f98]">${t.tanggal}</td>
                         <td class="text-[#f7f8f8]">${t.keterangan}</td>
                         <td>
-                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'}">
-                                ${t.jenis==='masuk' ? '▲ Masuk' : '▼ Keluar'}
+                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
+                                <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
+                                <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
                             </span>
                         </td>
                         <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(t.nominal)}</td>
                         <td class="text-right space-x-1">
-                            <button class="btn-secondary text-xs px-2 py-1 edit-j" data-id="${t.id}">Edit</button>
-                            <button class="btn-danger text-xs px-2 py-1 del-j" data-id="${t.id}">Hapus</button>
+                            <button class="btn-secondary text-xs px-2.5 py-1 edit-j gap-1" data-id="${t.id}">
+                                <i class="fa-solid fa-pen text-[10px]"></i>
+                                <span>Edit</span>
+                            </button>
+                            <button class="btn-danger text-xs px-2.5 py-1 del-j gap-1" data-id="${t.id}">
+                                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                <span>Hapus</span>
+                            </button>
                         </td>
                     </tr>`
                 ).join('');
@@ -250,12 +260,13 @@ $(function () {
                         <td class="text-[#d0d6e0]">${p.keterangan}</td>
                         <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(p.jumlah)}</td>
                         <td>
-                            <span class="badge-status ${p.status==='sudah_dibayar'?'badge-success':'badge-danger'}">
-                                ${p.status==='sudah_dibayar' ? '✓ Sudah Dibayar' : '✕ Belum Dibayar'}
+                            <span class="badge-status ${p.status==='sudah_dibayar'?'badge-success':'badge-danger'} font-medium">
+                                <i class="fa-solid ${p.status==='sudah_dibayar' ? 'fa-circle-check' : 'fa-clock'} text-[10px]"></i>
+                                <span>${p.status==='sudah_dibayar' ? 'Sudah Dibayar' : 'Belum Dibayar'}</span>
                             </span>
                         </td>
                         <td class="text-right">
-                            ${p.status==='belum_dibayar' ? `<button class="btn-secondary text-xs px-2 py-1 lunas-btn" data-id="${p.id}">Tandai Lunas</button>` : '<span class="text-xs text-[#62666d]">Lunas</span>'}
+                            ${p.status==='belum_dibayar' ? `<button class="btn-secondary text-xs px-2.5 py-1 lunas-btn gap-1" data-id="${p.id}"><i class="fa-solid fa-check text-[10px] text-[#4ade80]"></i><span>Tandai Lunas</span></button>` : '<span class="text-xs text-[#62666d]"><i class="fa-solid fa-check-double text-[10px] mr-1"></i>Lunas</span>'}
                         </td>
                     </tr>`
                 ).join('');
@@ -298,13 +309,17 @@ $(function () {
                         <td class="font-mono text-xs text-[#8a8f98]">${b.tanggal}</td>
                         <td class="text-[#f7f8f8]">${b.keterangan}</td>
                         <td>
-                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'}">
-                                ${b.jenis==='setor' ? '↗ Setor' : '↘ Tarik'}
+                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">
+                                <i class="fa-solid ${b.jenis==='setor' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket'} text-[10px]"></i>
+                                <span>${b.jenis==='setor' ? 'Setor' : 'Tarik'}</span>
                             </span>
                         </td>
                         <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(b.jumlah)}</td>
                         <td class="text-right">
-                            <button class="btn-danger text-xs px-2 py-1 del-b" data-id="${b.id}">Hapus</button>
+                            <button class="btn-danger text-xs px-2.5 py-1 del-b gap-1" data-id="${b.id}">
+                                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                <span>Hapus</span>
+                            </button>
                         </td>
                     </tr>`
                 ).join('');
@@ -350,8 +365,9 @@ $(function () {
                         <td class="font-mono text-xs text-[#8a8f98]">${t.tanggal}</td>
                         <td class="text-[#f7f8f8]">${t.keterangan}</td>
                         <td>
-                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'}">
-                                ${t.jenis==='masuk' ? '▲ Masuk' : '▼ Keluar'}
+                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
+                                <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
+                                <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
                             </span>
                         </td>
                         <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(t.nominal)}</td>
