@@ -59,10 +59,52 @@ $(function () {
         $('#kas-table').html(html);
     }
     function filterKas() { renderKas(); }
-    // jurnal/piutang/bank are placeholders until next task
-    function loadJurnal() {}
-    function loadPiutang() {}
-    function loadBank() {}
+    let lineChart, donutChart;
+    function loadJurnal() {
+        $.getJSON('api_public.php?action=get_jurnal', function (r) {
+            const labels = r.line_chart.map(x => x.tanggal);
+            const data   = r.line_chart.map(x => x.saldo);
+            if (lineChart) lineChart.destroy();
+            lineChart = new Chart(document.getElementById('chart-line'), {
+                type: 'line',
+                data: { labels, datasets: [{ label: 'Saldo', data, borderColor: '#2563eb', backgroundColor:'rgba(37,99,235,.1)', fill: true, tension:.3 }] },
+                options: { responsive: true }
+            });
+            if (donutChart) donutChart.destroy();
+            donutChart = new Chart(document.getElementById('chart-donut'), {
+                type: 'doughnut',
+                data: { labels: ['Masuk','Keluar'], datasets: [{ data: [r.donut.masuk, r.donut.keluar], backgroundColor:['#10b981','#ef4444'] }] }
+            });
+            let h = '<table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2">Tanggal</th><th class="p-2">Keterangan</th><th class="p-2">Jenis</th><th class="p-2 text-right">Nominal</th></tr></thead><tbody>';
+            h += r.transaksi.map(t =>
+                `<tr class="border-t"><td class="p-2">${t.tanggal}</td><td class="p-2">${t.keterangan}</td>`
+                + `<td class="p-2"><span class="px-2 py-1 rounded text-xs ${t.jenis==='masuk'?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700'}">${t.jenis}</span></td>`
+                + `<td class="p-2 text-right">${fmt(t.nominal)}</td></tr>`
+            ).join('') + '</tbody></table>';
+            $('#jurnal-table-wrap').html(h);
+        });
+    }
+    function loadPiutang() {
+        $.getJSON('api_public.php?action=get_piutang', function (rows) {
+            let h = '<table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2">Tanggal</th><th class="p-2">Siswa</th><th class="p-2">Keterangan</th><th class="p-2 text-right">Jumlah</th><th class="p-2">Status</th></tr></thead><tbody>';
+            h += rows.map(p =>
+                `<tr class="border-t"><td class="p-2">${p.tanggal}</td><td class="p-2">${p.siswa_nama}</td><td class="p-2">${p.keterangan}</td>`
+                + `<td class="p-2 text-right">${fmt(p.jumlah)}</td>`
+                + `<td class="p-2"><span class="px-2 py-1 rounded text-xs ${p.status==='sudah_dibayar'?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700'}">${p.status}</span></td></tr>`
+            ).join('') + '</tbody></table>';
+            $('#piutang-wrap').html(h);
+        });
+    }
+    function loadBank() {
+        $.getJSON('api_public.php?action=get_bank', function (rows) {
+            let h = '<table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2">Tanggal</th><th class="p-2">Keterangan</th><th class="p-2">Jenis</th><th class="p-2 text-right">Jumlah</th></tr></thead><tbody>';
+            h += rows.map(b =>
+                `<tr class="border-t"><td class="p-2">${b.tanggal}</td><td class="p-2">${b.keterangan}</td>`
+                + `<td class="p-2">${b.jenis}</td><td class="p-2 text-right">${fmt(b.jumlah)}</td></tr>`
+            ).join('') + '</tbody></table>';
+            $('#bank-wrap').html(h);
+        });
+    }
 
     activate('dashboard');
 });
