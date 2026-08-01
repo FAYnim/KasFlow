@@ -63,7 +63,7 @@ $(function () {
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
 
     function loadDashboard() {
-        $.getJSON('api_public.php?action=get_summary', function (s) {
+        $.getJSON('src/api/public.php?action=get_summary', function (s) {
             const cards = [
                 ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Cash on Hand', fmt(s.cash_on_hand), 'text-[var(--semantic-success)]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
@@ -85,7 +85,7 @@ $(function () {
     let kasData = [];
     function loadKas() {
         const bulan = $('#kas-bulan').val(), tahun = $('#kas-tahun').val();
-        $.getJSON('api_public.php', { action:'get_kas', bulan, tahun }, function (rows) {
+        $.getJSON('src/api/public.php', { action:'get_kas', bulan, tahun }, function (rows) {
             kasData = rows; 
             renderKas();
         });
@@ -126,7 +126,7 @@ $(function () {
 
     let lineChart, donutChart;
     function loadJurnal() {
-        $.getJSON('api_public.php?action=get_jurnal', function (r) {
+        $.getJSON('src/api/public.php?action=get_jurnal', function (r) {
             const labels = r.line_chart.map(x => x.tanggal);
             const data   = r.line_chart.map(x => x.saldo);
 
@@ -220,7 +220,7 @@ $(function () {
     }
 
     function loadPiutang() {
-        $.getJSON('api_public.php?action=get_piutang', function (rows) {
+        $.getJSON('src/api/public.php?action=get_piutang', function (rows) {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
@@ -256,7 +256,7 @@ $(function () {
     }
 
     function loadBank() {
-        $.getJSON('api_public.php?action=get_bank', function (rows) {
+        $.getJSON('src/api/public.php?action=get_bank', function (rows) {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>

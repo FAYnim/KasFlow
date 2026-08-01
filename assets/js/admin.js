@@ -34,7 +34,7 @@ $(function () {
     $('#admin-bulan, #admin-tahun').on('change', lKas);
 
     function lDash() {
-        $.getJSON('api_public.php?action=get_summary', s => {
+        $.getJSON('../../src/api/public.php?action=get_summary', s => {
             const cards = [
                 ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
@@ -54,7 +54,7 @@ $(function () {
     }
 
     function lSiswa() {
-        $.getJSON('api_admin.php?action=list_siswa', rows => {
+        $.getJSON('../../src/api/admin.php?action=list_siswa', rows => {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
@@ -87,19 +87,19 @@ $(function () {
 
     $(document).on('click', '.del-s', function () {
         if (!confirm('Hapus siswa ini beserta seluruh data kas dan denda terkait?')) return;
-        $.post('api_admin.php?action=delete_siswa', { id: $(this).data('id') }, r => lSiswa(), 'json');
+        $.post('../../src/api/admin.php?action=delete_siswa', { id: $(this).data('id') }, r => lSiswa(), 'json');
     });
 
     $('#form-siswa').on('submit', function (e) {
         e.preventDefault();
-        $.post('api_admin.php?action=add_siswa', $(this).serialize(), r => {
+        $.post('../../src/api/admin.php?action=add_siswa', $(this).serialize(), r => {
             if (r.ok) { this.reset(); lSiswa(); } else alert(r.error);
         }, 'json');
     });
 
     function lKas() {
         const bulan = $('#admin-bulan').val(), tahun = $('#admin-tahun').val();
-        $.getJSON('api_public.php', { action:'get_kas', bulan, tahun }, rows => {
+        $.getJSON('../../src/api/public.php', { action:'get_kas', bulan, tahun }, rows => {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
@@ -131,7 +131,7 @@ $(function () {
 
     $(document).on('change', '.kas-cb', function () {
         const cb = $(this);
-        $.post('api_admin.php?action=update_kas', {
+        $.post('../../src/api/admin.php?action=update_kas', {
             siswa_id: cb.data('siswa'), 
             minggu: cb.data('minggu'),
             checked: cb.is(':checked')?1:0,
@@ -163,7 +163,7 @@ $(function () {
         e.preventDefault();
         const id = this.id.value;
         const action = id ? 'update_jurnal' : 'add_jurnal';
-        $.post('api_admin.php?action=' + action, $(this).serialize(), r => {
+        $.post('../../src/api/admin.php?action=' + action, $(this).serialize(), r => {
             if (r.ok) { 
                 $('#modal-jurnal').addClass('hidden'); 
                 lJurnal(); 
@@ -174,7 +174,7 @@ $(function () {
     });
 
     function lJurnal() {
-        $.getJSON('api_public.php?action=get_jurnal', r => {
+        $.getJSON('../../src/api/public.php?action=get_jurnal', r => {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
@@ -220,7 +220,7 @@ $(function () {
 
     $(document).on('click', '.edit-j', function () {
         const id = $(this).data('id');
-        $.getJSON('api_public.php?action=get_jurnal', r => {
+        $.getJSON('../../src/api/public.php?action=get_jurnal', r => {
             const t = r.transaksi.find(x => x.id == id);
             if (t) openJurnalModal(t);
         });
@@ -228,13 +228,13 @@ $(function () {
 
     $(document).on('click', '.del-j', function () {
         if (!confirm('Hapus transaksi ini?')) return;
-        $.post('api_admin.php?action=delete_jurnal', { id: $(this).data('id') }, r => lJurnal(), 'json');
+        $.post('../../src/api/admin.php?action=delete_jurnal', { id: $(this).data('id') }, r => lJurnal(), 'json');
     });
 
     // Denda
     function lDenda() {
-        $.getJSON('api_public.php?action=get_piutang', rows => {
-            $.getJSON('api_admin.php?action=list_siswa', ss => {
+        $.getJSON('../../src/api/public.php?action=get_piutang', rows => {
+            $.getJSON('../../src/api/admin.php?action=list_siswa', ss => {
                 $('#denda-siswa').html(ss.map(s => `<option value="${s.id}">${s.nama}</option>`).join(''));
             });
 
@@ -278,18 +278,18 @@ $(function () {
 
     $('#form-denda').on('submit', function (e) {
         e.preventDefault();
-        $.post('api_admin.php?action=add_piutang', $(this).serialize(), r => {
+        $.post('../../src/api/admin.php?action=add_piutang', $(this).serialize(), r => {
             if (r.ok) { this.reset(); lDenda(); } else alert(r.error);
         }, 'json');
     });
 
     $(document).on('click', '.lunas-btn', function () {
-        $.post('api_admin.php?action=update_piutang_status', { id: $(this).data('id'), status: 'sudah_dibayar' }, r => lDenda(), 'json');
+        $.post('../../src/api/admin.php?action=update_piutang_status', { id: $(this).data('id'), status: 'sudah_dibayar' }, r => lDenda(), 'json');
     });
 
     // Bank
     function lBank() {
-        $.getJSON('api_public.php?action=get_bank', rows => {
+        $.getJSON('../../src/api/public.php?action=get_bank', rows => {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
@@ -331,21 +331,21 @@ $(function () {
 
     $('#form-bank').on('submit', function (e) {
         e.preventDefault();
-        $.post('api_admin.php?action=add_bank', $(this).serialize(), r => {
+        $.post('../../src/api/admin.php?action=add_bank', $(this).serialize(), r => {
             if (r.ok) { this.reset(); lBank(); } else alert(r.error);
         }, 'json');
     });
 
     $(document).on('click', '.del-b', function () {
         if (!confirm('Hapus data mutasi ini?')) return;
-        $.post('api_admin.php?action=delete_bank', { id: $(this).data('id') }, r => lBank(), 'json');
+        $.post('../../src/api/admin.php?action=delete_bank', { id: $(this).data('id') }, r => lBank(), 'json');
     });
 
     // Ekspor
     function lEkspor() {
         const dari = $('#form-ekspor [name=dari]').val();
         const sampai = $('#form-ekspor [name=sampai]').val();
-        $.getJSON('api_public.php?action=get_jurnal', r => {
+        $.getJSON('../../src/api/public.php?action=get_jurnal', r => {
             const rows = r.transaksi.filter(t => (!dari || t.tanggal >= dari) && (!sampai || t.tanggal <= sampai));
             let h = `<table class="table-linear">
                 <thead>

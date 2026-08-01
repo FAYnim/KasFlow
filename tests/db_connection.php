@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../bootstrap.php';
 try {
     $pdo = db();
     $row = $pdo->query('SELECT key_value FROM config WHERE key_name = "tarif_kas_mingguan"')->fetch();

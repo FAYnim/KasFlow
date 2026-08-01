@@ -2,7 +2,7 @@
 // Test: no session → 403. Use proc_open to isolate session_start().
 $cmd = PHP_BINARY . ' -r "'
     . '$_SESSION=[]; $_REQUEST=[\'action\'=>\'add_siswa\']; $_POST=[\'nama\'=>\'Test\']; '
-    . 'ob_start(); include \'api_admin.php\'; $out=ob_get_clean(); '
+    . 'ob_start(); include \'src/api/admin.php\'; $out=ob_get_clean(); '
     . 'echo $out;'
     . '"';
 $desc = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];

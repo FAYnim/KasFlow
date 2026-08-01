@@ -66,7 +66,7 @@
         </div>
 
         <div class="pt-4 border-t border-[var(--hairline)] mt-auto">
-            <a href="login.php" class="sidebar-nav-item text-xs gap-2">
+            <a href="src/auth/login.php" class="sidebar-nav-item text-xs gap-2">
                 <i class="fa-solid fa-user-shield w-4 text-center"></i>
                 <span>Login Bendahara</span>
             </a>
@@ -155,6 +155,6 @@
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="assets/js/app_public.js"></script>
+    <script src="assets/js/public.js"></script>
 </body>
 </html>

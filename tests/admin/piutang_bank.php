@@ -1,14 +1,14 @@
 <?php
 session_start();
 $_SESSION['admin_logged'] = true;
-require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 $pdo = db();
 $pdo->exec("INSERT INTO siswa (nis, nama) VALUES ('9999','Test Siswa')");
 $sid = $pdo->lastInsertId();
 
 function call(array $req, string $action): array {
     $_POST = $req; $_REQUEST = array_merge($req, ['action'=>$action]);
-    ob_start(); include __DIR__ . '/../api_admin.php'; $raw = ob_get_clean();
+    ob_start(); include __DIR__ . '/../../src/api/admin.php'; $raw = ob_get_clean();
     $data = json_decode($raw, true);
     return is_array($data) ? $data : ['_raw' => $raw];
 }

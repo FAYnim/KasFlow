@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($user && password_verify($password, $user['password'])) {
         $_SESSION['admin_logged'] = true;
         $_SESSION['admin_nama'] = $user['nama'];
-        header('Location: admin_dashboard.php');
+        header('Location: ../admin/dashboard.php');
         exit;
     }
     $error = 'Username atau password salah';
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Login Bendahara - Cashflow Kelas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body class="bg-[#010102] text-[#f7f8f8] min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-sm">
@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </button>
 
             <div class="mt-6 text-center border-t border-[#23252a] pt-4">
-                <a href="index.php" class="text-xs text-[#8a8f98] hover:text-[#f7f8f8] transition-colors inline-flex items-center gap-2">
+                <a href="../../index.php" class="text-xs text-[#8a8f98] hover:text-[#f7f8f8] transition-colors inline-flex items-center gap-2">
                     <i class="fa-solid fa-arrow-left text-[10px]"></i>
                     <span>Kembali ke Web Publik</span>
                 </a>
