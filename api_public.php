@@ -40,6 +40,38 @@ try {
             echo json_encode($stmt->fetchAll());
             break;
         }
+        case 'get_jurnal': {
+            $rows = $pdo->query("SELECT id, tanggal, keterangan, jenis, nominal FROM jurnal_kas ORDER BY tanggal DESC, id DESC")->fetchAll();
+            $saldo = 0;
+            $line = [];
+            $allAsc = $pdo->query("SELECT tanggal, jenis, nominal FROM jurnal_kas ORDER BY tanggal ASC, id ASC")->fetchAll();
+            foreach ($allAsc as $r) {
+                $saldo += $r['jenis'] === 'masuk' ? (float)$r['nominal'] : -(float)$r['nominal'];
+                $line[] = ['tanggal' => $r['tanggal'], 'saldo' => $saldo];
+            }
+            $totMasuk = array_sum(array_map(fn($r) => $r['jenis']==='masuk' ? (float)$r['nominal'] : 0, $rows));
+            $totKeluar = array_sum(array_map(fn($r) => $r['jenis']==='keluar' ? (float)$r['nominal'] : 0, $rows));
+            echo json_encode([
+                'transaksi' => $rows,
+                'line_chart' => $line,
+                'donut' => ['masuk' => $totMasuk, 'keluar' => $totKeluar],
+            ]);
+            break;
+        }
+        case 'get_piutang': {
+            $stmt = $pdo->query("
+                SELECT p.id, p.tanggal, p.keterangan, p.jumlah, p.status, s.nama AS siswa_nama, s.nis
+                FROM piutang_denda p JOIN siswa s ON s.id = p.siswa_id
+                ORDER BY p.status ASC, p.tanggal DESC
+            ");
+            echo json_encode($stmt->fetchAll());
+            break;
+        }
+        case 'get_bank': {
+            $rows = $pdo->query("SELECT id, tanggal, keterangan, jenis, jumlah FROM mutasi_bank ORDER BY tanggal DESC, id DESC")->fetchAll();
+            echo json_encode($rows);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);
