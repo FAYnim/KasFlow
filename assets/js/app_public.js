@@ -1,11 +1,18 @@
 $(function () {
     const bulanList = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     const $tabs = $('[data-tab-content]');
+    const $navItems = $('[data-tab]');
+
     const activate = (name) => {
         $tabs.addClass('hidden');
         $('[data-tab-content="' + name + '"]').removeClass('hidden');
-        loaders[name]();
+        
+        $navItems.removeClass('active');
+        $('[data-tab="' + name + '"]').addClass('active');
+
+        if (loaders[name]) loaders[name]();
     };
+
     const loaders = {
         dashboard: loadDashboard,
         kas: loadKas,
@@ -15,7 +22,10 @@ $(function () {
     };
 
     $('#btn-hamburger').on('click', () => $('#sidebar').toggleClass('-translate-x-full'));
-    $('[data-tab]').on('click', function () { activate($(this).data('tab')); $('#sidebar').addClass('-translate-x-full'); });
+    $('[data-tab]').on('click', function () { 
+        activate($(this).data('tab')); 
+        $('#sidebar').addClass('-translate-x-full'); 
+    });
 
     const now = new Date();
     $('#kas-bulan').html(bulanList.map(b => `<option ${b===bulanList[now.getMonth()]?'selected':''}>${b}</option>`).join(''));
@@ -24,84 +34,222 @@ $(function () {
     $('#kas-search').on('input', filterKas);
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
+
     function loadDashboard() {
         $.getJSON('api_public.php?action=get_summary', function (s) {
             const cards = [
-                ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'bg-blue-500'],
-                ['Cash on Hand', fmt(s.cash_on_hand), 'bg-emerald-500'],
-                ['Cash in Bank', fmt(s.cash_in_bank), 'bg-indigo-500'],
-                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'bg-rose-500'],
+                ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '⚡'],
+                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '💵'],
+                ['Cash in Bank', fmt(s.cash_in_bank), 'text-[#60a5fa]', '🏦'],
+                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[#f87171]', '⚠️'],
             ];
-            $('#summary-cards').html(cards.map(([t,v,c]) =>
-                `<div class="p-4 rounded shadow text-white ${c}"><div class="text-xs uppercase opacity-80">${t}</div><div class="text-xl font-bold mt-1">${v}</div></div>`
+            $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
+                `<div class="card-linear">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="eyebrow">${t}</span>
+                        <span class="text-sm">${icon}</span>
+                    </div>
+                    <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
+                </div>`
             ).join(''));
         });
     }
+
     let kasData = [];
     function loadKas() {
         const bulan = $('#kas-bulan').val(), tahun = $('#kas-tahun').val();
         $.getJSON('api_public.php', { action:'get_kas', bulan, tahun }, function (rows) {
-            kasData = rows; renderKas();
+            kasData = rows; 
+            renderKas();
         });
     }
+
     function renderKas() {
         const q = ($('#kas-search').val() || '').toLowerCase();
         const rows = kasData.filter(r => r.nama.toLowerCase().includes(q));
-        let html = '<thead class="bg-slate-100"><tr><th class="p-2 text-left">NIS</th><th class="p-2 text-left">Nama</th>'
-            + [1,2,3,4,5].map(i => `<th class="p-2">M${i}</th>`).join('')
-            + '<th class="p-2 text-right">Total</th></tr></thead><tbody>';
-        html += rows.map(r =>
-            `<tr class="border-t"><td class="p-2">${r.nis||''}</td><td class="p-2">${r.nama}</td>`
-            + [r.m1,r.m2,r.m3,r.m4,r.m5].map(v => `<td class="p-2 text-center">${v ? '✅':'❌'}</td>`).join('')
-            + `<td class="p-2 text-right">${fmt(r.total_bayar)}</td></tr>`
-        ).join('');
+        let html = `<thead>
+            <tr>
+                <th class="w-24">NIS</th>
+                <th>Nama Siswa</th>
+                ${[1,2,3,4,5].map(i => `<th class="text-center w-16">M${i}</th>`).join('')}
+                <th class="text-right">Total Bayar</th>
+            </tr>
+        </thead>
+        <tbody>`;
+        
+        if (rows.length === 0) {
+            html += `<tr><td colspan="8" class="text-center py-6 text-[#8a8f98]">Tidak ada data siswa ditemukan.</td></tr>`;
+        } else {
+            html += rows.map(r =>
+                `<tr>
+                    <td class="font-mono text-xs text-[#8a8f98]">${r.nis||'-'}</td>
+                    <td class="font-medium text-[#f7f8f8]">${r.nama}</td>
+                    ${[r.m1,r.m2,r.m3,r.m4,r.m5].map(v => 
+                        `<td class="text-center">${v ? '<span class="text-[#4ade80]">✓</span>' : '<span class="text-[#62666d]">·</span>'}</td>`
+                    ).join('')}
+                    <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(r.total_bayar)}</td>
+                </tr>`
+            ).join('');
+        }
         html += '</tbody>';
         $('#kas-table').html(html);
     }
+
     function filterKas() { renderKas(); }
+
     let lineChart, donutChart;
     function loadJurnal() {
         $.getJSON('api_public.php?action=get_jurnal', function (r) {
             const labels = r.line_chart.map(x => x.tanggal);
             const data   = r.line_chart.map(x => x.saldo);
+
+            // Chart Defaults for Dark Mode
+            Chart.defaults.color = '#8a8f98';
+            Chart.defaults.font.family = "'Inter', sans-serif";
+
             if (lineChart) lineChart.destroy();
             lineChart = new Chart(document.getElementById('chart-line'), {
                 type: 'line',
-                data: { labels, datasets: [{ label: 'Saldo', data, borderColor: '#2563eb', backgroundColor:'rgba(37,99,235,.1)', fill: true, tension:.3 }] },
-                options: { responsive: true }
+                data: { 
+                    labels, 
+                    datasets: [{ 
+                        label: 'Saldo', 
+                        data, 
+                        borderColor: '#5e6ad2', 
+                        backgroundColor: 'rgba(94, 106, 210, 0.12)', 
+                        borderWidth: 2,
+                        pointBackgroundColor: '#5e6ad2',
+                        fill: true, 
+                        tension: 0.3 
+                    }] 
+                },
+                options: { 
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { grid: { color: '#23252a' }, ticks: { color: '#8a8f98' } },
+                        y: { grid: { color: '#23252a' }, ticks: { color: '#8a8f98' } }
+                    }
+                }
             });
+
             if (donutChart) donutChart.destroy();
             donutChart = new Chart(document.getElementById('chart-donut'), {
                 type: 'doughnut',
-                data: { labels: ['Masuk','Keluar'], datasets: [{ data: [r.donut.masuk, r.donut.keluar], backgroundColor:['#10b981','#ef4444'] }] }
+                data: { 
+                    labels: ['Pemasukan', 'Pengeluaran'], 
+                    datasets: [{ 
+                        data: [r.donut.masuk, r.donut.keluar], 
+                        backgroundColor: ['#5e6ad2', '#e5484d'],
+                        borderColor: '#0f1011',
+                        borderWidth: 2
+                    }] 
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#d0d6e0', padding: 16 } }
+                    }
+                }
             });
-            let h = '<table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2">Tanggal</th><th class="p-2">Keterangan</th><th class="p-2">Jenis</th><th class="p-2 text-right">Nominal</th></tr></thead><tbody>';
-            h += r.transaksi.map(t =>
-                `<tr class="border-t"><td class="p-2">${t.tanggal}</td><td class="p-2">${t.keterangan}</td>`
-                + `<td class="p-2"><span class="px-2 py-1 rounded text-xs ${t.jenis==='masuk'?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700'}">${t.jenis}</span></td>`
-                + `<td class="p-2 text-right">${fmt(t.nominal)}</td></tr>`
-            ).join('') + '</tbody></table>';
+
+            let h = `<table class="table-linear">
+                <thead>
+                    <tr>
+                        <th class="w-32">Tanggal</th>
+                        <th>Keterangan</th>
+                        <th class="w-28">Jenis</th>
+                        <th class="text-right w-36">Nominal</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            if (r.transaksi.length === 0) {
+                h += `<tr><td colspan="4" class="text-center py-6 text-[#8a8f98]">Belum ada transaksi jurnal.</td></tr>`;
+            } else {
+                h += r.transaksi.map(t =>
+                    `<tr>
+                        <td class="font-mono text-xs text-[#8a8f98]">${t.tanggal}</td>
+                        <td class="text-[#f7f8f8]">${t.keterangan}</td>
+                        <td>
+                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'}">
+                                ${t.jenis==='masuk' ? '▲ Masuk' : '▼ Keluar'}
+                            </span>
+                        </td>
+                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(t.nominal)}</td>
+                    </tr>`
+                ).join('');
+            }
+            h += '</tbody></table>';
             $('#jurnal-table-wrap').html(h);
         });
     }
+
     function loadPiutang() {
         $.getJSON('api_public.php?action=get_piutang', function (rows) {
-            let h = '<table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2">Tanggal</th><th class="p-2">Siswa</th><th class="p-2">Keterangan</th><th class="p-2 text-right">Jumlah</th><th class="p-2">Status</th></tr></thead><tbody>';
-            h += rows.map(p =>
-                `<tr class="border-t"><td class="p-2">${p.tanggal}</td><td class="p-2">${p.siswa_nama}</td><td class="p-2">${p.keterangan}</td>`
-                + `<td class="p-2 text-right">${fmt(p.jumlah)}</td>`
-                + `<td class="p-2"><span class="px-2 py-1 rounded text-xs ${p.status==='sudah_dibayar'?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700'}">${p.status}</span></td></tr>`
-            ).join('') + '</tbody></table>';
+            let h = `<table class="table-linear">
+                <thead>
+                    <tr>
+                        <th class="w-32">Tanggal</th>
+                        <th>Siswa</th>
+                        <th>Keterangan</th>
+                        <th class="text-right w-36">Jumlah</th>
+                        <th class="w-36">Status</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            if (rows.length === 0) {
+                h += `<tr><td colspan="5" class="text-center py-6 text-[#8a8f98]">Tidak ada piutang/denda recorded.</td></tr>`;
+            } else {
+                h += rows.map(p =>
+                    `<tr>
+                        <td class="font-mono text-xs text-[#8a8f98]">${p.tanggal}</td>
+                        <td class="font-medium text-[#f7f8f8]">${p.siswa_nama}</td>
+                        <td class="text-[#d0d6e0]">${p.keterangan}</td>
+                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(p.jumlah)}</td>
+                        <td>
+                            <span class="badge-status ${p.status==='sudah_dibayar'?'badge-success':'badge-danger'}">
+                                ${p.status==='sudah_dibayar' ? '✓ Sudah Dibayar' : '✕ Belum Dibayar'}
+                            </span>
+                        </td>
+                    </tr>`
+                ).join('');
+            }
+            h += '</tbody></table>';
             $('#piutang-wrap').html(h);
         });
     }
+
     function loadBank() {
         $.getJSON('api_public.php?action=get_bank', function (rows) {
-            let h = '<table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2">Tanggal</th><th class="p-2">Keterangan</th><th class="p-2">Jenis</th><th class="p-2 text-right">Jumlah</th></tr></thead><tbody>';
-            h += rows.map(b =>
-                `<tr class="border-t"><td class="p-2">${b.tanggal}</td><td class="p-2">${b.keterangan}</td>`
-                + `<td class="p-2">${b.jenis}</td><td class="p-2 text-right">${fmt(b.jumlah)}</td></tr>`
-            ).join('') + '</tbody></table>';
+            let h = `<table class="table-linear">
+                <thead>
+                    <tr>
+                        <th class="w-32">Tanggal</th>
+                        <th>Keterangan Transaksi</th>
+                        <th class="w-28">Jenis Mutasi</th>
+                        <th class="text-right w-36">Jumlah</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            if (rows.length === 0) {
+                h += `<tr><td colspan="4" class="text-center py-6 text-[#8a8f98]">Belum ada mutasi bank.</td></tr>`;
+            } else {
+                h += rows.map(b =>
+                    `<tr>
+                        <td class="font-mono text-xs text-[#8a8f98]">${b.tanggal}</td>
+                        <td class="text-[#f7f8f8]">${b.keterangan}</td>
+                        <td>
+                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'}">
+                                ${b.jenis==='setor' ? '↗ Setor' : '↘ Tarik'}
+                            </span>
+                        </td>
+                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(b.jumlah)}</td>
+                    </tr>`
+                ).join('');
+            }
+            h += '</tbody></table>';
             $('#bank-wrap').html(h);
         });
     }
