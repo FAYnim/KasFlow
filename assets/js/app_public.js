@@ -3,6 +3,33 @@ $(function () {
     const $tabs = $('[data-tab-content]');
     const $navItems = $('[data-tab]');
 
+    // Theme Switcher Management
+    function updateThemeUI(theme) {
+        if (theme === 'dark') {
+            $('#theme-toggle-icon').attr('class', 'fa-solid fa-moon text-indigo-400');
+            $('#theme-toggle-text').text('Dark');
+        } else {
+            $('#theme-toggle-icon').attr('class', 'fa-solid fa-sun text-amber-500');
+            $('#theme-toggle-text').text('Light');
+        }
+    }
+
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    $('html').attr('data-theme', currentTheme);
+    updateThemeUI(currentTheme);
+
+    $('#theme-toggle-btn').on('click', function () {
+        const newTheme = $('html').attr('data-theme') === 'dark' ? 'light' : 'dark';
+        $('html').attr('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateThemeUI(newTheme);
+        
+        // Re-render chart if active in Jurnal section
+        if (lineChart || donutChart) {
+            loadJurnal();
+        }
+    });
+
     const activate = (name) => {
         $tabs.addClass('hidden');
         $('[data-tab-content="' + name + '"]').removeClass('hidden');
@@ -38,16 +65,16 @@ $(function () {
     function loadDashboard() {
         $.getJSON('api_public.php?action=get_summary', function (s) {
             const cards = [
-                ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
-                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
-                ['Cash in Bank', fmt(s.cash_in_bank), 'text-[#60a5fa]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[#f87171]', '<i class="fa-solid fa-circle-exclamation text-sm"></i>'],
+                ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
+                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[var(--semantic-success)]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
+                ['Cash in Bank', fmt(s.cash_in_bank), 'text-blue-500', '<i class="fa-solid fa-building-columns text-sm"></i>'],
+                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[var(--semantic-danger)]', '<i class="fa-solid fa-circle-exclamation text-sm"></i>'],
             ];
             $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
                     <div class="flex items-center justify-between mb-2">
                         <span class="eyebrow">${t}</span>
-                        <span class="text-[#8a8f98]">${icon}</span>
+                        <span class="text-subtle">${icon}</span>
                     </div>
                     <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
                 </div>`
@@ -78,16 +105,16 @@ $(function () {
         <tbody>`;
         
         if (rows.length === 0) {
-            html += `<tr><td colspan="8" class="text-center py-6 text-[#8a8f98]">Tidak ada data siswa ditemukan.</td></tr>`;
+            html += `<tr><td colspan="8" class="text-center py-6 text-subtle">Tidak ada data siswa ditemukan.</td></tr>`;
         } else {
             html += rows.map(r =>
                 `<tr>
-                    <td class="font-mono text-xs text-[#8a8f98]">${r.nis||'-'}</td>
-                    <td class="font-medium text-[#f7f8f8]">${r.nama}</td>
+                    <td class="font-mono text-xs text-subtle">${r.nis||'-'}</td>
+                    <td class="font-medium text-ink">${r.nama}</td>
                     ${[r.m1,r.m2,r.m3,r.m4,r.m5].map(v => 
-                        `<td class="text-center">${v ? '<i class="fa-solid fa-circle-check text-[#4ade80] text-xs"></i>' : '<i class="fa-solid fa-circle-xmark text-[#34343a] text-xs"></i>'}</td>`
+                        `<td class="text-center">${v ? '<i class="fa-solid fa-circle-check text-[var(--semantic-success)] text-xs"></i>' : '<i class="fa-solid fa-circle-xmark text-[var(--hairline-strong)] text-xs"></i>'}</td>`
                     ).join('')}
-                    <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(r.total_bayar)}</td>
+                    <td class="text-right font-mono-num font-medium text-ink">${fmt(r.total_bayar)}</td>
                 </tr>`
             ).join('');
         }
@@ -103,7 +130,13 @@ $(function () {
             const labels = r.line_chart.map(x => x.tanggal);
             const data   = r.line_chart.map(x => x.saldo);
 
-            Chart.defaults.color = '#8a8f98';
+            const isDark = $('html').attr('data-theme') === 'dark';
+            const gridColor = isDark ? '#23252a' : '#e2e8f0';
+            const textColor = isDark ? '#8a8f98' : '#64748b';
+            const donutBorderColor = isDark ? '#0f1011' : '#ffffff';
+            const primaryColor = isDark ? '#5e6ad2' : '#4f46e5';
+
+            Chart.defaults.color = textColor;
             Chart.defaults.font.family = "'Inter', sans-serif";
 
             if (lineChart) lineChart.destroy();
@@ -114,10 +147,10 @@ $(function () {
                     datasets: [{ 
                         label: 'Saldo', 
                         data, 
-                        borderColor: '#5e6ad2', 
-                        backgroundColor: 'rgba(94, 106, 210, 0.12)', 
+                        borderColor: primaryColor, 
+                        backgroundColor: isDark ? 'rgba(94, 106, 210, 0.12)' : 'rgba(79, 70, 229, 0.12)', 
                         borderWidth: 2,
-                        pointBackgroundColor: '#5e6ad2',
+                        pointBackgroundColor: primaryColor,
                         fill: true, 
                         tension: 0.3 
                     }] 
@@ -128,8 +161,8 @@ $(function () {
                         legend: { display: false }
                     },
                     scales: {
-                        x: { grid: { color: '#23252a' }, ticks: { color: '#8a8f98' } },
-                        y: { grid: { color: '#23252a' }, ticks: { color: '#8a8f98' } }
+                        x: { grid: { color: gridColor }, ticks: { color: textColor } },
+                        y: { grid: { color: gridColor }, ticks: { color: textColor } }
                     }
                 }
             });
@@ -141,15 +174,15 @@ $(function () {
                     labels: ['Pemasukan', 'Pengeluaran'], 
                     datasets: [{ 
                         data: [r.donut.masuk, r.donut.keluar], 
-                        backgroundColor: ['#5e6ad2', '#e5484d'],
-                        borderColor: '#0f1011',
+                        backgroundColor: [primaryColor, isDark ? '#e5484d' : '#dc2626'],
+                        borderColor: donutBorderColor,
                         borderWidth: 2
                     }] 
                 },
                 options: {
                     responsive: true,
                     plugins: {
-                        legend: { position: 'bottom', labels: { color: '#d0d6e0', padding: 16 } }
+                        legend: { position: 'bottom', labels: { color: textColor, padding: 16 } }
                     }
                 }
             });
@@ -165,19 +198,19 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (r.transaksi.length === 0) {
-                h += `<tr><td colspan="4" class="text-center py-6 text-[#8a8f98]">Belum ada transaksi jurnal.</td></tr>`;
+                h += `<tr><td colspan="4" class="text-center py-6 text-subtle">Belum ada transaksi jurnal.</td></tr>`;
             } else {
                 h += r.transaksi.map(t =>
                     `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${t.tanggal}</td>
-                        <td class="text-[#f7f8f8]">${t.keterangan}</td>
+                        <td class="font-mono text-xs text-subtle">${t.tanggal}</td>
+                        <td class="text-ink">${t.keterangan}</td>
                         <td>
                             <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
                                 <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
                             </span>
                         </td>
-                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(t.nominal)}</td>
+                        <td class="text-right font-mono-num font-medium text-ink">${fmt(t.nominal)}</td>
                     </tr>`
                 ).join('');
             }
@@ -200,14 +233,14 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (rows.length === 0) {
-                h += `<tr><td colspan="5" class="text-center py-6 text-[#8a8f98]">Tidak ada piutang/denda recorded.</td></tr>`;
+                h += `<tr><td colspan="5" class="text-center py-6 text-subtle">Tidak ada piutang/denda recorded.</td></tr>`;
             } else {
                 h += rows.map(p =>
                     `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${p.tanggal}</td>
-                        <td class="font-medium text-[#f7f8f8]">${p.siswa_nama}</td>
-                        <td class="text-[#d0d6e0]">${p.keterangan}</td>
-                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(p.jumlah)}</td>
+                        <td class="font-mono text-xs text-subtle">${p.tanggal}</td>
+                        <td class="font-medium text-ink">${p.siswa_nama}</td>
+                        <td class="text-muted">${p.keterangan}</td>
+                        <td class="text-right font-mono-num font-medium text-ink">${fmt(p.jumlah)}</td>
                         <td>
                             <span class="badge-status ${p.status==='sudah_dibayar'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${p.status==='sudah_dibayar' ? 'fa-circle-check' : 'fa-clock'} text-[10px]"></i>
@@ -235,19 +268,19 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (rows.length === 0) {
-                h += `<tr><td colspan="4" class="text-center py-6 text-[#8a8f98]">Belum ada mutasi bank.</td></tr>`;
+                h += `<tr><td colspan="4" class="text-center py-6 text-subtle">Belum ada mutasi bank.</td></tr>`;
             } else {
                 h += rows.map(b =>
                     `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${b.tanggal}</td>
-                        <td class="text-[#f7f8f8]">${b.keterangan}</td>
+                        <td class="font-mono text-xs text-subtle">${b.tanggal}</td>
+                        <td class="text-ink">${b.keterangan}</td>
                         <td>
                             <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">
                                 <i class="fa-solid ${b.jenis==='setor' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket'} text-[10px]"></i>
                                 <span>${b.jenis==='setor' ? 'Setor' : 'Tarik'}</span>
                             </span>
                         </td>
-                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(b.jumlah)}</td>
+                        <td class="text-right font-mono-num font-medium text-ink">${fmt(b.jumlah)}</td>
                     </tr>`
                 ).join('');
             }

@@ -4,16 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Keuangan Kelas RPL 1</title>
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const theme = saved ? saved : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/print.css" media="print">
 </head>
-<body class="bg-[#010102] text-[#f7f8f8] min-h-screen">
+<body class="min-h-screen">
     <!-- Top Navigation Bar -->
     <header class="top-nav">
         <div class="flex items-center gap-3">
-            <button id="btn-hamburger" class="p-1.5 rounded-md hover:bg-[#141516] text-[#8a8f98] hover:text-[#f7f8f8] transition-colors md:hidden">
+            <button id="btn-hamburger" class="p-1.5 rounded-md hover:bg-[var(--surface-2)] text-[var(--ink-subtle)] hover:text-[var(--ink)] transition-colors md:hidden">
                 <i class="fa-solid fa-bars text-base"></i>
             </button>
             <div class="brand-mark">
@@ -23,10 +30,16 @@
                 <span>Cashflow RPL 1</span>
             </div>
         </div>
-        <a href="login.php" class="btn-secondary text-xs gap-2">
-            <i class="fa-solid fa-user-shield text-xs"></i>
-            <span>Login Bendahara</span>
-        </a>
+        <div class="flex items-center gap-2">
+            <button id="theme-toggle-btn" class="btn-secondary text-xs gap-1.5 px-3 py-1.5 cursor-pointer" title="Switch Theme">
+                <i id="theme-toggle-icon" class="fa-solid fa-sun text-amber-500"></i>
+                <span id="theme-toggle-text">Light</span>
+            </button>
+            <a href="login.php" class="btn-secondary text-xs gap-2">
+                <i class="fa-solid fa-user-shield text-xs"></i>
+                <span>Login Bendahara</span>
+            </a>
+        </div>
     </header>
 
     <!-- Sidebar Navigation -->
@@ -62,7 +75,7 @@
         <section data-tab-content="dashboard" class="tab-content">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Ikhtisar Keuangan</h2>
-                <p class="text-sm text-[#8a8f98]">Ringkasan real-time arus kas dan posisi keuangan kelas.</p>
+                <p class="text-sm text-subtle">Ringkasan real-time arus kas dan posisi keuangan kelas.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="summary-cards"></div>
         </section>
@@ -71,7 +84,7 @@
         <section data-tab-content="kas" class="tab-content hidden">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Kas Mingguan</h2>
-                <p class="text-sm text-[#8a8f98]">Status iuran mingguan seluruh siswa per periode.</p>
+                <p class="text-sm text-subtle">Status iuran mingguan seluruh siswa per periode.</p>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 mb-4">
                 <div class="w-full sm:w-44">
@@ -82,7 +95,7 @@
                 </div>
                 <div class="flex-1 relative">
                     <input id="kas-search" placeholder="Cari nama siswa..." class="input-linear pl-9">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#8a8f98]"></i>
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-subtle"></i>
                 </div>
             </div>
             <div class="table-container overflow-x-auto">
@@ -94,7 +107,7 @@
         <section data-tab-content="jurnal" class="tab-content hidden">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Jurnal Kas</h2>
-                <p class="text-sm text-[#8a8f98]">Grafik analisis dan riwayat transaksi penerimaan serta pengeluaran.</p>
+                <p class="text-sm text-subtle">Grafik analisis dan riwayat transaksi penerimaan serta pengeluaran.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div class="card-linear p-5">
@@ -121,7 +134,7 @@
         <section data-tab-content="piutang" class="tab-content hidden">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Piutang & Denda</h2>
-                <p class="text-sm text-[#8a8f98]">Daftar keterlambatan dan catatan denda siswa.</p>
+                <p class="text-sm text-subtle">Daftar keterlambatan dan catatan denda siswa.</p>
             </div>
             <div class="table-container overflow-x-auto" id="piutang-wrap"></div>
         </section>
@@ -130,7 +143,7 @@
         <section data-tab-content="bank" class="tab-content hidden">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Mutasi Bank</h2>
-                <p class="text-sm text-[#8a8f98]">Catatan penyetoran dan penarikan kas pada rekening kelas.</p>
+                <p class="text-sm text-subtle">Catatan penyetoran dan penarikan kas pada rekening kelas.</p>
             </div>
             <div class="table-container overflow-x-auto" id="bank-wrap"></div>
         </section>
