@@ -6,11 +6,11 @@ $(function () {
     // Theme Switcher Management
     function updateThemeUI(theme) {
         if (theme === 'dark') {
-            $('#theme-toggle-icon').attr('class', 'fa-solid fa-moon text-indigo-400');
-            $('#theme-toggle-text').text('Dark');
+            $('#theme-toggle-icon').attr('class', 'fa-solid fa-moon text-indigo-400 text-sm');
+            $('#theme-toggle-btn').attr('title', 'Switch to Light Theme');
         } else {
-            $('#theme-toggle-icon').attr('class', 'fa-solid fa-sun text-amber-500');
-            $('#theme-toggle-text').text('Light');
+            $('#theme-toggle-icon').attr('class', 'fa-solid fa-sun text-amber-500 text-sm');
+            $('#theme-toggle-btn').attr('title', 'Switch to Dark Theme');
         }
     }
 

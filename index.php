@@ -31,42 +31,46 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <button id="theme-toggle-btn" class="btn-secondary text-xs gap-1.5 px-3 py-1.5 cursor-pointer" title="Switch Theme">
-                <i id="theme-toggle-icon" class="fa-solid fa-sun text-amber-500"></i>
-                <span id="theme-toggle-text">Light</span>
+            <button id="theme-toggle-btn" class="btn-secondary p-2 w-9 h-9 flex items-center justify-center rounded-lg cursor-pointer" title="Switch Theme">
+                <i id="theme-toggle-icon" class="fa-solid fa-sun text-amber-500 text-sm"></i>
             </button>
-            <a href="login.php" class="btn-secondary text-xs gap-2">
-                <i class="fa-solid fa-user-shield text-xs"></i>
-                <span>Login Bendahara</span>
-            </a>
         </div>
     </header>
 
     <!-- Sidebar Navigation -->
-    <aside id="sidebar" class="sidebar-linear transform -translate-x-full md:translate-x-0">
-        <div class="eyebrow px-3 py-2 text-[11px] mb-1">Navigasi Utama</div>
-        <nav class="space-y-0.5">
-            <a data-tab="dashboard" class="sidebar-nav-item active">
-                <i class="fa-solid fa-gauge w-4 text-center"></i>
-                <span>Dashboard</span>
+    <aside id="sidebar" class="sidebar-linear transform -translate-x-full md:translate-x-0 flex flex-col justify-between">
+        <div>
+            <div class="eyebrow px-3 py-2 text-[11px] mb-1">Navigasi Utama</div>
+            <nav class="space-y-0.5">
+                <a data-tab="dashboard" class="sidebar-nav-item active">
+                    <i class="fa-solid fa-gauge w-4 text-center"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a data-tab="kas" class="sidebar-nav-item">
+                    <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
+                    <span>Kas Mingguan</span>
+                </a>
+                <a data-tab="jurnal" class="sidebar-nav-item">
+                    <i class="fa-solid fa-receipt w-4 text-center"></i>
+                    <span>Jurnal Kas</span>
+                </a>
+                <a data-tab="piutang" class="sidebar-nav-item">
+                    <i class="fa-solid fa-triangle-exclamation w-4 text-center"></i>
+                    <span>Piutang & Denda</span>
+                </a>
+                <a data-tab="bank" class="sidebar-nav-item">
+                    <i class="fa-solid fa-building-columns w-4 text-center"></i>
+                    <span>Mutasi Bank</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="pt-4 border-t border-[var(--hairline)] mt-auto">
+            <a href="login.php" class="sidebar-nav-item text-xs gap-2">
+                <i class="fa-solid fa-user-shield w-4 text-center"></i>
+                <span>Login Bendahara</span>
             </a>
-            <a data-tab="kas" class="sidebar-nav-item">
-                <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
-                <span>Kas Mingguan</span>
-            </a>
-            <a data-tab="jurnal" class="sidebar-nav-item">
-                <i class="fa-solid fa-receipt w-4 text-center"></i>
-                <span>Jurnal Kas</span>
-            </a>
-            <a data-tab="piutang" class="sidebar-nav-item">
-                <i class="fa-solid fa-triangle-exclamation w-4 text-center"></i>
-                <span>Piutang & Denda</span>
-            </a>
-            <a data-tab="bank" class="sidebar-nav-item">
-                <i class="fa-solid fa-building-columns w-4 text-center"></i>
-                <span>Mutasi Bank</span>
-            </a>
-        </nav>
+        </div>
     </aside>
 
     <!-- Main Content Area -->
