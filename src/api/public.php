@@ -75,6 +75,28 @@ try {
             echo json_encode($rows);
             break;
         }
+        case 'get_kasbon': {
+            $bulanMap = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
+            $bulanIdx = $_GET['bulan'] ?? array_search((int)date('n'), $bulanMap, true);
+            $tahun    = (int)($_GET['tahun'] ?? date('Y'));
+            $where = []; $args = [];
+            if (isset($bulanMap[$bulanIdx])) {
+                $where[] = 'MONTH(tanggal) = ?';
+                $args[]  = $bulanMap[$bulanIdx];
+            } else {
+                http_response_code(400);
+                echo json_encode(['error' => 'bulan tidak valid']);
+                break;
+            }
+            $where[] = 'YEAR(tanggal) = ?';
+            $args[]  = $tahun;
+            $sqlWhere = 'WHERE ' . implode(' AND ', $where);
+            $stmt = $pdo->prepare("SELECT id, nama, tanggal, keterangan, jumlah, status, tanggal_lunas FROM kasbon $sqlWhere ORDER BY tanggal DESC, id DESC");
+            $stmt->execute($args);
+            $rows = array_map(function($r) { $r['jumlah'] = (float)$r['jumlah']; return $r; }, $stmt->fetchAll());
+            echo json_encode($rows);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);
