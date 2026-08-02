@@ -1,14 +1,12 @@
 <?php
 require_once __DIR__ . '/../../config/database.php';
 $pdo = db();
-$pdo->exec("DELETE FROM piutang_denda");
 $pdo->exec("DELETE FROM kas_mingguan");
 $pdo->exec("DELETE FROM siswa");
 $pdo->exec("DELETE FROM jurnal_kas");
 $pdo->exec("DELETE FROM mutasi_bank");
 $pdo->exec("ALTER TABLE siswa AUTO_INCREMENT = 1");
 $pdo->exec("ALTER TABLE jurnal_kas AUTO_INCREMENT = 1");
-$pdo->exec("ALTER TABLE piutang_denda AUTO_INCREMENT = 1");
 $pdo->exec("ALTER TABLE mutasi_bank AUTO_INCREMENT = 1");
 
 $stmt = $pdo->prepare("INSERT INTO siswa (absen, nama) VALUES (?, ?)");
@@ -32,10 +30,6 @@ $jk->execute(['2026-08-01','Saldo awal Agustus','masuk',50000]);
 $jk->execute(['2026-08-05','Beli alat tulis','keluar',15000]);
 $jk->execute(['2026-08-12','Sumbangan sukarela','masuk',25000]);
 $jk->execute(['2026-08-20','Bayar konsumsi rapat','keluar',20000]);
-
-$pd = $pdo->prepare("INSERT INTO piutang_denda (siswa_id, tanggal, keterangan, jumlah, status) VALUES (?,?,?,?,?)");
-$pd->execute([3,'2026-08-07','Denda telat minggu 1',2000,'belum_dibayar']);
-$pd->execute([7,'2026-08-14','Denda telat minggu 2',2000,'sudah_dibayar']);
 
 $mb = $pdo->prepare("INSERT INTO mutasi_bank (tanggal, keterangan, jenis, jumlah) VALUES (?,?,?,?)");
 $mb->execute(['2026-08-10','Setor kas ke BRI','setor',30000]);

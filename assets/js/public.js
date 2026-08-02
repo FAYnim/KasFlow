@@ -44,7 +44,6 @@ $(function () {
         dashboard: loadDashboard,
         kas: loadKas,
         jurnal: loadJurnal,
-        piutang: loadPiutang,
         bank: loadBank,
     };
 
@@ -77,7 +76,6 @@ $(function () {
                 ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Cash on Hand', fmt(s.cash_on_hand), 'text-[var(--semantic-success)]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
                 ['Cash in Bank', fmt(s.cash_in_bank), 'text-blue-500', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[var(--semantic-danger)]', '<i class="fa-solid fa-circle-exclamation text-sm"></i>'],
             ];
             $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -230,42 +228,6 @@ $(function () {
             }
             h += '</tbody></table>';
             $('#jurnal-table-wrap').html(h);
-        });
-    }
-
-    function loadPiutang() {
-        $.getJSON('src/api/public.php?action=get_piutang', function (rows) {
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-32">Tanggal</th>
-                        <th>Siswa</th>
-                        <th>Keterangan</th>
-                        <th class="text-right w-36">Jumlah</th>
-                        <th class="w-36">Status</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (rows.length === 0) {
-                h += `<tr><td colspan="5" class="text-center py-6 text-subtle">Tidak ada piutang/denda recorded.</td></tr>`;
-            } else {
-                h += rows.map(p =>
-                    `<tr>
-                        <td class="font-mono text-xs text-subtle">${p.tanggal}</td>
-                        <td class="font-medium text-ink">${p.siswa_nama}</td>
-                        <td class="text-muted">${p.keterangan}</td>
-                        <td class="text-right font-mono-num font-medium text-ink">${fmt(p.jumlah)}</td>
-                        <td>
-                            <span class="badge-status ${p.status==='sudah_dibayar'?'badge-success':'badge-danger'} font-medium">
-                                <i class="fa-solid ${p.status==='sudah_dibayar' ? 'fa-circle-check' : 'fa-clock'} text-[10px]"></i>
-                                <span>${p.status==='sudah_dibayar' ? 'Sudah Dibayar' : 'Belum Dibayar'}</span>
-                            </span>
-                        </td>
-                    </tr>`
-                ).join('');
-            }
-            h += '</tbody></table>';
-            $('#piutang-wrap').html(h);
         });
     }
 

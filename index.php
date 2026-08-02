@@ -54,10 +54,6 @@
                     <i class="fa-solid fa-receipt w-4 text-center"></i>
                     <span>Jurnal Kas</span>
                 </a>
-                <a data-tab="piutang" class="sidebar-nav-item">
-                    <i class="fa-solid fa-triangle-exclamation w-4 text-center"></i>
-                    <span>Piutang & Denda</span>
-                </a>
                 <a data-tab="bank" class="sidebar-nav-item">
                     <i class="fa-solid fa-building-columns w-4 text-center"></i>
                     <span>Mutasi Bank</span>
@@ -146,15 +142,6 @@
                 </button>
             </div>
             <div class="table-container overflow-x-auto" id="jurnal-table-wrap"></div>
-        </section>
-
-        <!-- Piutang & Denda Section -->
-        <section data-tab-content="piutang" class="tab-content hidden">
-            <div class="mb-6">
-                <h2 class="display-md mb-1">Piutang & Denda</h2>
-                <p class="text-sm text-subtle">Daftar keterlambatan dan catatan denda siswa.</p>
-            </div>
-            <div class="table-container overflow-x-auto" id="piutang-wrap"></div>
         </section>
 
         <!-- Mutasi Bank Section -->

@@ -1,5 +1,4 @@
 DROP TABLE IF EXISTS mutasi_bank;
-DROP TABLE IF EXISTS piutang_denda;
 DROP TABLE IF EXISTS jurnal_kas;
 DROP TABLE IF EXISTS kas_mingguan;
 DROP TABLE IF EXISTS pengurus;
@@ -43,16 +42,6 @@ CREATE TABLE jurnal_kas (
     keterangan TEXT NOT NULL,
     jenis ENUM('masuk','keluar') NOT NULL,
     nominal DECIMAL(12,2) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE piutang_denda (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    siswa_id INT NOT NULL,
-    tanggal DATE NOT NULL,
-    keterangan TEXT NOT NULL,
-    jumlah DECIMAL(12,2) NOT NULL,
-    status ENUM('belum_dibayar','sudah_dibayar') DEFAULT 'belum_dibayar',
-    FOREIGN KEY (siswa_id) REFERENCES siswa(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE mutasi_bank (

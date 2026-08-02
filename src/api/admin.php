@@ -85,27 +85,6 @@ try {
             echo json_encode(['ok' => true]);
             break;
         }
-        case 'add_piutang': {
-            $siswa_id = (int)$_POST['siswa_id'];
-            $tgl      = $_POST['tanggal'] ?? date('Y-m-d');
-            $ket      = trim($_POST['keterangan'] ?? '');
-            $jumlah   = (float)$_POST['jumlah'];
-            if ($siswa_id <= 0 || $ket === '' || $jumlah <= 0) {
-                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
-            }
-            $pdo->prepare("INSERT INTO piutang_denda (siswa_id, tanggal, keterangan, jumlah) VALUES (?,?,?,?)")
-                ->execute([$siswa_id, $tgl, $ket, $jumlah]);
-            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
-            break;
-        }
-        case 'update_piutang_status': {
-            $id = (int)$_POST['id'];
-            $st = $_POST['status'] ?? 'sudah_dibayar';
-            if (!in_array($st, ['belum_dibayar','sudah_dibayar'], true)) { http_response_code(400); break; }
-            $pdo->prepare("UPDATE piutang_denda SET status=? WHERE id=?")->execute([$st, $id]);
-            echo json_encode(['ok' => true]);
-            break;
-        }
         case 'add_bank': {
             $tgl  = $_POST['tanggal'] ?? date('Y-m-d');
             $ket  = trim($_POST['keterangan'] ?? '');

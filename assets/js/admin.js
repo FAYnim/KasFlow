@@ -17,7 +17,6 @@ $(function () {
         siswa: lSiswa, 
         kas: lKas, 
         jurnal: lJurnal, 
-        denda: lDenda, 
         bank: lBank, 
         ekspor: lEkspor 
     };
@@ -48,7 +47,6 @@ $(function () {
                 ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
                 ['Cash in Bank', fmt(s.cash_in_bank), 'text-[#60a5fa]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Denda Unpaid', fmt(s.total_denda_unpaid), 'text-[#f87171]', '<i class="fa-solid fa-circle-exclamation text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -95,7 +93,7 @@ $(function () {
     }
 
     $(document).on('click', '.del-s', function () {
-        if (!confirm('Hapus siswa ini beserta seluruh data kas dan denda terkait?')) return;
+        if (!confirm('Hapus siswa ini beserta seluruh data kas terkait?')) return;
         $.post('../../src/api/admin.php?action=delete_siswa', { id: $(this).data('id') }, r => lSiswa(), 'json');
     });
 
@@ -243,62 +241,6 @@ $(function () {
     $(document).on('click', '.del-j', function () {
         if (!confirm('Hapus transaksi ini?')) return;
         $.post('../../src/api/admin.php?action=delete_jurnal', { id: $(this).data('id') }, r => lJurnal(), 'json');
-    });
-
-    // Denda
-    function lDenda() {
-        $.getJSON('../../src/api/public.php?action=get_piutang', rows => {
-            $.getJSON('../../src/api/admin.php?action=list_siswa', ss => {
-                $('#denda-siswa').html(ss.map(s => `<option value="${s.id}">${s.nama}</option>`).join(''));
-            });
-
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-32">Tanggal</th>
-                        <th>Nama Siswa</th>
-                        <th>Keterangan</th>
-                        <th class="text-right w-36">Jumlah</th>
-                        <th class="w-36">Status</th>
-                        <th class="w-36 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (rows.length === 0) {
-                h += `<tr><td colspan="6" class="text-center py-6 text-[#8a8f98]">Tidak ada tagihan denda.</td></tr>`;
-            } else {
-                h += rows.map(p =>
-                    `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${p.tanggal}</td>
-                        <td class="font-medium text-[#f7f8f8]">${p.siswa_nama}</td>
-                        <td class="text-[#d0d6e0]">${p.keterangan}</td>
-                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(p.jumlah)}</td>
-                        <td>
-                            <span class="badge-status ${p.status==='sudah_dibayar'?'badge-success':'badge-danger'} font-medium">
-                                <i class="fa-solid ${p.status==='sudah_dibayar' ? 'fa-circle-check' : 'fa-clock'} text-[10px]"></i>
-                                <span>${p.status==='sudah_dibayar' ? 'Sudah Dibayar' : 'Belum Dibayar'}</span>
-                            </span>
-                        </td>
-                        <td class="text-right">
-                            ${p.status==='belum_dibayar' ? `<button class="btn-secondary text-xs px-2.5 py-1 lunas-btn gap-1" data-id="${p.id}"><i class="fa-solid fa-check text-[10px] text-[#4ade80]"></i><span>Tandai Lunas</span></button>` : '<span class="text-xs text-[#62666d]"><i class="fa-solid fa-check-double text-[10px] mr-1"></i>Lunas</span>'}
-                        </td>
-                    </tr>`
-                ).join('');
-            }
-            h += '</tbody></table>';
-            $('#denda-wrap').html(h);
-        });
-    }
-
-    $('#form-denda').on('submit', function (e) {
-        e.preventDefault();
-        $.post('../../src/api/admin.php?action=add_piutang', $(this).serialize(), r => {
-            if (r.ok) { this.reset(); lDenda(); } else alert(r.error);
-        }, 'json');
-    });
-
-    $(document).on('click', '.lunas-btn', function () {
-        $.post('../../src/api/admin.php?action=update_piutang_status', { id: $(this).data('id'), status: 'sudah_dibayar' }, r => lDenda(), 'json');
     });
 
     // Bank

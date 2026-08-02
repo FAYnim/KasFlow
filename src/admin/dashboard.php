@@ -46,10 +46,6 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <i class="fa-solid fa-receipt w-4 text-center"></i>
                     <span>Kelola Jurnal</span>
                 </a>
-                <a data-tab="denda" class="sidebar-nav-item">
-                    <i class="fa-solid fa-triangle-exclamation w-4 text-center"></i>
-                    <span>Kelola Denda</span>
-                </a>
                 <a data-tab="bank" class="sidebar-nav-item">
                     <i class="fa-solid fa-building-columns w-4 text-center"></i>
                     <span>Mutasi Bank</span>
@@ -141,35 +137,6 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </button>
             </div>
             <div id="jurnal-wrap" class="table-container overflow-x-auto"></div>
-        </section>
-
-        <!-- Section: Kelola Denda -->
-        <section data-tab-content="denda" class="tab-content hidden">
-            <h2 class="display-md mb-2">Kelola Denda</h2>
-            <p class="text-sm text-[#8a8f98] mb-4">Buat dan update status pembayaran denda siswa.</p>
-            <form id="form-denda" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 card-linear p-4">
-                <div>
-                    <label class="eyebrow block mb-1">Pilih Siswa</label>
-                    <select id="denda-siswa" class="input-linear"></select>
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Tanggal</label>
-                    <input type="date" name="tanggal" required class="input-linear" value="<?= date('Y-m-d') ?>">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Keterangan</label>
-                    <input name="keterangan" placeholder="Alasan denda" required class="input-linear">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Jumlah (Rp)</label>
-                    <input type="number" name="jumlah" placeholder="Contoh: 5000" required min="1" class="input-linear">
-                </div>
-                <button class="btn-primary sm:col-span-2 lg:col-span-4 mt-2 gap-2 justify-center">
-                    <i class="fa-solid fa-circle-plus text-xs"></i>
-                    <span>Tambah Tagihan Denda</span>
-                </button>
-            </form>
-            <div id="denda-wrap" class="table-container overflow-x-auto"></div>
         </section>
 
         <!-- Section: Mutasi Bank -->

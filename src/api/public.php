@@ -13,14 +13,12 @@ try {
             $keluar   = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar'")->fetchColumn();
             $setor    = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM mutasi_bank WHERE jenis='setor'")->fetchColumn();
             $tarik    = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM mutasi_bank WHERE jenis='tarik'")->fetchColumn();
-            $dendaUnpaid = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM piutang_denda WHERE status='belum_dibayar'")->fetchColumn();
             $cashOnHand = $masuk - $keluar - $setor + $tarik;
             $cashInBank = $setor - $tarik;
             echo json_encode([
                 'total_kas_terkumpul' => $totalKas,
                 'cash_on_hand' => $cashOnHand,
                 'cash_in_bank' => $cashInBank,
-                'total_denda_unpaid' => $dendaUnpaid,
             ]);
             break;
         }
@@ -70,15 +68,6 @@ try {
                 'line_chart' => $line,
                 'donut' => ['masuk' => $totMasuk, 'keluar' => $totKeluar],
             ]);
-            break;
-        }
-        case 'get_piutang': {
-            $stmt = $pdo->query("
-                SELECT p.id, p.tanggal, p.keterangan, p.jumlah, p.status, s.nama AS siswa_nama, s.absen
-                FROM piutang_denda p JOIN siswa s ON s.id = p.siswa_id
-                ORDER BY p.status ASC, p.tanggal DESC
-            ");
-            echo json_encode($stmt->fetchAll());
             break;
         }
         case 'get_bank': {
