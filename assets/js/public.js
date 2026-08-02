@@ -60,6 +60,15 @@ $(function () {
     $('#kas-bulan, #kas-tahun').on('change', loadKas);
     $('#kas-search').on('input', filterKas);
 
+    $('#jurnal-bulan').html([''].concat(bulanList).map(b => `<option value="${b}">${b||'Semua'}</option>`).join(''));
+    $('#jurnal-tahun').html([''].concat([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1]).map(y => `<option value="${y}">${y||'Semua'}</option>`).join(''));
+    $('#jurnal-bulan, #jurnal-tahun').on('change', loadJurnal);
+    $('#jurnal-reset').on('click', () => {
+        $('#jurnal-bulan').val('');
+        $('#jurnal-tahun').val('');
+        loadJurnal();
+    });
+
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
 
     function loadDashboard() {
@@ -126,7 +135,12 @@ $(function () {
 
     let lineChart, donutChart;
     function loadJurnal() {
-        $.getJSON('src/api/public.php?action=get_jurnal', function (r) {
+        const params = { action: 'get_jurnal' };
+        const b = $('#jurnal-bulan').val();
+        const t = $('#jurnal-tahun').val();
+        if (b) params.bulan = b;
+        if (t) params.tahun = t;
+        $.getJSON('src/api/public.php', params, function (r) {
             const labels = r.line_chart.map(x => x.tanggal);
             const data   = r.line_chart.map(x => x.saldo);
 

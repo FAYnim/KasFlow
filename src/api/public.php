@@ -41,7 +41,21 @@ try {
             break;
         }
         case 'get_jurnal': {
-            $rows = $pdo->query("SELECT id, tanggal, keterangan, jenis, nominal FROM jurnal_kas ORDER BY tanggal DESC, id DESC")->fetchAll();
+            $bulan = $_GET['bulan'] ?? '';
+            $tahun = $_GET['tahun'] ?? '';
+            $where = []; $args = [];
+            $bulanIdx = $_GET['bulan'] ?? '';
+            $tahun = $_GET['tahun'] ?? '';
+            $where = []; $args = [];
+            if ($bulanIdx !== '') {
+                $bulanMap = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
+                if (isset($bulanMap[$bulanIdx])) { $where[] = 'MONTH(tanggal) = ?'; $args[] = $bulanMap[$bulanIdx]; }
+            }
+            if ($tahun !== '') { $where[] = 'YEAR(tanggal) = ?'; $args[] = (int)$tahun; }
+            $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+            $stmt = $pdo->prepare("SELECT id, tanggal, keterangan, jenis, nominal FROM jurnal_kas $sqlWhere ORDER BY tanggal DESC, id DESC");
+            $stmt->execute($args);
+            $rows = $stmt->fetchAll();
             $saldo = 0;
             $line = [];
             $allAsc = $pdo->query("SELECT tanggal, jenis, nominal FROM jurnal_kas ORDER BY tanggal ASC, id ASC")->fetchAll();

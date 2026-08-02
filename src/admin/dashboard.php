@@ -126,6 +126,20 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <span>Tambah Transaksi</span>
                 </button>
             </div>
+            <div class="flex flex-wrap gap-2 mb-4 items-end">
+                <div>
+                    <label class="eyebrow block mb-1">Bulan</label>
+                    <select id="jurnal-bulan" class="input-linear w-44"></select>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Tahun</label>
+                    <select id="jurnal-tahun" class="input-linear w-32"></select>
+                </div>
+                <button id="jurnal-reset" type="button" class="btn-secondary text-xs gap-2">
+                    <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                    <span>Semua Periode</span>
+                </button>
+            </div>
             <div id="jurnal-wrap" class="table-container overflow-x-auto"></div>
         </section>
 
