@@ -18,7 +18,7 @@ INSERT INTO config (key_name, key_value) VALUES
 
 CREATE TABLE siswa (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nis VARCHAR(20) UNIQUE,
+    absen VARCHAR(20) UNIQUE,
     nama VARCHAR(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

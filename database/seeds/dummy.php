@@ -11,7 +11,7 @@ $pdo->exec("ALTER TABLE jurnal_kas AUTO_INCREMENT = 1");
 $pdo->exec("ALTER TABLE piutang_denda AUTO_INCREMENT = 1");
 $pdo->exec("ALTER TABLE mutasi_bank AUTO_INCREMENT = 1");
 
-$stmt = $pdo->prepare("INSERT INTO siswa (nis, nama) VALUES (?, ?)");
+$stmt = $pdo->prepare("INSERT INTO siswa (absen, nama) VALUES (?, ?)");
 $siswa = [
     ['1001','Ahmad Fauzi'],['1002','Budi Santoso'],['1003','Citra Lestari'],
     ['1004','Dewi Anggraini'],['1005','Eko Prasetyo'],['1006','Fitri Handayani'],

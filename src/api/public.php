@@ -28,7 +28,7 @@ try {
             $bulan = $_GET['bulan'] ?? date('F');
             $tahun = (int)($_GET['tahun'] ?? date('Y'));
             $stmt = $pdo->prepare("
-                SELECT s.id, s.nis, s.nama,
+                SELECT s.id, s.absen, s.nama,
                        COALESCE(k.minggu_1,0) m1, COALESCE(k.minggu_2,0) m2,
                        COALESCE(k.minggu_3,0) m3, COALESCE(k.minggu_4,0) m4,
                        COALESCE(k.minggu_5,0) m5, COALESCE(k.total_bayar,0) total_bayar
@@ -60,7 +60,7 @@ try {
         }
         case 'get_piutang': {
             $stmt = $pdo->query("
-                SELECT p.id, p.tanggal, p.keterangan, p.jumlah, p.status, s.nama AS siswa_nama, s.nis
+                SELECT p.id, p.tanggal, p.keterangan, p.jumlah, p.status, s.nama AS siswa_nama, s.absen
                 FROM piutang_denda p JOIN siswa s ON s.id = p.siswa_id
                 ORDER BY p.status ASC, p.tanggal DESC
             ");

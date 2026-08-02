@@ -3,7 +3,7 @@ session_start();
 $_SESSION['admin_logged'] = true;
 require_once __DIR__ . '/../../config/database.php';
 $pdo = db();
-$pdo->exec("INSERT INTO siswa (nis, nama) VALUES ('9999','Test Siswa')");
+$pdo->exec("INSERT INTO siswa (absen, nama) VALUES ('9999','Test Siswa')");
 $sid = $pdo->lastInsertId();
 
 function call(array $req, string $action): array {

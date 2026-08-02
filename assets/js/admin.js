@@ -58,7 +58,7 @@ $(function () {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
-                        <th class="w-32">NIS</th>
+                        <th class="w-32">Absen</th>
                         <th>Nama Siswa</th>
                         <th class="w-28 text-right">Aksi</th>
                     </tr>
@@ -69,7 +69,7 @@ $(function () {
             } else {
                 h += rows.map(s =>
                     `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${s.nis||'-'}</td>
+                        <td class="font-mono text-xs text-[#8a8f98]">${s.absen||'-'}</td>
                         <td class="font-medium text-[#f7f8f8]">${s.nama}</td>
                         <td class="text-right">
                             <button class="btn-danger del-s text-xs gap-1" data-id="${s.id}">

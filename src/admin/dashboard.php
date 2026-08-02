@@ -93,7 +93,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
             <h2 class="display-md mb-2">Kelola Siswa</h2>
             <p class="text-sm text-[#8a8f98] mb-4">Tambah dan hapus daftar siswa kelas RPL 1.</p>
             <form id="form-siswa" class="flex flex-col sm:flex-row gap-2 mb-6 card-linear p-4">
-                <input name="nis" placeholder="NIS (opsional)" class="input-linear w-full sm:w-44">
+                <input name="absen" placeholder="Absen (opsional)" class="input-linear w-full sm:w-44">
                 <input name="nama" placeholder="Nama lengkap siswa" required class="input-linear flex-1">
                 <button class="btn-primary gap-2">
                     <i class="fa-solid fa-user-plus text-xs"></i>

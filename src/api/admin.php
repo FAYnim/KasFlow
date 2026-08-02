@@ -15,11 +15,11 @@ $pdo = db();
 try {
     switch ($action) {
         case 'add_siswa': {
-            $nis  = trim($_POST['nis'] ?? '');
-            $nama = trim($_POST['nama'] ?? '');
+            $absen = trim($_POST['absen'] ?? '');
+            $nama  = trim($_POST['nama'] ?? '');
             if ($nama === '') { http_response_code(400); echo json_encode(['error'=>'nama required']); break; }
-            $stmt = $pdo->prepare('INSERT INTO siswa (nis, nama) VALUES (?, ?)');
-            $stmt->execute([$nis ?: null, $nama]);
+            $stmt = $pdo->prepare('INSERT INTO siswa (absen, nama) VALUES (?, ?)');
+            $stmt->execute([$absen ?: null, $nama]);
             echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
             break;
         }
@@ -126,15 +126,15 @@ try {
             break;
         }
         case 'list_siswa': {
-            $rows = $pdo->query("SELECT id, nis, nama FROM siswa ORDER BY nama ASC")->fetchAll();
+            $rows = $pdo->query("SELECT id, absen, nama FROM siswa ORDER BY nama ASC")->fetchAll();
             echo json_encode($rows);
             break;
         }
         case 'update_siswa': {
-            $id   = (int)$_POST['id'];
-            $nis  = trim($_POST['nis'] ?? '');
-            $nama = trim($_POST['nama'] ?? '');
-            $pdo->prepare("UPDATE siswa SET nis=?, nama=? WHERE id=?")->execute([$nis ?: null, $nama, $id]);
+            $id    = (int)$_POST['id'];
+            $absen = trim($_POST['absen'] ?? '');
+            $nama  = trim($_POST['nama'] ?? '');
+            $pdo->prepare("UPDATE siswa SET absen=?, nama=? WHERE id=?")->execute([$absen ?: null, $nama, $id]);
             echo json_encode(['ok' => true]);
             break;
         }

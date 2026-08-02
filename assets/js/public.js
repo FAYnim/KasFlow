@@ -96,7 +96,7 @@ $(function () {
         const rows = kasData.filter(r => r.nama.toLowerCase().includes(q));
         let html = `<thead>
             <tr>
-                <th class="w-24">NIS</th>
+                <th class="w-24">Absen</th>
                 <th>Nama Siswa</th>
                 ${[1,2,3,4,5].map(i => `<th class="text-center w-16">M${i}</th>`).join('')}
                 <th class="text-right">Total Bayar</th>
@@ -109,7 +109,7 @@ $(function () {
         } else {
             html += rows.map(r =>
                 `<tr>
-                    <td class="font-mono text-xs text-subtle">${r.nis||'-'}</td>
+                    <td class="font-mono text-xs text-subtle">${r.absen||'-'}</td>
                     <td class="font-medium text-ink">${r.nama}</td>
                     ${[r.m1,r.m2,r.m3,r.m4,r.m5].map(v => 
                         `<td class="text-center">${v ? '<i class="fa-solid fa-circle-check text-[var(--semantic-success)] text-xs"></i>' : '<i class="fa-solid fa-circle-xmark text-[var(--hairline-strong)] text-xs"></i>'}</td>`
