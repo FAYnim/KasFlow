@@ -53,12 +53,13 @@ Semua endpoint mengembalikan JSON. Response sukses: `{ok: true, ...}`. Error: HT
 
 **`GET ?action=get_kasbon&bulan=<NamaBulan>&tahun=<YYYY>`**
 
-- `bulan` = nama bulan English (Januari/Januari, Februari, dst.) — konsisten dengan `kas_mingguan` existing.
+- `bulan` = nama bulan Indonesia (Januari, Februari, dst.) — string, dikonversi ke numeric via bulanMap yang sama dengan `get_jurnal` (lihat `src/api/public.php:49`).
 - `tahun` integer, default tahun sekarang.
-- Return: `[{id, nama, tanggal, keterangan, jumlah, status, tanggal_lunas}]` terurut ASC by tanggal.
+- Filter menggunakan `MONTH(tanggal) = ?` dan `YEAR(tanggal) = ?` (pattern `get_jurnal`).
+- Return: `[{id, nama, tanggal, keterangan, jumlah, status, tanggal_lunas}]` terurut DESC by `tanggal`, lalu DESC by `id` (konsisten dengan `get_jurnal`).
 
 **Error cases:**
-- 400 jika `bulan` tidak dikenal.
+- 400 jika `bulan` tidak ada di bulanMap.
 
 ### Admin (`src/api/admin.php`)
 
