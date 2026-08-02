@@ -50,6 +50,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <i class="fa-solid fa-building-columns w-4 text-center"></i>
                     <span>Mutasi Bank</span>
                 </a>
+                <a data-tab="kasbon" class="sidebar-nav-item">
+                    <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
+                    <span>Kelola Kasbon</span>
+                </a>
                 <a data-tab="ekspor" class="sidebar-nav-item">
                     <i class="fa-solid fa-file-export w-4 text-center"></i>
                     <span>Ekspor Laporan</span>
@@ -191,6 +195,68 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </button>
             </form>
             <div id="ekspor-preview" class="table-container overflow-x-auto"></div>
+        </section>
+
+        <!-- Section: Kelola Kasbon -->
+        <section data-tab-content="kasbon" class="tab-content hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="display-md">Kelola Kasbon</h2>
+                    <p class="text-sm text-[#8a8f98]">Catat dan kelola kasbon (piutang) siswa.</p>
+                </div>
+            </div>
+
+            <div class="card-linear p-4 mb-6">
+                <form id="form-kasbon" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <input type="hidden" id="kasbon-edit-id" value="">
+                    <div>
+                        <label class="eyebrow block mb-1">Nama *</label>
+                        <input type="text" id="kasbon-nama" required class="input-linear">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Tanggal *</label>
+                        <input type="date" id="kasbon-tanggal" required class="input-linear">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Keterangan *</label>
+                        <input type="text" id="kasbon-keterangan" required class="input-linear">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Jumlah *</label>
+                        <input type="number" id="kasbon-jumlah" min="1" step="any" required class="input-linear">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Status</label>
+                        <select id="kasbon-status" class="input-linear">
+                            <option value="belum_lunas">Belum Lunas</option>
+                            <option value="lunas">Lunas</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2 lg:col-span-5 flex gap-2">
+                        <button type="submit" id="kasbon-submit-btn" class="btn-primary gap-2">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Tambah</span>
+                        </button>
+                        <button type="button" id="kasbon-cancel-btn" class="hidden btn-secondary gap-2">
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                            <span>Batal</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="flex flex-wrap gap-2 mb-4 items-end">
+                <div>
+                    <label class="eyebrow block mb-1">Bulan</label>
+                    <select id="admin-kasbon-bulan" class="input-linear w-44"></select>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Tahun</label>
+                    <select id="admin-kasbon-tahun" class="input-linear w-32"></select>
+                </div>
+            </div>
+
+            <div id="kasbon-wrap" class="table-container overflow-x-auto"></div>
         </section>
     </main>
 

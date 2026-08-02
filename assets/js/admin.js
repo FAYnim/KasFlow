@@ -18,6 +18,7 @@ $(function () {
         kas: lKas, 
         jurnal: lJurnal, 
         bank: lBank, 
+        kasbon: lKasbon, 
         ekspor: lEkspor 
     };
 
@@ -39,6 +40,133 @@ $(function () {
         $('#jurnal-bulan').val('');
         $('#jurnal-tahun').val('');
         lJurnal();
+    });
+
+    // Kasbon
+    $('#admin-kasbon-bulan').html(bulanList.map(b => `<option ${b===bulanList[now.getMonth()]?'selected':''}>${b}</option>`).join(''));
+    $('#admin-kasbon-tahun').html([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option ${y===now.getFullYear()?'selected':''}>${y}</option>`).join(''));
+    $('#admin-kasbon-bulan, #admin-kasbon-tahun').on('change', lKasbon);
+
+    function lKasbon() {
+        const bulan = $('#admin-kasbon-bulan').val();
+        const tahun = $('#admin-kasbon-tahun').val();
+        $.getJSON('../../src/api/public.php', { action: 'get_kasbon', bulan, tahun }, function(data) {
+            let h = `<table class="table-linear">
+                <thead>
+                    <tr>
+                        <th class="w-16">#</th>
+                        <th class="w-32">Tanggal</th>
+                        <th>Nama</th>
+                        <th>Keterangan</th>
+                        <th class="text-right w-36">Jumlah</th>
+                        <th class="w-28">Status</th>
+                        <th class="w-28 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            if (!data || data.length === 0) {
+                h += `<tr><td colspan="7" class="text-center py-6 text-[#8a8f98]">Tidak ada data kasbon.</td></tr>`;
+            } else {
+                h += data.map(function(r, i) {
+                    const badge = r.status === 'lunas'
+                        ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i> <span>Lunas</span></span>'
+                        : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i> <span>Belum Lunas</span></span>';
+                    const toggleBtn = r.status === 'lunas'
+                        ? '<button class="text-yellow-400 hover:text-yellow-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="belum_lunas" title="Tandai Belum Lunas"><i class="fa-solid fa-rotate-left"></i></button>'
+                        : '<button class="text-green-400 hover:text-green-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="lunas" title="Tandai Lunas"><i class="fa-solid fa-circle-check"></i></button>';
+                    return '<tr>' +
+                        '<td class="font-mono text-xs text-[#8a8f98]">' + (i + 1) + '</td>' +
+                        '<td class="font-mono text-xs text-[#8a8f98]">' + r.tanggal + '</td>' +
+                        '<td class="font-medium text-[#f7f8f8]">' + r.nama + '</td>' +
+                        '<td class="text-[#8a8f98]">' + r.keterangan + '</td>' +
+                        '<td class="text-right font-mono-num font-medium text-[#f7f8f8]">' + fmt(r.jumlah) + '</td>' +
+                        '<td>' + badge + '</td>' +
+                        '<td class="text-right space-x-1">' +
+                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-kasbon gap-1" data-id="' + r.id + '" data-nama="' + r.nama + '" data-tanggal="' + r.tanggal + '" data-keterangan="' + r.keterangan + '" data-jumlah="' + r.jumlah + '" data-status="' + r.status + '">' +
+                                '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
+                            '</button>' +
+                            '<button class="btn-danger text-xs px-2.5 py-1 del-kasbon gap-1" data-id="' + r.id + '">' +
+                                '<i class="fa-solid fa-trash-can text-[10px]"></i> <span>Hapus</span>' +
+                            '</button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join('');
+            }
+            h += '</tbody></table>';
+            $('#kasbon-wrap').html(h);
+        }).fail(function() {
+            $('#kasbon-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Gagal memuat data kasbon.</div>');
+        });
+    }
+
+    $(document).on('click', '.edit-kasbon', function () {
+        const $btn = $(this);
+        $('#kasbon-edit-id').val($btn.data('id'));
+        $('#kasbon-nama').val($btn.data('nama'));
+        $('#kasbon-tanggal').val($btn.data('tanggal'));
+        $('#kasbon-keterangan').val($btn.data('keterangan'));
+        $('#kasbon-jumlah').val($btn.data('jumlah'));
+        $('#kasbon-status').val($btn.data('status'));
+        $('#kasbon-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Update</span>');
+        $('#kasbon-cancel-btn').removeClass('hidden');
+    });
+
+    $(document).on('click', '.toggle-kasbon', function () {
+        const id = $(this).data('id');
+        const newStatus = $(this).data('status');
+        const action = newStatus === 'lunas' ? 'mark_lunas_kasbon' : 'mark_belum_lunas_kasbon';
+        $.post('../../src/api/admin.php?action=' + action, { id: id }, function() {
+            lKasbon();
+        }, 'json').fail(function() {
+            alert('Gagal mengubah status kasbon.');
+        });
+    });
+
+    $(document).on('click', '.del-kasbon', function () {
+        if (!confirm('Hapus kasbon ini?')) return;
+        $.post('../../src/api/admin.php?action=delete_kasbon', { id: $(this).data('id') }, function() {
+            lKasbon();
+        }, 'json').fail(function() {
+            alert('Gagal menghapus kasbon.');
+        });
+    });
+
+    $('#form-kasbon').on('submit', function (e) {
+        e.preventDefault();
+        const nama = $('#kasbon-nama').val().trim();
+        const jumlah = parseFloat($('#kasbon-jumlah').val());
+        if (!nama) { alert('Nama harus diisi.'); return; }
+        if (!jumlah || jumlah <= 0) { alert('Jumlah harus lebih dari 0.'); return; }
+        const editId = $('#kasbon-edit-id').val();
+        const payload = {
+            action: editId ? 'update_kasbon' : 'add_kasbon',
+            id: editId || undefined,
+            nama: nama,
+            tanggal: $('#kasbon-tanggal').val(),
+            keterangan: $('#kasbon-keterangan').val().trim(),
+            jumlah: jumlah,
+            status: $('#kasbon-status').val()
+        };
+        $.post('../../src/api/admin.php?action=' + payload.action, payload, function(res) {
+            if (res.ok) {
+                $('#form-kasbon')[0].reset();
+                $('#kasbon-edit-id').val('');
+                $('#kasbon-submit-btn').html('<i class="fa-solid fa-plus text-xs"></i> <span>Tambah</span>');
+                $('#kasbon-cancel-btn').addClass('hidden');
+                lKasbon();
+            } else {
+                alert(res.error || 'Gagal menyimpan kasbon.');
+            }
+        }, 'json').fail(function() {
+            alert('Gagal menyimpan kasbon.');
+        });
+    });
+
+    $('#kasbon-cancel-btn').on('click', function () {
+        $('#form-kasbon')[0].reset();
+        $('#kasbon-edit-id').val('');
+        $('#kasbon-submit-btn').html('<i class="fa-solid fa-plus text-xs"></i> <span>Tambah</span>');
+        $(this).addClass('hidden');
     });
 
     function lDash() {
