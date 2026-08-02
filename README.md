@@ -1,19 +1,19 @@
 # Keuangan Kelas RPL 1
 
-## Setup
-1. Place folder in `C:\xampp\htdocs\cashflow-kelas`
-2. Start XAMPP (Apache + MySQL)
-3. Open `http://localhost/phpmyadmin`, create DB `cashflow_kelas`
+## Pengaturan
+1. Letakkan folder di `C:\xampp\htdocs\cashflow-kelas`
+2. Jalankan XAMPP (Apache + MySQL)
+3. Buka `http://localhost/phpmyadmin`, buat DB `cashflow_kelas`
 4. Import `config/schema.sql`
-5. Run `php tests/seed_admin.php` to set the bendahara password hash
-6. (Optional) Run `php tests/seed_dummy.php` for sample data
+5. Jalankan `php tests/seed_admin.php` untuk mengatur hash password bendahara
+6. (Opsional) Jalankan `php tests/seed_dummy.php` untuk data contoh
 
-## URLs
-- Public SPA: `http://localhost/cashflow-kelas/`
-- Admin login: `http://localhost/cashflow-kelas/login.php` (admin / admin123)
+## URL
+- SPA Publik: `http://localhost/cashflow-kelas/`
+- Login admin: `http://localhost/cashflow-kelas/login.php` (admin / admin123)
 
-## Tests
-Run from project root:
+## Pengujian
+Jalankan dari root proyek:
 ```bash
 php tests/test_*.php
 ```
