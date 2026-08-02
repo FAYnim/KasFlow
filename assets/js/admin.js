@@ -33,6 +33,15 @@ $(function () {
     $('#admin-tahun').html([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option ${y===now.getFullYear()?'selected':''}>${y}</option>`).join(''));
     $('#admin-bulan, #admin-tahun').on('change', lKas);
 
+    $('#jurnal-bulan').html([''].concat(bulanList).map(b => `<option value="${b}">${b||'Semua'}</option>`).join(''));
+    $('#jurnal-tahun').html([''].concat([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1]).map(y => `<option value="${y}">${y||'Semua'}</option>`).join(''));
+    $('#jurnal-bulan, #jurnal-tahun').on('change', lJurnal);
+    $('#jurnal-reset').on('click', () => {
+        $('#jurnal-bulan').val('');
+        $('#jurnal-tahun').val('');
+        lJurnal();
+    });
+
     function lDash() {
         $.getJSON('../../src/api/public.php?action=get_summary', s => {
             const cards = [
@@ -174,7 +183,12 @@ $(function () {
     });
 
     function lJurnal() {
-        $.getJSON('../../src/api/public.php?action=get_jurnal', r => {
+        const params = { action: 'get_jurnal' };
+        const b = $('#jurnal-bulan').val();
+        const t = $('#jurnal-tahun').val();
+        if (b) params.bulan = b;
+        if (t) params.tahun = t;
+        $.getJSON('../../src/api/public.php', params, r => {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>

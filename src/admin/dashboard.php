@@ -14,7 +14,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="../../assets/css/print.css" media="print">
 </head>
-<body class="bg-[#010102] text-[#f7f8f8] min-h-screen flex flex-col md:flex-row">
+<body data-theme="dark" class="bg-[#010102] text-[#f7f8f8] min-h-screen flex flex-col md:flex-row">
     <!-- Admin Sidebar Navigation -->
     <aside class="w-full md:w-60 bg-[#0f1011] border-r border-[#23252a] min-h-screen p-4 flex-shrink-0 flex flex-col justify-between">
         <div>
@@ -124,6 +124,20 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 <button id="btn-add-jurnal" class="btn-primary gap-2">
                     <i class="fa-solid fa-plus text-xs"></i>
                     <span>Tambah Transaksi</span>
+                </button>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-4 items-end">
+                <div>
+                    <label class="eyebrow block mb-1">Bulan</label>
+                    <select id="jurnal-bulan" class="input-linear w-44"></select>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Tahun</label>
+                    <select id="jurnal-tahun" class="input-linear w-32"></select>
+                </div>
+                <button id="jurnal-reset" type="button" class="btn-secondary text-xs gap-2">
+                    <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                    <span>Semua Periode</span>
                 </button>
             </div>
             <div id="jurnal-wrap" class="table-container overflow-x-auto"></div>

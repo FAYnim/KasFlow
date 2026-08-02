@@ -131,6 +131,20 @@
                     </div>
                 </div>
             </div>
+            <div class="flex flex-wrap gap-2 mb-4 items-end">
+                <div class="w-full sm:w-44">
+                    <label class="eyebrow block mb-1">Bulan</label>
+                    <select id="jurnal-bulan" class="input-linear"></select>
+                </div>
+                <div class="w-full sm:w-32">
+                    <label class="eyebrow block mb-1">Tahun</label>
+                    <select id="jurnal-tahun" class="input-linear"></select>
+                </div>
+                <button id="jurnal-reset" type="button" class="btn-secondary text-xs gap-2">
+                    <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                    <span>Semua Periode</span>
+                </button>
+            </div>
             <div class="table-container overflow-x-auto" id="jurnal-table-wrap"></div>
         </section>
 
