@@ -14,7 +14,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="../../assets/css/print.css" media="print">
 </head>
-<body class="bg-[#010102] text-[#f7f8f8] min-h-screen flex flex-col md:flex-row">
+<body data-theme="dark" class="bg-[#010102] text-[#f7f8f8] min-h-screen flex flex-col md:flex-row">
     <!-- Admin Sidebar Navigation -->
     <aside class="w-full md:w-60 bg-[#0f1011] border-r border-[#23252a] min-h-screen p-4 flex-shrink-0 flex flex-col justify-between">
         <div>
