@@ -45,6 +45,7 @@ $(function () {
         kas: loadKas,
         jurnal: loadJurnal,
         bank: loadBank,
+        kasbon: loadKasbon,
     };
 
     $('#btn-hamburger').on('click', () => $('#sidebar').toggleClass('-translate-x-full'));
@@ -67,6 +68,10 @@ $(function () {
         $('#jurnal-tahun').val('');
         loadJurnal();
     });
+
+    $('#kasbon-bulan').html(bulanList.map(b => `<option ${b===bulanList[now.getMonth()]?'selected':''}>${b}</option>`).join(''));
+    $('#kasbon-tahun').html([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option ${y===now.getFullYear()?'selected':''}>${y}</option>`).join(''));
+    $('#kasbon-bulan, #kasbon-tahun').on('change', loadKasbon);
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
 
@@ -228,6 +233,33 @@ $(function () {
             }
             h += '</tbody></table>';
             $('#jurnal-table-wrap').html(h);
+        });
+    }
+
+    function loadKasbon() {
+        const bulan = $('#kasbon-bulan').val();
+        const tahun = $('#kasbon-tahun').val();
+        $.getJSON('src/api/public.php', { action: 'get_kasbon', bulan, tahun }, function (data) {
+            const tbody = $('#kasbon-table-body');
+            if (!data.length) {
+                tbody.html('<tr><td colspan="6" class="text-center py-6 text-subtle">Tidak ada data kasbon.</td></tr>');
+                return;
+            }
+            tbody.html(data.map((r, i) => {
+                const badge = r.status === 'lunas'
+                    ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i><span>Lunas</span></span>'
+                    : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i><span>Belum Lunas</span></span>';
+                return `<tr>
+                    <td class="text-center text-subtle">${i + 1}</td>
+                    <td class="font-mono text-xs text-subtle">${r.tanggal}</td>
+                    <td class="text-ink">${r.nama}</td>
+                    <td class="text-subtle">${r.keterangan}</td>
+                    <td class="text-right font-mono-num font-medium text-ink">${fmt(r.jumlah)}</td>
+                    <td>${badge}</td>
+                </tr>`;
+            }).join(''));
+        }).fail(function() {
+            $('#kasbon-table-body').html('<tr><td colspan="6" class="text-center py-6 text-subtle">Gagal memuat data.</td></tr>');
         });
     }
 

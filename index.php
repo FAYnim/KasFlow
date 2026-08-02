@@ -58,6 +58,10 @@
                     <i class="fa-solid fa-building-columns w-4 text-center"></i>
                     <span>Mutasi Bank</span>
                 </a>
+                <a data-tab="kasbon" class="sidebar-nav-item">
+                    <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
+                    <span>Kasbon</span>
+                </a>
             </nav>
         </div>
 
@@ -151,6 +155,37 @@
                 <p class="text-sm text-subtle">Catatan penyetoran dan penarikan kas pada rekening kelas.</p>
             </div>
             <div class="table-container overflow-x-auto" id="bank-wrap"></div>
+        </section>
+
+        <!-- Kasbon Section -->
+        <section data-tab-content="kasbon" class="tab-content hidden">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="display-md mb-1">Kasbon</h2>
+                    <p class="text-sm text-subtle">Data kasbon siswa per periode.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="kasbon-bulan" class="input-linear"></select>
+                    <select id="kasbon-tahun" class="input-linear"></select>
+                </div>
+            </div>
+            <div class="table-container overflow-x-auto">
+                <table class="table-linear w-full">
+                    <thead>
+                        <tr>
+                            <th class="w-12 text-center">#</th>
+                            <th>Tanggal</th>
+                            <th>Nama</th>
+                            <th>Keterangan</th>
+                            <th class="text-right">Jumlah</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kasbon-table-body">
+                        <tr><td colspan="6" class="text-center py-6 text-subtle">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
     </main>
 
