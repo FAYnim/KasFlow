@@ -2,7 +2,7 @@
 function run(array $get): array {
     $_GET = $get;
     ob_start();
-    include __DIR__ . '/../api_public.php';
+    include __DIR__ . '/../../src/api/public.php';
     return json_decode(ob_get_clean(), true);
 }
 $j = run(['action' => 'get_jurnal']);

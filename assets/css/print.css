@@ -1,6 +1,11 @@
 @media print {
-    nav, #sidebar, #btn-hamburger, a[href] { display: none !important; }
+    nav, header, aside, #sidebar, #btn-hamburger, a[href], form { display: none !important; }
     .tab-content { display: block !important; }
-    body { background: white !important; }
-    main { padding: 0 !important; max-width: none !important; }
+    body { background: white !important; color: black !important; font-family: sans-serif !important; }
+    main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+    .table-container { border: 1px solid #ccc !important; background: white !important; border-radius: 0 !important; }
+    .table-linear { color: black !important; }
+    .table-linear th { background: #f0f0f0 !important; color: black !important; border-bottom: 1px solid #ccc !important; }
+    .table-linear td { border-bottom: 1px solid #eee !important; color: black !important; }
+    .badge-status { border: 1px solid #aaa !important; color: black !important; background: transparent !important; }
 }

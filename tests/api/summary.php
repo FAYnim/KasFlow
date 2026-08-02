@@ -3,7 +3,7 @@
 // instead, require the API file with $_GET stubbed.
 $_GET = ['action' => 'get_summary'];
 ob_start();
-include __DIR__ . '/../api_public.php';
+include __DIR__ . '/../../src/api/public.php';
 $out = ob_get_clean();
 $data = json_decode($out, true);
 foreach (['total_kas_terkumpul','cash_on_hand','cash_in_bank','total_denda_unpaid'] as $k) {

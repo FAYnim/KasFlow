@@ -4,7 +4,7 @@ $_SESSION['admin_logged'] = true;
 
 function call(array $post, string $action): array {
     $_POST = $post; $_REQUEST = array_merge($post, ['action'=>$action]);
-    ob_start(); include __DIR__ . '/../api_admin.php'; $raw = ob_get_clean();
+    ob_start(); include __DIR__ . '/../../src/api/admin.php'; $raw = ob_get_clean();
     $data = json_decode($raw, true);
     return is_array($data) ? $data : ['_raw' => $raw];
 }

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 $pdo = db();
 $pdo->exec("DELETE FROM piutang_denda");
 $pdo->exec("DELETE FROM kas_mingguan");
