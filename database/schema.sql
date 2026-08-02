@@ -1,6 +1,7 @@
 DROP TABLE IF EXISTS mutasi_bank;
 DROP TABLE IF EXISTS jurnal_kas;
 DROP TABLE IF EXISTS kas_mingguan;
+DROP TABLE IF EXISTS kasbon;
 DROP TABLE IF EXISTS pengurus;
 DROP TABLE IF EXISTS siswa;
 DROP TABLE IF EXISTS config;
@@ -63,3 +64,17 @@ CREATE TABLE pengurus (
 -- Hash generated via password_hash('admin123', PASSWORD_DEFAULT)
 INSERT INTO pengurus (username, password, nama) VALUES
     ('admin', '$2y$10$REPLACE_WITH_REAL_HASH', 'Bendahara RPL 1');
+
+CREATE TABLE kasbon (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nama VARCHAR(100) NOT NULL,
+    tanggal DATE NOT NULL,
+    keterangan TEXT NOT NULL,
+    jumlah DECIMAL(12,2) NOT NULL,
+    status ENUM('belum_lunas','lunas') DEFAULT 'belum_lunas',
+    tanggal_lunas DATE NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_kasbon_tanggal (tanggal),
+    INDEX idx_kasbon_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
