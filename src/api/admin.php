@@ -117,6 +117,66 @@ try {
             echo json_encode(['ok' => true]);
             break;
         }
+        case 'add_kasbon': {
+            $nama  = trim($_POST['nama'] ?? '');
+            $tgl   = $_POST['tanggal'] ?? date('Y-m-d');
+            $ket   = trim($_POST['keterangan'] ?? '');
+            $jml   = (float)($_POST['jumlah'] ?? 0);
+            $stat  = $_POST['status'] ?? 'belum_lunas';
+            if ($nama === '' || $jml <= 0 || !in_array($stat, ['belum_lunas','lunas'], true)) {
+                http_response_code(400); echo json_encode(['error' => 'invalid']); break;
+            }
+            $tLunas = ($stat === 'lunas') ? date('Y-m-d') : null;
+            $pdo->prepare("INSERT INTO kasbon (nama, tanggal, keterangan, jumlah, status, tanggal_lunas) VALUES (?,?,?,?,?,?)")
+                ->execute([$nama, $tgl, $ket, $jml, $stat, $tLunas]);
+            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
+            break;
+        }
+        case 'update_kasbon': {
+            $id   = (int)($_POST['id'] ?? 0);
+            $nama = trim($_POST['nama'] ?? '');
+            $tgl  = $_POST['tanggal'] ?? date('Y-m-d');
+            $ket  = trim($_POST['keterangan'] ?? '');
+            $jml  = (float)($_POST['jumlah'] ?? 0);
+            $stat = $_POST['status'] ?? 'belum_lunas';
+            if ($id <= 0 || $nama === '' || $jml <= 0 || !in_array($stat, ['belum_lunas','lunas'], true)) {
+                http_response_code(400); echo json_encode(['error' => 'invalid']); break;
+            }
+            if ($stat === 'lunas') {
+                $cur = $pdo->prepare("SELECT tanggal_lunas FROM kasbon WHERE id=?");
+                $cur->execute([$id]);
+                $tLunas = $cur->fetchColumn() ?: date('Y-m-d');
+            } else {
+                $tLunas = null;
+            }
+            $pdo->prepare("UPDATE kasbon SET nama=?, tanggal=?, keterangan=?, jumlah=?, status=?, tanggal_lunas=? WHERE id=?")
+                ->execute([$nama, $tgl, $ket, $jml, $stat, $tLunas, $id]);
+            echo json_encode(['ok' => true]);
+            break;
+        }
+        case 'mark_lunas_kasbon': {
+            $id = (int)($_POST['id'] ?? 0);
+            if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
+            $pdo->prepare("UPDATE kasbon SET status='lunas', tanggal_lunas=? WHERE id=?")
+                ->execute([date('Y-m-d'), $id]);
+            echo json_encode(['ok' => true]);
+            break;
+        }
+        case 'mark_belum_lunas_kasbon': {
+            $id = (int)($_POST['id'] ?? 0);
+            if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
+            $pdo->prepare("UPDATE kasbon SET status='belum_lunas', tanggal_lunas=NULL WHERE id=?")
+                ->execute([$id]);
+            echo json_encode(['ok' => true]);
+            break;
+        }
+        case 'delete_kasbon': {
+            $id = (int)($_REQUEST['id'] ?? 0);
+            if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
+            $pdo->prepare("DELETE FROM kasbon WHERE id=?")->execute([$id]);
+            echo json_encode(['ok' => true]);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);
