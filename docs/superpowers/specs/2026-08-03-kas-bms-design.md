@@ -122,9 +122,9 @@ Add menu item "Kas BMS" in the navigation list. Position: between existing items
 
 ### Sidebar
 
-Add "Kas BMS" menu item. Trigger: `data-section="bms"`.
+Add "Kas BMS" menu item. Trigger: `data-tab-content="bms"`.
 
-### Section — `data-section="bms"`
+### Section — `data-tab-content="bms"`
 
 **1. Header bar**
 - Title: "Kas BMS".
