@@ -11,14 +11,10 @@ try {
             $totalKas = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
             $masuk    = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk'")->fetchColumn();
             $keluar   = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar'")->fetchColumn();
-            $setor    = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM mutasi_bank WHERE jenis='setor'")->fetchColumn();
-            $tarik    = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM mutasi_bank WHERE jenis='tarik'")->fetchColumn();
-            $cashOnHand = $masuk - $keluar - $setor + $tarik;
-            $cashInBank = $setor - $tarik;
+            $cashOnHand = $masuk - $keluar;
             echo json_encode([
                 'total_kas_terkumpul' => $totalKas,
                 'cash_on_hand' => $cashOnHand,
-                'cash_in_bank' => $cashInBank,
             ]);
             break;
         }
@@ -68,11 +64,6 @@ try {
                 'line_chart' => $line,
                 'donut' => ['masuk' => $totMasuk, 'keluar' => $totKeluar],
             ]);
-            break;
-        }
-        case 'get_bank': {
-            $rows = $pdo->query("SELECT id, tanggal, keterangan, jenis, jumlah FROM mutasi_bank ORDER BY tanggal DESC, id DESC")->fetchAll();
-            echo json_encode($rows);
             break;
         }
         case 'get_kasbon': {

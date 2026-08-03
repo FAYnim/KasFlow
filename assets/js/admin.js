@@ -12,13 +12,12 @@ $(function () {
         if (loaders[n]) loaders[n](); 
     };
 
-    const loaders = { 
-        dashboard: lDash, 
-        siswa: lSiswa, 
-        kas: lKas, 
-        jurnal: lJurnal, 
-        bank: lBank, 
-        kasbon: lKasbon, 
+    const loaders = {
+        dashboard: lDash,
+        siswa: lSiswa,
+        kas: lKas,
+        jurnal: lJurnal,
+        kasbon: lKasbon,
         ekspor: lEkspor,
         bms: lBms,
     };
@@ -175,7 +174,6 @@ $(function () {
             const cards = [
                 ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
-                ['Cash in Bank', fmt(s.cash_in_bank), 'text-[#60a5fa]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -370,60 +368,6 @@ $(function () {
     $(document).on('click', '.del-j', function () {
         if (!confirm('Hapus transaksi ini?')) return;
         $.post('../../src/api/admin.php?action=delete_jurnal', { id: $(this).data('id') }, r => lJurnal(), 'json');
-    });
-
-    // Bank
-    function lBank() {
-        $.getJSON('../../src/api/public.php?action=get_bank', rows => {
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-32">Tanggal</th>
-                        <th>Keterangan Mutasi</th>
-                        <th class="w-28">Jenis</th>
-                        <th class="text-right w-36">Jumlah</th>
-                        <th class="w-28 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (rows.length === 0) {
-                h += `<tr><td colspan="5" class="text-center py-6 text-[#8a8f98]">Belum ada mutasi bank.</td></tr>`;
-            } else {
-                h += rows.map(b =>
-                    `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${b.tanggal}</td>
-                        <td class="text-[#f7f8f8]">${b.keterangan}</td>
-                        <td>
-                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">
-                                <i class="fa-solid ${b.jenis==='setor' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket'} text-[10px]"></i>
-                                <span>${b.jenis==='setor' ? 'Setor' : 'Tarik'}</span>
-                            </span>
-                        </td>
-                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(b.jumlah)}</td>
-                        <td class="text-right">
-                            <button class="btn-danger text-xs px-2.5 py-1 del-b gap-1" data-id="${b.id}">
-                                <i class="fa-solid fa-trash-can text-[10px]"></i>
-                                <span>Hapus</span>
-                            </button>
-                        </td>
-                    </tr>`
-                ).join('');
-            }
-            h += '</tbody></table>';
-            $('#bank-wrap').html(h);
-        });
-    }
-
-    $('#form-bank').on('submit', function (e) {
-        e.preventDefault();
-        $.post('../../src/api/admin.php?action=add_bank', $(this).serialize(), r => {
-            if (r.ok) { this.reset(); lBank(); } else alert(r.error);
-        }, 'json');
-    });
-
-    $(document).on('click', '.del-b', function () {
-        if (!confirm('Hapus data mutasi ini?')) return;
-        $.post('../../src/api/admin.php?action=delete_bank', { id: $(this).data('id') }, r => lBank(), 'json');
     });
 
     // Ekspor

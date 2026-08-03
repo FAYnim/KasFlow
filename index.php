@@ -59,10 +59,6 @@
                     <i class="fa-solid fa-receipt w-4 text-center"></i>
                     <span>Cashflow</span>
                 </a>
-                <a data-tab="bank" class="sidebar-nav-item">
-                    <i class="fa-solid fa-building-columns w-4 text-center"></i>
-                    <span>Mutasi Bank</span>
-                </a>
             </nav>
         </div>
 
@@ -144,14 +140,6 @@
                 </button>
             </div>
             <div class="table-container overflow-x-auto" id="jurnal-table-wrap"></div>
-        </section>
-
-        <!-- Mutasi Bank Section -->
-        <section data-tab-content="bank" class="tab-content hidden">
-            <div class="mb-6">
-                <h2 class="display-md mb-1">Mutasi Bank</h2>
-            </div>
-            <div class="table-container overflow-x-auto" id="bank-wrap"></div>
         </section>
 
         <!-- Kasbon Section -->

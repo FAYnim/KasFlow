@@ -85,25 +85,6 @@ try {
             echo json_encode(['ok' => true]);
             break;
         }
-        case 'add_bank': {
-            $tgl  = $_POST['tanggal'] ?? date('Y-m-d');
-            $ket  = trim($_POST['keterangan'] ?? '');
-            $jenis= $_POST['jenis'] ?? '';
-            $jml  = (float)$_POST['jumlah'];
-            if ($ket === '' || !in_array($jenis, ['setor','tarik'], true) || $jml <= 0) {
-                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
-            }
-            $pdo->prepare("INSERT INTO mutasi_bank (tanggal, keterangan, jenis, jumlah) VALUES (?,?,?,?)")
-                ->execute([$tgl, $ket, $jenis, $jml]);
-            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
-            break;
-        }
-        case 'delete_bank': {
-            $id = (int)$_REQUEST['id'];
-            $pdo->prepare("DELETE FROM mutasi_bank WHERE id=?")->execute([$id]);
-            echo json_encode(['ok' => true]);
-            break;
-        }
         case 'list_siswa': {
             $rows = $pdo->query("SELECT id, absen, nama FROM siswa ORDER BY nama ASC")->fetchAll();
             echo json_encode($rows);

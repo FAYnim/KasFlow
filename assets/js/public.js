@@ -44,7 +44,6 @@ $(function () {
         dashboard: loadDashboard,
         kas: loadKas,
         jurnal: loadJurnal,
-        bank: loadBank,
         kasbon: loadKasbon,
         bms: loadBms,
     };
@@ -88,7 +87,6 @@ $(function () {
             const cards = [
                 ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Cash on Hand', fmt(s.cash_on_hand), 'text-[var(--semantic-success)]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
-                ['Cash in Bank', fmt(s.cash_in_bank), 'text-blue-500', '<i class="fa-solid fa-building-columns text-sm"></i>'],
             ];
             $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -268,40 +266,6 @@ $(function () {
             }).join(''));
         }).fail(function() {
             $('#kasbon-table-body').html('<tr><td colspan="6" class="text-center py-6 text-subtle">Gagal memuat data.</td></tr>');
-        });
-    }
-
-    function loadBank() {
-        $.getJSON('src/api/public.php?action=get_bank', function (rows) {
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-32">Tanggal</th>
-                        <th>Keterangan Transaksi</th>
-                        <th class="w-28">Jenis Mutasi</th>
-                        <th class="text-right w-36">Jumlah</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (rows.length === 0) {
-                h += `<tr><td colspan="4" class="text-center py-6 text-subtle">Belum ada mutasi bank.</td></tr>`;
-            } else {
-                h += rows.map(b =>
-                    `<tr>
-                        <td class="font-mono text-xs text-subtle">${b.tanggal}</td>
-                        <td class="text-ink">${b.keterangan}</td>
-                        <td>
-                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">
-                                <i class="fa-solid ${b.jenis==='setor' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket'} text-[10px]"></i>
-                                <span>${b.jenis==='setor' ? 'Setor' : 'Tarik'}</span>
-                            </span>
-                        </td>
-                        <td class="text-right font-mono-num font-medium text-ink">${fmt(b.jumlah)}</td>
-                    </tr>`
-                ).join('');
-            }
-            h += '</tbody></table>';
-            $('#bank-wrap').html(h);
         });
     }
 

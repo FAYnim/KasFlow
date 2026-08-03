@@ -6,7 +6,7 @@ ob_start();
 include __DIR__ . '/../../src/api/public.php';
 $out = ob_get_clean();
 $data = json_decode($out, true);
-foreach (['total_kas_terkumpul','cash_on_hand','cash_in_bank'] as $k) {
+foreach (['total_kas_terkumpul','cash_on_hand'] as $k) {
     if (!array_key_exists($k, $data)) { fwrite(STDERR, "FAIL: missing $k\n"); exit(1); }
 }
 echo "PASS: summary shape OK\n";
