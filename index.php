@@ -62,6 +62,10 @@
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
                     <span>Kasbon</span>
                 </a>
+                <a data-tab="bms" class="sidebar-nav-item">
+                    <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
+                    <span>Kas BMS</span>
+                </a>
             </nav>
         </div>
 
@@ -186,6 +190,35 @@
                     </tbody>
                 </table>
             </div>
+        </section>
+
+        <!-- Kas BMS Section -->
+        <section data-tab-content="bms" class="tab-content hidden">
+            <div class="mb-6">
+                <h2 class="display-md mb-1">Kas BMS</h2>
+                <p class="text-sm text-subtle">Riwayat setor dan tarik dana BMS.</p>
+            </div>
+
+            <div id="bms-summary-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"></div>
+
+            <div class="flex flex-wrap items-end gap-3 mb-4">
+                <label class="text-xs text-subtle">
+                    <span class="block mb-1">Dari</span>
+                    <input type="date" id="bms-dari" class="input-linear">
+                </label>
+                <label class="text-xs text-subtle">
+                    <span class="block mb-1">Sampai</span>
+                    <input type="date" id="bms-sampai" class="input-linear">
+                </label>
+                <button id="bms-apply" class="btn-primary text-xs gap-2">
+                    <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
+                </button>
+                <button id="bms-reset" class="btn-secondary text-xs gap-2">
+                    <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
+                </button>
+            </div>
+
+            <div id="bms-wrap" class="table-container overflow-x-auto"></div>
         </section>
     </main>
 

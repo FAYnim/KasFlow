@@ -19,7 +19,8 @@ $(function () {
         jurnal: lJurnal, 
         bank: lBank, 
         kasbon: lKasbon, 
-        ekspor: lEkspor 
+        ekspor: lEkspor,
+        bms: lBms,
     };
 
     $('[data-tab]').on('click', function () { activate($(this).data('tab')); });
@@ -478,4 +479,109 @@ $(function () {
     });
 
     $('#btn-pdf').on('click', () => window.print());
+
+    // Kas BMS
+    function lBms() {
+        $.getJSON('../../src/api/public.php?action=get_bms', function(data) {
+            const rows = (data && data.rows) || [];
+            let h = `<table class="table-linear">
+                <thead>
+                    <tr>
+                        <th class="w-16">#</th>
+                        <th class="w-32">Tanggal</th>
+                        <th>Keterangan</th>
+                        <th class="w-28">Jenis</th>
+                        <th class="text-right w-36">Jumlah</th>
+                        <th class="w-28 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            if (rows.length === 0) {
+                h += `<tr><td colspan="6" class="text-center py-6 text-[#8a8f98]">Belum ada data kas BMS.</td></tr>`;
+            } else {
+                h += rows.map(function(r, i) {
+                    const badge = r.jenis === 'setor'
+                        ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i> <span>Setor</span></span>'
+                        : '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i> <span>Tarik</span></span>';
+                    return '<tr>' +
+                        '<td class="font-mono text-xs text-[#8a8f98]">' + (i + 1) + '</td>' +
+                        '<td class="font-mono text-xs text-[#8a8f98]">' + r.tanggal + '</td>' +
+                        '<td class="text-[#f7f8f8]">' + r.keterangan + '</td>' +
+                        '<td>' + badge + '</td>' +
+                        '<td class="text-right font-mono-num font-medium text-[#f7f8f8]">' + fmt(r.jumlah) + '</td>' +
+                        '<td class="text-right space-x-1">' +
+                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-bms gap-1" data-id="' + r.id + '" data-tanggal="' + r.tanggal + '" data-keterangan="' + r.keterangan + '" data-jenis="' + r.jenis + '" data-jumlah="' + r.jumlah + '">' +
+                                '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
+                            '</button>' +
+                            '<button class="btn-danger text-xs px-2.5 py-1 del-bms gap-1" data-id="' + r.id + '">' +
+                                '<i class="fa-solid fa-trash-can text-[10px]"></i> <span>Hapus</span>' +
+                            '</button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join('');
+            }
+            h += '</tbody></table>';
+            $('#bms-wrap').html(h);
+        }).fail(function() {
+            $('#bms-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Gagal memuat data kas BMS.</div>');
+        });
+    }
+
+    // Open modal in add mode
+    $('#bms-add-btn').on('click', function () {
+        $('#bms-edit-id').val('');
+        $('#bms-form')[0].reset();
+        $('#bms-tanggal').val(new Date().toISOString().slice(0, 10));
+        $('input[name="bms-jenis"][value="setor"]').prop('checked', true);
+        $('#bms-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Simpan</span>');
+        $('#bms-modal').removeClass('hidden');
+    });
+
+    $('#bms-modal-close, #bms-cancel-btn').on('click', function () {
+        $('#bms-modal').addClass('hidden');
+    });
+
+    $(document).on('click', '.edit-bms', function () {
+        const $btn = $(this);
+        $('#bms-edit-id').val($btn.data('id'));
+        $('#bms-tanggal').val($btn.data('tanggal'));
+        $('#bms-keterangan').val($btn.data('keterangan'));
+        $('#bms-jumlah').val($btn.data('jumlah'));
+        $('input[name="bms-jenis"][value="' + $btn.data('jenis') + '"]').prop('checked', true);
+        $('#bms-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Update</span>');
+        $('#bms-modal').removeClass('hidden');
+    });
+
+    $('#bms-form').on('submit', function (e) {
+        e.preventDefault();
+        const id = $('#bms-edit-id').val();
+        const payload = {
+            tanggal:     $('#bms-tanggal').val(),
+            keterangan:  $('#bms-keterangan').val(),
+            jenis:       $('input[name="bms-jenis"]:checked').val(),
+            jumlah:      $('#bms-jumlah').val(),
+        };
+        const action = id ? 'update_bms' : 'add_bms';
+        if (id) payload.id = id;
+        $.post('../../src/api/admin.php?action=' + action, payload, function (res) {
+            if (res && res.ok) {
+                $('#bms-modal').addClass('hidden');
+                lBms();
+            } else {
+                alert('Gagal menyimpan: ' + (res && res.error ? res.error : 'unknown'));
+            }
+        }, 'json').fail(function (xhr) {
+            alert('Gagal menyimpan (HTTP ' + xhr.status + ').');
+        });
+    });
+
+    $(document).on('click', '.del-bms', function () {
+        if (!confirm('Hapus transaksi kas BMS ini?')) return;
+        const id = $(this).data('id');
+        $.post('../../src/api/admin.php?action=delete_bms', { id: id }, function () {
+            lBms();
+        }, 'json').fail(function () {
+            alert('Gagal menghapus.');
+        });
+    });
 });

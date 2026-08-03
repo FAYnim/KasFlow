@@ -97,6 +97,34 @@ try {
             echo json_encode($rows);
             break;
         }
+        case 'get_bms': {
+            $dari   = $_GET['dari'] ?? null;
+            $sampai = $_GET['sampai'] ?? null;
+            $where = [];
+            $params = [];
+            if ($dari)   { $where[] = 'tanggal >= ?'; $params[] = $dari; }
+            if ($sampai) { $where[] = 'tanggal <= ?'; $params[] = $sampai; }
+            $sql = 'SELECT id, tanggal, keterangan, jenis, jumlah FROM kas_bms'
+                 . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+                 . ' ORDER BY tanggal DESC, id DESC';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $sumSetor = 0.0; $sumTarik = 0.0;
+            foreach ($rows as $r) {
+                if ($r['jenis'] === 'setor') $sumSetor += (float)$r['jumlah'];
+                else                          $sumTarik += (float)$r['jumlah'];
+            }
+            echo json_encode([
+                'rows'   => $rows,
+                'totals' => [
+                    'setor' => number_format($sumSetor, 2, '.', ''),
+                    'tarik' => number_format($sumTarik, 2, '.', ''),
+                    'saldo' => number_format($sumSetor - $sumTarik, 2, '.', ''),
+                ],
+            ]);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);

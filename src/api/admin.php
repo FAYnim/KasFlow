@@ -177,6 +177,40 @@ try {
             echo json_encode(['ok' => true]);
             break;
         }
+        case 'add_bms': {
+            $tgl  = $_POST['tanggal'] ?? date('Y-m-d');
+            $ket  = trim($_POST['keterangan'] ?? '');
+            $jenis= $_POST['jenis'] ?? '';
+            $jml  = (float)($_POST['jumlah'] ?? 0);
+            if ($ket === '' || !in_array($jenis, ['setor','tarik'], true) || $jml <= 0) {
+                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
+            }
+            $pdo->prepare("INSERT INTO kas_bms (tanggal, keterangan, jenis, jumlah) VALUES (?,?,?,?)")
+                ->execute([$tgl, $ket, $jenis, $jml]);
+            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
+            break;
+        }
+        case 'update_bms': {
+            $id   = (int)($_POST['id'] ?? 0);
+            $tgl  = $_POST['tanggal'] ?? date('Y-m-d');
+            $ket  = trim($_POST['keterangan'] ?? '');
+            $jenis= $_POST['jenis'] ?? '';
+            $jml  = (float)($_POST['jumlah'] ?? 0);
+            if ($id <= 0 || $ket === '' || !in_array($jenis, ['setor','tarik'], true) || $jml <= 0) {
+                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
+            }
+            $pdo->prepare("UPDATE kas_bms SET tanggal=?, keterangan=?, jenis=?, jumlah=? WHERE id=?")
+                ->execute([$tgl, $ket, $jenis, $jml, $id]);
+            echo json_encode(['ok' => true]);
+            break;
+        }
+        case 'delete_bms': {
+            $id = (int)($_REQUEST['id'] ?? 0);
+            if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
+            $pdo->prepare("DELETE FROM kas_bms WHERE id=?")->execute([$id]);
+            echo json_encode(['ok' => true]);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);

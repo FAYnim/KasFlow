@@ -54,6 +54,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
                     <span>Kelola Kasbon</span>
                 </a>
+                <a data-tab="bms" class="sidebar-nav-item">
+                    <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
+                    <span>Kas BMS</span>
+                </a>
                 <a data-tab="ekspor" class="sidebar-nav-item">
                     <i class="fa-solid fa-file-export w-4 text-center"></i>
                     <span>Ekspor Laporan</span>
@@ -258,6 +262,22 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
 
             <div id="kasbon-wrap" class="table-container overflow-x-auto"></div>
         </section>
+
+        <!-- Section: Kas BMS -->
+        <section data-tab-content="bms" class="tab-content hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="display-md">Kas BMS</h2>
+                    <p class="text-sm text-[#8a8f98]">Catat dan kelola dana BMS (setor/tarik).</p>
+                </div>
+                <button id="bms-add-btn" class="btn-primary gap-2">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Tambah Transaksi</span>
+                </button>
+            </div>
+
+            <div id="bms-wrap" class="table-container overflow-x-auto"></div>
+        </section>
     </main>
 
     <!-- Modal Form Transaksi Jurnal -->
@@ -299,6 +319,54 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 <button class="btn-primary gap-2">
                     <i class="fa-solid fa-floppy-disk text-xs"></i>
                     <span>Simpan Transaksi</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal Form Kas BMS -->
+    <div id="bms-modal" class="modal-overlay hidden">
+        <form id="bms-form" class="modal-card">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[#23252a]">
+                <h3 class="headline text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-sack-dollar text-sm text-[#5e6ad2]"></i>
+                    <span>Form Kas BMS</span>
+                </h3>
+                <button type="button" id="bms-modal-close" class="text-[#8a8f98] hover:text-[#f7f8f8]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="bms-edit-id" value="">
+            <div class="space-y-3 mb-6">
+                <div>
+                    <label class="eyebrow block mb-1">Tanggal</label>
+                    <input type="date" id="bms-tanggal" required class="input-linear">
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Keterangan</label>
+                    <input type="text" id="bms-keterangan" required placeholder="Contoh: Dana BMS masuk" class="input-linear">
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Jenis</label>
+                    <div class="flex gap-4 mt-1">
+                        <label class="inline-flex items-center gap-2 text-sm text-[#f7f8f8]">
+                            <input type="radio" name="bms-jenis" value="setor" checked> Setor
+                        </label>
+                        <label class="inline-flex items-center gap-2 text-sm text-[#f7f8f8]">
+                            <input type="radio" name="bms-jenis" value="tarik"> Tarik
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Jumlah (Rp)</label>
+                    <input type="number" id="bms-jumlah" min="1" step="1" required placeholder="0" class="input-linear">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" id="bms-cancel-btn" class="btn-secondary">Batal</button>
+                <button type="submit" id="bms-submit-btn" class="btn-primary gap-2">
+                    <i class="fa-solid fa-floppy-disk text-xs"></i>
+                    <span>Simpan</span>
                 </button>
             </div>
         </form>

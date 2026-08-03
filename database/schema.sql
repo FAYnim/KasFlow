@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS kas_bms;
 DROP TABLE IF EXISTS mutasi_bank;
 DROP TABLE IF EXISTS jurnal_kas;
 DROP TABLE IF EXISTS kas_mingguan;
@@ -51,6 +52,16 @@ CREATE TABLE mutasi_bank (
     keterangan TEXT NOT NULL,
     jenis ENUM('setor','tarik') NOT NULL,
     jumlah DECIMAL(12,2) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE kas_bms (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tanggal DATE NOT NULL,
+    keterangan TEXT NOT NULL,
+    jenis ENUM('setor','tarik') NOT NULL,
+    jumlah DECIMAL(12,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_kas_bms_tanggal (tanggal)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE pengurus (

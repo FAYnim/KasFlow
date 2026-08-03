@@ -46,6 +46,7 @@ $(function () {
         jurnal: loadJurnal,
         bank: loadBank,
         kasbon: loadKasbon,
+        bms: loadBms,
     };
 
     $('#btn-hamburger').on('click', () => $('#sidebar').toggleClass('-translate-x-full'));
@@ -72,6 +73,13 @@ $(function () {
     $('#kasbon-bulan').html(bulanList.map(b => `<option ${b===bulanList[now.getMonth()]?'selected':''}>${b}</option>`).join(''));
     $('#kasbon-tahun').html([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option ${y===now.getFullYear()?'selected':''}>${y}</option>`).join(''));
     $('#kasbon-bulan, #kasbon-tahun').on('change', loadKasbon);
+
+    $('#bms-apply').on('click', loadBms);
+    $('#bms-reset').on('click', () => {
+        $('#bms-dari').val('');
+        $('#bms-sampai').val('');
+        loadBms();
+    });
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
 
@@ -294,6 +302,65 @@ $(function () {
             }
             h += '</tbody></table>';
             $('#bank-wrap').html(h);
+        });
+    }
+
+    function loadBms() {
+        const params = { action: 'get_bms' };
+        const dari = $('#bms-dari').val();
+        const sampai = $('#bms-sampai').val();
+        if (dari) params.dari = dari;
+        if (sampai) params.sampai = sampai;
+
+        $.getJSON('src/api/public.php', params, function (data) {
+            const totals = data.totals || { setor: 0, tarik: 0, saldo: 0 };
+            const cards = [
+                ['Total Setor',  fmt(totals.setor), 'text-[var(--semantic-success)]', '<i class="fa-solid fa-arrow-trend-up text-sm"></i>'],
+                ['Total Tarik',  fmt(totals.tarik), 'text-subtle',                     '<i class="fa-solid fa-arrow-trend-down text-sm"></i>'],
+                ['Saldo Akhir',  fmt(totals.saldo), 'text-[var(--primary)]',           '<i class="fa-solid fa-scale-balanced text-sm"></i>'],
+            ];
+            $('#bms-summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
+                `<div class="card-linear">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="eyebrow">${t}</span>
+                        <span class="text-subtle">${icon}</span>
+                    </div>
+                    <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
+                </div>`
+            ).join(''));
+
+            const rows = data.rows || [];
+            let h = `<table class="table-linear">
+                <thead>
+                    <tr>
+                        <th class="w-32">Tanggal</th>
+                        <th>Keterangan</th>
+                        <th class="w-28">Jenis</th>
+                        <th class="text-right w-36">Jumlah</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            if (rows.length === 0) {
+                h += `<tr><td colspan="4" class="text-center py-6 text-subtle">Belum ada data kas BMS.</td></tr>`;
+            } else {
+                h += rows.map(b =>
+                    `<tr>
+                        <td class="font-mono text-xs text-subtle">${b.tanggal}</td>
+                        <td class="text-ink">${b.keterangan}</td>
+                        <td>
+                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">
+                                <i class="fa-solid ${b.jenis==='setor' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket'} text-[10px]"></i>
+                                <span>${b.jenis==='setor' ? 'Setor' : 'Tarik'}</span>
+                            </span>
+                        </td>
+                        <td class="text-right font-mono-num font-medium text-ink">${fmt(b.jumlah)}</td>
+                    </tr>`
+                ).join('');
+            }
+            h += '</tbody></table>';
+            $('#bms-wrap').html(h);
+        }).fail(function () {
+            $('#bms-wrap').html('<div class="text-center py-6 text-subtle">Gagal memuat data.</div>');
         });
     }
 
