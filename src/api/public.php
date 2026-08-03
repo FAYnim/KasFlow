@@ -9,12 +9,14 @@ try {
     switch ($action) {
         case 'get_summary': {
             $totalKas = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
-            $masuk    = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk'")->fetchColumn();
-            $keluar   = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar'")->fetchColumn();
-            $cashOnHand = $masuk - $keluar;
+            $sumSetor = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='setor'")->fetchColumn();
+            $sumTarik = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='tarik'")->fetchColumn();
+            $saldoBms = $sumSetor - $sumTarik;
+            $totalKasbon = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon")->fetchColumn();
             echo json_encode([
                 'total_kas_terkumpul' => $totalKas,
-                'cash_on_hand' => $cashOnHand,
+                'saldo_bms' => $saldoBms,
+                'total_kasbon' => $totalKasbon,
             ]);
             break;
         }

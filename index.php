@@ -75,7 +75,7 @@
         <!-- Dashboard Section -->
         <section data-tab-content="dashboard" class="tab-content">
             <div class="mb-6">
-                <h2 class="display-md mb-1">Ikhtisar Keuangan</h2>
+                <h2 class="display-md mb-1">Keuangan RPL 1</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="summary-cards"></div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

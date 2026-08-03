@@ -173,7 +173,8 @@ $(function () {
         $.getJSON('../../src/api/public.php?action=get_summary', s => {
             const cards = [
                 ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
-                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[#4ade80]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
+                ['Saldo BMS', fmt(s.saldo_bms), 'text-[#38bdf8]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
+                ['Total Kasbon', fmt(s.total_kasbon), 'text-[#fbbf24]', '<i class="fa-solid fa-handshake text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">

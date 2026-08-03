@@ -86,8 +86,9 @@ $(function () {
     function loadDashboard() {
         $.getJSON('src/api/public.php?action=get_summary', function (s) {
             const cards = [
-                ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
-                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[var(--semantic-success)]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
+                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
+                ['Saldo BMS', fmt(s.saldo_bms), 'text-[var(--semantic-info)]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
+                ['Total Kasbon', fmt(s.total_kasbon), 'text-amber-400', '<i class="fa-solid fa-handshake text-sm"></i>'],
             ];
             $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
