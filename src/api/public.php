@@ -11,14 +11,10 @@ try {
             $totalKas = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
             $masuk    = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk'")->fetchColumn();
             $keluar   = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar'")->fetchColumn();
-            $setor    = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM mutasi_bank WHERE jenis='setor'")->fetchColumn();
-            $tarik    = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM mutasi_bank WHERE jenis='tarik'")->fetchColumn();
-            $cashOnHand = $masuk - $keluar - $setor + $tarik;
-            $cashInBank = $setor - $tarik;
+            $cashOnHand = $masuk - $keluar;
             echo json_encode([
                 'total_kas_terkumpul' => $totalKas,
                 'cash_on_hand' => $cashOnHand,
-                'cash_in_bank' => $cashInBank,
             ]);
             break;
         }
@@ -70,11 +66,6 @@ try {
             ]);
             break;
         }
-        case 'get_bank': {
-            $rows = $pdo->query("SELECT id, tanggal, keterangan, jenis, jumlah FROM mutasi_bank ORDER BY tanggal DESC, id DESC")->fetchAll();
-            echo json_encode($rows);
-            break;
-        }
         case 'get_kasbon': {
             $bulanMap = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
             $bulanIdx = $_GET['bulan'] ?? array_search((int)date('n'), $bulanMap, true);
@@ -95,6 +86,34 @@ try {
             $stmt->execute($args);
             $rows = array_map(function($r) { $r['jumlah'] = (float)$r['jumlah']; return $r; }, $stmt->fetchAll());
             echo json_encode($rows);
+            break;
+        }
+        case 'get_bms': {
+            $dari   = $_GET['dari'] ?? null;
+            $sampai = $_GET['sampai'] ?? null;
+            $where = [];
+            $params = [];
+            if ($dari)   { $where[] = 'tanggal >= ?'; $params[] = $dari; }
+            if ($sampai) { $where[] = 'tanggal <= ?'; $params[] = $sampai; }
+            $sql = 'SELECT id, tanggal, keterangan, jenis, jumlah FROM kas_bms'
+                 . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+                 . ' ORDER BY tanggal DESC, id DESC';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $sumSetor = 0.0; $sumTarik = 0.0;
+            foreach ($rows as $r) {
+                if ($r['jenis'] === 'setor') $sumSetor += (float)$r['jumlah'];
+                else                          $sumTarik += (float)$r['jumlah'];
+            }
+            echo json_encode([
+                'rows'   => $rows,
+                'totals' => [
+                    'setor' => number_format($sumSetor, 2, '.', ''),
+                    'tarik' => number_format($sumTarik, 2, '.', ''),
+                    'saldo' => number_format($sumSetor - $sumTarik, 2, '.', ''),
+                ],
+            ]);
             break;
         }
         default:

@@ -7,7 +7,5 @@ function run(array $get): array {
 }
 $j = run(['action' => 'get_jurnal']);
 if (!isset($j['transaksi'], $j['line_chart'], $j['donut'])) { fwrite(STDERR, "FAIL: jurnal shape\n"); exit(1); }
-$b = run(['action' => 'get_bank']);
-if (!is_array($b)) { fwrite(STDERR, "FAIL: bank not array\n"); exit(1); }
-echo "PASS: jurnal+bank shape OK\n";
+echo "PASS: jurnal shape OK\n";
 exit(0);

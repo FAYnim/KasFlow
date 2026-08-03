@@ -40,19 +40,19 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </a>
                 <a data-tab="kas" class="sidebar-nav-item">
                     <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
-                    <span>Input Kas</span>
+                    <span>Kas Kelas</span>
                 </a>
-                <a data-tab="jurnal" class="sidebar-nav-item">
-                    <i class="fa-solid fa-receipt w-4 text-center"></i>
-                    <span>Kelola Jurnal</span>
-                </a>
-                <a data-tab="bank" class="sidebar-nav-item">
-                    <i class="fa-solid fa-building-columns w-4 text-center"></i>
-                    <span>Mutasi Bank</span>
+                <a data-tab="bms" class="sidebar-nav-item">
+                    <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
+                    <span>Kas BMS</span>
                 </a>
                 <a data-tab="kasbon" class="sidebar-nav-item">
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
-                    <span>Kelola Kasbon</span>
+                    <span>Kasbon</span>
+                </a>
+                <a data-tab="jurnal" class="sidebar-nav-item">
+                    <i class="fa-solid fa-receipt w-4 text-center"></i>
+                    <span>Cashflow</span>
                 </a>
                 <a data-tab="ekspor" class="sidebar-nav-item">
                     <i class="fa-solid fa-file-export w-4 text-center"></i>
@@ -143,35 +143,6 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
             <div id="jurnal-wrap" class="table-container overflow-x-auto"></div>
         </section>
 
-        <!-- Section: Mutasi Bank -->
-        <section data-tab-content="bank" class="tab-content hidden">
-            <h2 class="display-md mb-2">Mutasi Rekening Bank</h2>
-            <p class="text-sm text-[#8a8f98] mb-4">Pencatatan setor tunai & tarik tunai rekening kas.</p>
-            <form id="form-bank" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 card-linear p-4">
-                <div>
-                    <label class="eyebrow block mb-1">Tanggal</label>
-                    <input type="date" name="tanggal" required class="input-linear" value="<?= date('Y-m-d') ?>">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Keterangan</label>
-                    <input name="keterangan" placeholder="Berita mutasi" required class="input-linear">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Jenis Transaksi</label>
-                    <select name="jenis" class="input-linear"><option value="setor">Setor Tunai</option><option value="tarik">Tarik Tunai</option></select>
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Jumlah (Rp)</label>
-                    <input type="number" name="jumlah" placeholder="Contoh: 50000" required min="1" class="input-linear">
-                </div>
-                <button class="btn-primary sm:col-span-2 lg:col-span-4 mt-2 gap-2 justify-center">
-                    <i class="fa-solid fa-building-columns text-xs"></i>
-                    <span>Simpan Mutasi Bank</span>
-                </button>
-            </form>
-            <div id="bank-wrap" class="table-container overflow-x-auto"></div>
-        </section>
-
         <!-- Section: Ekspor Laporan -->
         <section data-tab-content="ekspor" class="tab-content hidden">
             <h2 class="display-md mb-2">Ekspor Laporan Kas</h2>
@@ -258,6 +229,22 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
 
             <div id="kasbon-wrap" class="table-container overflow-x-auto"></div>
         </section>
+
+        <!-- Section: Kas BMS -->
+        <section data-tab-content="bms" class="tab-content hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="display-md">Kas BMS</h2>
+                    <p class="text-sm text-[#8a8f98]">Catat dan kelola dana BMS (setor/tarik).</p>
+                </div>
+                <button id="bms-add-btn" class="btn-primary gap-2">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Tambah Transaksi</span>
+                </button>
+            </div>
+
+            <div id="bms-wrap" class="table-container overflow-x-auto"></div>
+        </section>
     </main>
 
     <!-- Modal Form Transaksi Jurnal -->
@@ -299,6 +286,54 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 <button class="btn-primary gap-2">
                     <i class="fa-solid fa-floppy-disk text-xs"></i>
                     <span>Simpan Transaksi</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal Form Kas BMS -->
+    <div id="bms-modal" class="modal-overlay hidden">
+        <form id="bms-form" class="modal-card">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[#23252a]">
+                <h3 class="headline text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-sack-dollar text-sm text-[#5e6ad2]"></i>
+                    <span>Form Kas BMS</span>
+                </h3>
+                <button type="button" id="bms-modal-close" class="text-[#8a8f98] hover:text-[#f7f8f8]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="bms-edit-id" value="">
+            <div class="space-y-3 mb-6">
+                <div>
+                    <label class="eyebrow block mb-1">Tanggal</label>
+                    <input type="date" id="bms-tanggal" required class="input-linear">
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Keterangan</label>
+                    <input type="text" id="bms-keterangan" required placeholder="Contoh: Dana BMS masuk" class="input-linear">
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Jenis</label>
+                    <div class="flex gap-4 mt-1">
+                        <label class="inline-flex items-center gap-2 text-sm text-[#f7f8f8]">
+                            <input type="radio" name="bms-jenis" value="setor" checked> Setor
+                        </label>
+                        <label class="inline-flex items-center gap-2 text-sm text-[#f7f8f8]">
+                            <input type="radio" name="bms-jenis" value="tarik"> Tarik
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Jumlah (Rp)</label>
+                    <input type="number" id="bms-jumlah" min="1" step="1" required placeholder="0" class="input-linear">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" id="bms-cancel-btn" class="btn-secondary">Batal</button>
+                <button type="submit" id="bms-submit-btn" class="btn-primary gap-2">
+                    <i class="fa-solid fa-floppy-disk text-xs"></i>
+                    <span>Simpan</span>
                 </button>
             </div>
         </form>
