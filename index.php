@@ -24,9 +24,6 @@
                 <i class="fa-solid fa-bars text-base"></i>
             </button>
             <div class="brand-mark">
-                <div class="brand-icon">
-                    <i class="fa-solid fa-bolt text-xs"></i>
-                </div>
                 <span>Cashflow RPL 1</span>
             </div>
         </div>
@@ -48,23 +45,23 @@
                 </a>
                 <a data-tab="kas" class="sidebar-nav-item">
                     <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
-                    <span>Kas Mingguan</span>
+                    <span>Kas Kelas</span>
                 </a>
-                <a data-tab="jurnal" class="sidebar-nav-item">
-                    <i class="fa-solid fa-receipt w-4 text-center"></i>
-                    <span>Jurnal Kas</span>
-                </a>
-                <a data-tab="bank" class="sidebar-nav-item">
-                    <i class="fa-solid fa-building-columns w-4 text-center"></i>
-                    <span>Mutasi Bank</span>
+                <a data-tab="bms" class="sidebar-nav-item">
+                    <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
+                    <span>Kas BMS</span>
                 </a>
                 <a data-tab="kasbon" class="sidebar-nav-item">
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
                     <span>Kasbon</span>
                 </a>
-                <a data-tab="bms" class="sidebar-nav-item">
-                    <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
-                    <span>Kas BMS</span>
+                <a data-tab="jurnal" class="sidebar-nav-item">
+                    <i class="fa-solid fa-receipt w-4 text-center"></i>
+                    <span>Cashflow</span>
+                </a>
+                <a data-tab="bank" class="sidebar-nav-item">
+                    <i class="fa-solid fa-building-columns w-4 text-center"></i>
+                    <span>Mutasi Bank</span>
                 </a>
             </nav>
         </div>
@@ -83,16 +80,14 @@
         <section data-tab-content="dashboard" class="tab-content">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Ikhtisar Keuangan</h2>
-                <p class="text-sm text-subtle">Ringkasan real-time arus kas dan posisi keuangan kelas.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="summary-cards"></div>
         </section>
 
-        <!-- Kas Mingguan Section -->
+        <!-- Kas Kelas Section -->
         <section data-tab-content="kas" class="tab-content hidden">
             <div class="mb-6">
-                <h2 class="display-md mb-1">Kas Mingguan</h2>
-                <p class="text-sm text-subtle">Status iuran mingguan seluruh siswa per periode.</p>
+                <h2 class="display-md mb-1">Kas Kelas</h2>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 mb-4">
                 <div class="w-full sm:w-44">
@@ -111,11 +106,10 @@
             </div>
         </section>
 
-        <!-- Jurnal Kas Section -->
+        <!-- Cashflow Section -->
         <section data-tab-content="jurnal" class="tab-content hidden">
             <div class="mb-6">
-                <h2 class="display-md mb-1">Jurnal Kas</h2>
-                <p class="text-sm text-subtle">Grafik analisis dan riwayat transaksi penerimaan serta pengeluaran.</p>
+                <h2 class="display-md mb-1">Cashflow</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div class="card-linear p-5">
@@ -156,7 +150,6 @@
         <section data-tab-content="bank" class="tab-content hidden">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Mutasi Bank</h2>
-                <p class="text-sm text-subtle">Catatan penyetoran dan penarikan kas pada rekening kelas.</p>
             </div>
             <div class="table-container overflow-x-auto" id="bank-wrap"></div>
         </section>
@@ -166,7 +159,6 @@
             <div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="display-md mb-1">Kasbon</h2>
-                    <p class="text-sm text-subtle">Data kasbon siswa per periode.</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <select id="kasbon-bulan" class="input-linear"></select>
@@ -196,7 +188,6 @@
         <section data-tab-content="bms" class="tab-content hidden">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Kas BMS</h2>
-                <p class="text-sm text-subtle">Riwayat setor dan tarik dana BMS.</p>
             </div>
 
             <div id="bms-summary-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"></div>
