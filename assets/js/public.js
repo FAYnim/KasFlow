@@ -23,10 +23,9 @@ $(function () {
         $('html').attr('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
         updateThemeUI(newTheme);
-        
-        // Re-render chart if active in Jurnal section
+
         if (lineChart || donutChart) {
-            loadJurnal();
+            renderCharts(lastChartData);
         }
     });
 
@@ -82,11 +81,14 @@ $(function () {
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
 
+    let lastChartData = null;
+    let lineChart, donutChart;
     function loadDashboard() {
         $.getJSON('src/api/public.php?action=get_summary', function (s) {
             const cards = [
-                ['Total Kas Terkumpul', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
-                ['Cash on Hand', fmt(s.cash_on_hand), 'text-[var(--semantic-success)]', '<i class="fa-solid fa-hand-holding-dollar text-sm"></i>'],
+                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
+                ['Saldo BMS', fmt(s.saldo_bms), 'text-[var(--semantic-info)]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
+                ['Total Kasbon', fmt(s.total_kasbon), 'text-amber-400', '<i class="fa-solid fa-handshake text-sm"></i>'],
             ];
             $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -97,6 +99,68 @@ $(function () {
                     <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
                 </div>`
             ).join(''));
+        });
+        $.getJSON('src/api/public.php', { action: 'get_jurnal' }, function (r) {
+            lastChartData = r;
+            renderCharts(r);
+        });
+    }
+
+    function renderCharts(r) {
+        const labels = r.line_chart.map(x => x.tanggal);
+        const data   = r.line_chart.map(x => x.saldo);
+
+        const isDark = $('html').attr('data-theme') === 'dark';
+        const gridColor = isDark ? '#23252a' : '#e2e8f0';
+        const textColor = isDark ? '#8a8f98' : '#64748b';
+        const donutBorderColor = isDark ? '#0f1011' : '#ffffff';
+        const primaryColor = isDark ? '#5e6ad2' : '#4f46e5';
+
+        Chart.defaults.color = textColor;
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        if (lineChart) lineChart.destroy();
+        lineChart = new Chart(document.getElementById('chart-line'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Saldo',
+                    data,
+                    borderColor: primaryColor,
+                    backgroundColor: isDark ? 'rgba(94, 106, 210, 0.12)' : 'rgba(79, 70, 229, 0.12)',
+                    borderWidth: 2,
+                    pointBackgroundColor: primaryColor,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: gridColor }, ticks: { color: textColor } },
+                    y: { grid: { color: gridColor }, ticks: { color: textColor } }
+                }
+            }
+        });
+
+        if (donutChart) donutChart.destroy();
+        donutChart = new Chart(document.getElementById('chart-donut'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Pemasukan', 'Pengeluaran'],
+                datasets: [{
+                    data: [r.donut.masuk, r.donut.keluar],
+                    backgroundColor: [primaryColor, isDark ? '#e5484d' : '#dc2626'],
+                    borderColor: donutBorderColor,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom', labels: { color: textColor, padding: 16 } } }
+            }
         });
     }
 
@@ -142,7 +206,6 @@ $(function () {
 
     function filterKas() { renderKas(); }
 
-    let lineChart, donutChart;
     function loadJurnal() {
         const params = { action: 'get_jurnal' };
         const b = $('#jurnal-bulan').val();
@@ -150,66 +213,6 @@ $(function () {
         if (b) params.bulan = b;
         if (t) params.tahun = t;
         $.getJSON('src/api/public.php', params, function (r) {
-            const labels = r.line_chart.map(x => x.tanggal);
-            const data   = r.line_chart.map(x => x.saldo);
-
-            const isDark = $('html').attr('data-theme') === 'dark';
-            const gridColor = isDark ? '#23252a' : '#e2e8f0';
-            const textColor = isDark ? '#8a8f98' : '#64748b';
-            const donutBorderColor = isDark ? '#0f1011' : '#ffffff';
-            const primaryColor = isDark ? '#5e6ad2' : '#4f46e5';
-
-            Chart.defaults.color = textColor;
-            Chart.defaults.font.family = "'Inter', sans-serif";
-
-            if (lineChart) lineChart.destroy();
-            lineChart = new Chart(document.getElementById('chart-line'), {
-                type: 'line',
-                data: { 
-                    labels, 
-                    datasets: [{ 
-                        label: 'Saldo', 
-                        data, 
-                        borderColor: primaryColor, 
-                        backgroundColor: isDark ? 'rgba(94, 106, 210, 0.12)' : 'rgba(79, 70, 229, 0.12)', 
-                        borderWidth: 2,
-                        pointBackgroundColor: primaryColor,
-                        fill: true, 
-                        tension: 0.3 
-                    }] 
-                },
-                options: { 
-                    responsive: true,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: { grid: { color: gridColor }, ticks: { color: textColor } },
-                        y: { grid: { color: gridColor }, ticks: { color: textColor } }
-                    }
-                }
-            });
-
-            if (donutChart) donutChart.destroy();
-            donutChart = new Chart(document.getElementById('chart-donut'), {
-                type: 'doughnut',
-                data: { 
-                    labels: ['Pemasukan', 'Pengeluaran'], 
-                    datasets: [{ 
-                        data: [r.donut.masuk, r.donut.keluar], 
-                        backgroundColor: [primaryColor, isDark ? '#e5484d' : '#dc2626'],
-                        borderColor: donutBorderColor,
-                        borderWidth: 2
-                    }] 
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: textColor, padding: 16 } }
-                    }
-                }
-            });
-
             let h = `<table class="table-linear">
                 <thead>
                     <tr>

@@ -75,9 +75,27 @@
         <!-- Dashboard Section -->
         <section data-tab-content="dashboard" class="tab-content">
             <div class="mb-6">
-                <h2 class="display-md mb-1">Ikhtisar Keuangan</h2>
+                <h2 class="display-md mb-1">Keuangan RPL 1</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="summary-cards"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="card-linear p-5">
+                    <div class="eyebrow mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Tren Akumulasi Saldo</span>
+                    </div>
+                    <canvas id="chart-line" height="200"></canvas>
+                </div>
+                <div class="card-linear p-5">
+                    <div class="eyebrow mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Rasio Masuk vs Keluar</span>
+                    </div>
+                    <div class="h-[200px] flex items-center justify-center">
+                        <canvas id="chart-donut"></canvas>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Kas Kelas Section -->
@@ -106,24 +124,6 @@
         <section data-tab-content="jurnal" class="tab-content hidden">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Cashflow</h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div class="card-linear p-5">
-                    <div class="eyebrow mb-3 flex items-center gap-2">
-                        <i class="fa-solid fa-chart-line"></i>
-                        <span>Tren Akumulasi Saldo</span>
-                    </div>
-                    <canvas id="chart-line" height="200"></canvas>
-                </div>
-                <div class="card-linear p-5">
-                    <div class="eyebrow mb-3 flex items-center gap-2">
-                        <i class="fa-solid fa-chart-pie"></i>
-                        <span>Rasio Masuk vs Keluar</span>
-                    </div>
-                    <div class="h-[200px] flex items-center justify-center">
-                        <canvas id="chart-donut"></canvas>
-                    </div>
-                </div>
             </div>
             <div class="flex flex-wrap gap-2 mb-4 items-end">
                 <div class="w-full sm:w-44">
