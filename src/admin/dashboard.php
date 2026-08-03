@@ -40,19 +40,19 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </a>
                 <a data-tab="kas" class="sidebar-nav-item">
                     <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
-                    <span>Input Kas</span>
-                </a>
-                <a data-tab="jurnal" class="sidebar-nav-item">
-                    <i class="fa-solid fa-receipt w-4 text-center"></i>
-                    <span>Kelola Jurnal</span>
-                </a>
-                <a data-tab="kasbon" class="sidebar-nav-item">
-                    <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
-                    <span>Kelola Kasbon</span>
+                    <span>Kas Kelas</span>
                 </a>
                 <a data-tab="bms" class="sidebar-nav-item">
                     <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
                     <span>Kas BMS</span>
+                </a>
+                <a data-tab="kasbon" class="sidebar-nav-item">
+                    <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
+                    <span>Kasbon</span>
+                </a>
+                <a data-tab="jurnal" class="sidebar-nav-item">
+                    <i class="fa-solid fa-receipt w-4 text-center"></i>
+                    <span>Cashflow</span>
                 </a>
                 <a data-tab="ekspor" class="sidebar-nav-item">
                     <i class="fa-solid fa-file-export w-4 text-center"></i>
