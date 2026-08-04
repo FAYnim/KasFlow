@@ -14,9 +14,9 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="../../assets/css/print.css" media="print">
 </head>
-<body data-theme="dark" class="bg-[#010102] text-[#f7f8f8] min-h-screen flex flex-col md:flex-row">
+<body data-theme="dark" class="bg-[#010102] text-[#f7f8f8] min-h-screen flex flex-col md:flex-row md:h-screen md:overflow-hidden">
     <!-- Admin Sidebar Navigation -->
-    <aside class="w-full md:w-60 bg-[#0f1011] border-r border-[#23252a] min-h-screen p-4 flex-shrink-0 flex flex-col justify-between">
+    <aside class="w-full md:w-60 bg-[#0f1011] border-r border-[#23252a] min-h-screen p-4 flex-shrink-0 flex flex-col justify-between md:h-screen md:overflow-hidden md:sticky md:top-0">
         <div>
             <div class="brand-mark mb-6 px-2 py-1">
                 <div class="brand-icon">
@@ -70,7 +70,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
     </aside>
 
     <!-- Main Admin Content -->
-    <main class="flex-1 p-6 md:p-8 max-w-6xl">
+    <main class="flex-1 p-6 md:p-8 max-w-6xl md:h-screen md:overflow-y-auto">
         <div class="flex items-center justify-between mb-6 pb-4 border-b border-[#23252a]">
             <div>
                 <div class="eyebrow">Sesi Aktif</div>
