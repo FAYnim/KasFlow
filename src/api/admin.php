@@ -49,6 +49,44 @@ try {
             echo json_encode(['ok' => true, 'total_bayar' => (float)$row['total_bayar']]);
             break;
         }
+        case 'bulk_update_kas': {
+            $bulan = $_POST['bulan'] ?? date('F');
+            $tahun = (int)($_POST['tahun'] ?? date('Y'));
+            $changesJson = $_POST['changes'] ?? '[]';
+            $changes = json_decode($changesJson, true);
+            if (!is_array($changes)) { http_response_code(400); echo json_encode(['error'=>'invalid changes']); break; }
+            $tarif = (int)$pdo->query("SELECT key_value FROM config WHERE key_name='tarif_kas_mingguan'")->fetchColumn();
+            $totals = [];
+            $pdo->beginTransaction();
+            try {
+                foreach ($changes as $c) {
+                    $sid = (int)($c['siswa_id'] ?? 0);
+                    $m   = (int)($c['minggu'] ?? 0);
+                    $chk = (int)($c['checked'] ?? 0);
+                    if ($sid <= 0 || !in_array($m, [1,2,3,4,5], true)) continue;
+                    $col = "minggu_$m";
+                    $pdo->prepare("
+                        INSERT INTO kas_mingguan (siswa_id, bulan, tahun, $col, total_bayar)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE $col = VALUES($col)
+                    ")->execute([$sid, $bulan, $tahun, $chk, 0]);
+                    $pdo->prepare("
+                        UPDATE kas_mingguan
+                        SET total_bayar = (minggu_1+minggu_2+minggu_3+minggu_4+minggu_5) * ?
+                        WHERE siswa_id=? AND bulan=? AND tahun=?
+                    ")->execute([$tarif, $sid, $bulan, $tahun]);
+                }
+                $pdo->commit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                http_response_code(500); echo json_encode(['error'=>'save failed']); break;
+            }
+            $stmt = $pdo->prepare("SELECT siswa_id, total_bayar FROM kas_mingguan WHERE bulan=? AND tahun=?");
+            $stmt->execute([$bulan, $tahun]);
+            foreach ($stmt as $r) $totals[(int)$r['siswa_id']] = (float)$r['total_bayar'];
+            echo json_encode(['ok' => true, 'totals' => $totals, 'saved' => count($changes)]);
+            break;
+        }
         case 'add_jurnal': {
             $tgl   = $_POST['tanggal'] ?? date('Y-m-d');
             $ket   = trim($_POST['keterangan'] ?? '');

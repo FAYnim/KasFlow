@@ -106,10 +106,24 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
         <!-- Section: Input Kas -->
         <section data-tab-content="kas" class="tab-content hidden">
             <h2 class="display-md mb-2">Input Kas Mingguan</h2>
-            <p class="text-sm text-[#8a8f98] mb-4">Centang checkbox untuk mencatat pembayaran kas siswa.</p>
+            <p class="text-sm text-[#8a8f98] mb-4">Centang checkbox untuk mencatat pembayaran kas siswa. Perubahan belum tersimpan sampai klik <b>Simpan</b>.</p>
             <div class="flex gap-3 mb-4">
                 <select id="admin-bulan" class="input-linear w-44"></select>
                 <select id="admin-tahun" class="input-linear w-32"></select>
+            </div>
+            <div class="flex items-center gap-2 mb-3">
+                <span id="kas-pending-badge" class="hidden text-xs px-2 py-1 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                    <i class="fa-solid fa-circle-exclamation text-[10px] mr-1"></i>
+                    <span id="kas-pending-count">0</span> perubahan belum disimpan
+                </span>
+                <button id="kas-reset-btn" type="button" class="btn-secondary text-xs gap-2 hidden">
+                    <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                    <span>Reset</span>
+                </button>
+                <button id="kas-save-btn" type="button" class="btn-primary text-xs gap-2 hidden">
+                    <i class="fa-solid fa-floppy-disk text-[10px]"></i>
+                    <span>Simpan</span>
+                </button>
             </div>
             <div id="kas-wrap" class="table-container overflow-x-auto"></div>
         </section>

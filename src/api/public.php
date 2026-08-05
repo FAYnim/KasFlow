@@ -33,7 +33,9 @@ try {
                 ORDER BY s.nama ASC
             ");
             $stmt->execute([$bulan, $tahun]);
-            echo json_encode($stmt->fetchAll());
+            $rows = $stmt->fetchAll();
+            $tarif = (int)$pdo->query("SELECT key_value FROM config WHERE key_name='tarif_kas_mingguan'")->fetchColumn();
+            echo json_encode(['tarif' => $tarif, 'rows' => $rows]);
             break;
         }
         case 'get_jurnal': {

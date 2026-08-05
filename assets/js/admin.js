@@ -1,6 +1,7 @@
 $(function () {
     const $tabs = $('[data-tab-content]');
     const $navItems = $('[data-tab]');
+    const kasState = { saved: {}, pending: {}, tarif: 0, bulan: '', tahun: 0 };
 
     const activate = (n) => { 
         $tabs.addClass('hidden'); 
@@ -234,47 +235,132 @@ $(function () {
 
     function lKas() {
         const bulan = $('#admin-bulan').val(), tahun = $('#admin-tahun').val();
-        $.getJSON('../../src/api/public.php', { action:'get_kas', bulan, tahun }, rows => {
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th>Nama Siswa</th>
-                        ${[1,2,3,4,5].map(i => `<th class="text-center w-16">M${i}</th>`).join('')}
-                        <th class="text-right w-36">Total Bayar</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (rows.length === 0) {
-                h += `<tr><td colspan="7" class="text-center py-6 text-[#8a8f98]">Tidak ada data kas siswa.</td></tr>`;
-            } else {
-                h += rows.map(r =>
-                    `<tr>
-                        <td class="font-medium text-[#f7f8f8]">${r.nama}</td>
-                        ${[1,2,3,4,5].map(i => 
-                            `<td class="text-center">
-                                <input type="checkbox" class="kas-cb" data-siswa="${r.id}" data-minggu="${i}" ${r['m'+i]?'checked':''}>
-                            </td>`
-                        ).join('')}
-                        <td class="text-right font-mono-num font-medium text-[#f7f8f8] total-cell" data-siswa="${r.id}">${fmt(r.total_bayar)}</td>
-                    </tr>`
-                ).join('');
-            }
-            h += '</tbody></table>';
-            $('#kas-wrap').html(h);
+        kasState.bulan = bulan; kasState.tahun = tahun;
+        $.getJSON('../../src/api/public.php', { action:'get_kas', bulan, tahun }, res => {
+            const rows = res.rows || [], tarif = res.tarif || 0;
+            kasState.tarif = tarif; kasState.saved = {}; kasState.pending = {};
+            rows.forEach(r => {
+                const m = {};
+                for (let i = 1; i <= 5; i++) m[i] = r['m'+i] ? 1 : 0;
+                kasState.saved[r.id] = m;
+            });
+            renderKas(rows);
+            updateKasToolbar();
         });
+    }
+
+    function renderKas(rows) {
+        const tarif = kasState.tarif || 0;
+        let h = `<table class="table-linear">
+            <thead>
+                <tr>
+                    <th>Nama Siswa</th>
+                    ${[1,2,3,4,5].map(i => `<th class="text-center w-16">M${i}</th>`).join('')}
+                    <th class="text-right w-36">Total Bayar</th>
+                </tr>
+            </thead>
+            <tbody>`;
+        if (rows.length === 0) {
+            h += `<tr><td colspan="7" class="text-center py-6 text-[#8a8f98]">Tidak ada data kas siswa.</td></tr>`;
+        } else {
+            h += rows.map(r => {
+                const state = kasState.pending[r.id] || kasState.saved[r.id] || {};
+                const total = [1,2,3,4,5].reduce((s,i) => s + (state[i] || 0), 0) * tarif;
+                return `<tr>
+                    <td class="font-medium text-[#f7f8f8]">${r.nama}</td>
+                    ${[1,2,3,4,5].map(i => {
+                        const dirty = kasState.pending[r.id] && kasState.pending[r.id][i] !== kasState.saved[r.id][i];
+                        return `<td class="text-center">
+                            <input type="checkbox" class="kas-cb" data-siswa="${r.id}" data-minggu="${i}" ${state[i]?'checked':''}>
+                            ${dirty ? '<span class="block w-1.5 h-1.5 rounded-full bg-amber-400 mx-auto mt-0.5" title="Belum disimpan"></span>' : ''}
+                        </td>`;
+                    }).join('')}
+                    <td class="text-right font-mono-num font-medium text-[#f7f8f8] total-cell" data-siswa="${r.id}">${fmt(total)}</td>
+                </tr>`;
+            }).join('');
+        }
+        h += '</tbody></table>';
+        $('#kas-wrap').html(h);
+    }
+
+    function updateKasToolbar() {
+        const n = Object.keys(kasState.pending).length;
+        if (n === 0) {
+            $('#kas-pending-badge').addClass('hidden');
+            $('#kas-save-btn').addClass('hidden');
+            $('#kas-reset-btn').addClass('hidden');
+        } else {
+            $('#kas-pending-badge').removeClass('hidden');
+            $('#kas-pending-count').text(n);
+            $('#kas-save-btn').removeClass('hidden');
+            $('#kas-reset-btn').removeClass('hidden');
+        }
     }
 
     $(document).on('change', '.kas-cb', function () {
         const cb = $(this);
-        $.post('../../src/api/admin.php?action=update_kas', {
-            siswa_id: cb.data('siswa'), 
-            minggu: cb.data('minggu'),
-            checked: cb.is(':checked')?1:0,
-            bulan: $('#admin-bulan').val(), 
-            tahun: $('#admin-tahun').val()
-        }, r => {
-            $(`.total-cell[data-siswa="${cb.data('siswa')}"]`).text(fmt(r.total_bayar));
-        }, 'json');
+        const sid = cb.data('siswa'), m = cb.data('minggu');
+        if (!kasState.pending[sid]) kasState.pending[sid] = { ...(kasState.saved[sid] || {}) };
+        kasState.pending[sid][m] = cb.is(':checked') ? 1 : 0;
+        if (kasState.pending[sid][m] === kasState.saved[sid][m]) {
+            delete kasState.pending[sid][m];
+            if (Object.keys(kasState.pending[sid]).length === 0) delete kasState.pending[sid];
+        }
+        const tarif = kasState.tarif || 0;
+        const state = { ...(kasState.saved[sid] || {}), ...(kasState.pending[sid] || {}) };
+        const total = [1,2,3,4,5].reduce((s,i) => s + (state[i] || 0), 0) * tarif;
+        $(`.total-cell[data-siswa="${sid}"]`).text(fmt(total));
+        const td = cb.closest('td');
+        const dot = td.find('span');
+        if (kasState.pending[sid] && kasState.pending[sid][m] !== undefined && kasState.pending[sid][m] !== kasState.saved[sid][m]) {
+            if (!dot.length) td.append('<span class="block w-1.5 h-1.5 rounded-full bg-amber-400 mx-auto mt-0.5" title="Belum disimpan"></span>');
+        } else {
+            dot.remove();
+        }
+        updateKasToolbar();
+    });
+
+    $('#kas-save-btn').on('click', function () {
+        const changes = [];
+        Object.keys(kasState.pending).forEach(sid => {
+            Object.keys(kasState.pending[sid]).forEach(m => {
+                changes.push({ siswa_id: parseInt(sid), minggu: parseInt(m), checked: kasState.pending[sid][m] });
+            });
+        });
+        if (changes.length === 0) return;
+        const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Menyimpan...</span>');
+        $.ajax({
+            url: '../../src/api/admin.php?action=bulk_update_kas',
+            method: 'POST',
+            data: { bulan: kasState.bulan, tahun: kasState.tahun, changes: JSON.stringify(changes) },
+            dataType: 'json',
+            success: r => {
+                if (r.ok) {
+                    Object.keys(r.totals || {}).forEach(sid => { kasState.saved[sid] = { ...(kasState.pending[sid] || kasState.saved[sid] || {}) }; });
+                    Object.keys(kasState.pending).forEach(sid => { kasState.saved[sid] = { ...kasState.saved[sid], ...kasState.pending[sid] }; });
+                    kasState.pending = {};
+                    lKas();
+                } else {
+                    alert(r.error || 'Gagal menyimpan.');
+                }
+            },
+            error: () => alert('Gagal terhubung server.'),
+            complete: () => { $btn.prop('disabled', false).html('<i class="fa-solid fa-floppy-disk text-[10px]"></i> <span>Simpan</span>'); }
+        });
+    });
+
+    $('#kas-reset-btn').on('click', function () {
+        if (Object.keys(kasState.pending).length === 0) return;
+        if (!confirm('Batalkan semua perubahan yang belum disimpan?')) return;
+        kasState.pending = {};
+        lKas();
+    });
+
+    $('#admin-bulan, #admin-tahun').on('change', () => {
+        if (Object.keys(kasState.pending).length === 0) { lKas(); return; }
+        if (!confirm('Ada perubahan belum disimpan. Ganti periode dan buang perubahan?')) return;
+        kasState.pending = {};
+        lKas();
     });
 
     // Jurnal Modal & CRUD

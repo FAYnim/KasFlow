@@ -167,8 +167,8 @@ $(function () {
     let kasData = [];
     function loadKas() {
         const bulan = $('#kas-bulan').val(), tahun = $('#kas-tahun').val();
-        $.getJSON('src/api/public.php', { action:'get_kas', bulan, tahun }, function (rows) {
-            kasData = rows; 
+        $.getJSON('src/api/public.php', { action:'get_kas', bulan, tahun }, function (res) {
+            kasData = (res && res.rows) ? res.rows : (Array.isArray(res) ? res : []);
             renderKas();
         });
     }
