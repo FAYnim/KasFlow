@@ -2,6 +2,7 @@
 @session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../lib/activity_log.php';
 
 if (empty($_SESSION['admin_logged'])) {
     http_response_code(403);
@@ -20,7 +21,9 @@ try {
             if ($nama === '') { http_response_code(400); echo json_encode(['error'=>'nama required']); break; }
             $stmt = $pdo->prepare('INSERT INTO siswa (absen, nama) VALUES (?, ?)');
             $stmt->execute([$absen ?: null, $nama]);
-            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
+            $newId = (int)$pdo->lastInsertId();
+            log_activity($pdo, 'siswa', 'tambah', $newId, 'Tambah siswa: ' . $nama);
+            echo json_encode(['ok' => true, 'id' => $newId]);
             break;
         }
         case 'update_kas': {
@@ -46,6 +49,11 @@ try {
             $stmt = $pdo->prepare("SELECT total_bayar FROM kas_mingguan WHERE siswa_id=? AND bulan=? AND tahun=?");
             $stmt->execute([$siswa_id, $bulan, $tahun]);
             $row = $stmt->fetch();
+            $namaStmt = $pdo->prepare("SELECT nama FROM siswa WHERE id=?");
+            $namaStmt->execute([$siswa_id]);
+            $namaSiswa = $namaStmt->fetchColumn() ?: ('#' . $siswa_id);
+            $verb = $checked ? 'Centang' : 'Hapus centang';
+            log_activity($pdo, 'kas_mingguan', 'update_status', $siswa_id, "$verb kas $namaSiswa minggu $minggu ($bulan $tahun)");
             echo json_encode(['ok' => true, 'total_bayar' => (float)$row['total_bayar']]);
             break;
         }
@@ -84,6 +92,7 @@ try {
             $stmt = $pdo->prepare("SELECT siswa_id, total_bayar FROM kas_mingguan WHERE bulan=? AND tahun=?");
             $stmt->execute([$bulan, $tahun]);
             foreach ($stmt as $r) $totals[(int)$r['siswa_id']] = (float)$r['total_bayar'];
+            log_activity($pdo, 'kas_mingguan', 'update_status', null, "Bulk update kas $bulan $tahun (" . count($changes) . ' perubahan)');
             echo json_encode(['ok' => true, 'totals' => $totals, 'saved' => count($changes)]);
             break;
         }
@@ -97,7 +106,9 @@ try {
             }
             $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal) VALUES (?,?,?,?)")
                 ->execute([$tgl, $ket, $jenis, $nom]);
-            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
+            $newId = (int)$pdo->lastInsertId();
+            log_activity($pdo, 'jurnal_kas', 'tambah', $newId, "Tambah jurnal #$newId: $ket");
+            echo json_encode(['ok' => true, 'id' => $newId]);
             break;
         }
         case 'update_jurnal': {
@@ -108,17 +119,23 @@ try {
             $nom  = (float)$_POST['nominal'];
             $pdo->prepare("UPDATE jurnal_kas SET tanggal=?, keterangan=?, jenis=?, nominal=? WHERE id=?")
                 ->execute([$tgl,$ket,$jenis,$nom,$id]);
+            log_activity($pdo, 'jurnal_kas', 'edit', $id, "Edit jurnal #$id: $ket");
             echo json_encode(['ok' => true]);
             break;
         }
         case 'delete_jurnal': {
             $id = (int)($_REQUEST['id'] ?? 0);
+            $ketStmt = $pdo->prepare("SELECT keterangan FROM jurnal_kas WHERE id=?");
+            $ketStmt->execute([$id]);
+            $ket = $ketStmt->fetchColumn() ?: '';
             $pdo->prepare("DELETE FROM jurnal_kas WHERE id=?")->execute([$id]);
+            log_activity($pdo, 'jurnal_kas', 'hapus', $id, "Hapus jurnal #$id: $ket");
             echo json_encode(['ok' => true]);
             break;
         }
         case 'delete_siswa': {
             $id = (int)($_REQUEST['id'] ?? 0);
+            log_activity($pdo, 'siswa', 'hapus', $id, 'Hapus siswa #' . $id);
             $pdo->prepare("DELETE FROM siswa WHERE id=?")->execute([$id]);
             echo json_encode(['ok' => true]);
             break;
@@ -133,6 +150,7 @@ try {
             $absen = trim($_POST['absen'] ?? '');
             $nama  = trim($_POST['nama'] ?? '');
             $pdo->prepare("UPDATE siswa SET absen=?, nama=? WHERE id=?")->execute([$absen ?: null, $nama, $id]);
+            log_activity($pdo, 'siswa', 'edit', $id, 'Edit siswa: ' . $nama);
             echo json_encode(['ok' => true]);
             break;
         }
@@ -148,7 +166,9 @@ try {
             $tLunas = ($stat === 'lunas') ? date('Y-m-d') : null;
             $pdo->prepare("INSERT INTO kasbon (nama, tanggal, keterangan, jumlah, status, tanggal_lunas) VALUES (?,?,?,?,?,?)")
                 ->execute([$nama, $tgl, $ket, $jml, $stat, $tLunas]);
-            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
+            $newId = (int)$pdo->lastInsertId();
+            log_activity($pdo, 'kasbon', 'tambah', $newId, "Tambah kasbon $nama: $jml");
+            echo json_encode(['ok' => true, 'id' => $newId]);
             break;
         }
         case 'update_kasbon': {
@@ -170,6 +190,7 @@ try {
             }
             $pdo->prepare("UPDATE kasbon SET nama=?, tanggal=?, keterangan=?, jumlah=?, status=?, tanggal_lunas=? WHERE id=?")
                 ->execute([$nama, $tgl, $ket, $jml, $stat, $tLunas, $id]);
+            log_activity($pdo, 'kasbon', 'edit', $id, "Edit kasbon #$id: $nama");
             echo json_encode(['ok' => true]);
             break;
         }
@@ -178,6 +199,7 @@ try {
             if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
             $pdo->prepare("UPDATE kasbon SET status='lunas', tanggal_lunas=? WHERE id=?")
                 ->execute([date('Y-m-d'), $id]);
+            log_activity($pdo, 'kasbon', 'update_status', $id, "Tandai lunas kasbon #$id");
             echo json_encode(['ok' => true]);
             break;
         }
@@ -186,13 +208,18 @@ try {
             if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
             $pdo->prepare("UPDATE kasbon SET status='belum_lunas', tanggal_lunas=NULL WHERE id=?")
                 ->execute([$id]);
+            log_activity($pdo, 'kasbon', 'update_status', $id, "Tandai belum lunas kasbon #$id");
             echo json_encode(['ok' => true]);
             break;
         }
         case 'delete_kasbon': {
             $id = (int)($_REQUEST['id'] ?? 0);
             if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
+            $namaStmt = $pdo->prepare("SELECT nama FROM kasbon WHERE id=?");
+            $namaStmt->execute([$id]);
+            $nama = $namaStmt->fetchColumn() ?: '';
             $pdo->prepare("DELETE FROM kasbon WHERE id=?")->execute([$id]);
+            log_activity($pdo, 'kasbon', 'hapus', $id, "Hapus kasbon #$id: $nama");
             echo json_encode(['ok' => true]);
             break;
         }
@@ -206,7 +233,9 @@ try {
             }
             $pdo->prepare("INSERT INTO kas_bms (tanggal, keterangan, jenis, jumlah) VALUES (?,?,?,?)")
                 ->execute([$tgl, $ket, $jenis, $jml]);
-            echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()]);
+            $newId = (int)$pdo->lastInsertId();
+            log_activity($pdo, 'kas_bms', 'tambah', $newId, "Tambah kas_bms #$newId: $ket ($jenis)");
+            echo json_encode(['ok' => true, 'id' => $newId]);
             break;
         }
         case 'update_bms': {
@@ -220,14 +249,43 @@ try {
             }
             $pdo->prepare("UPDATE kas_bms SET tanggal=?, keterangan=?, jenis=?, jumlah=? WHERE id=?")
                 ->execute([$tgl, $ket, $jenis, $jml, $id]);
+            log_activity($pdo, 'kas_bms', 'edit', $id, "Edit kas_bms #$id: $ket");
             echo json_encode(['ok' => true]);
             break;
         }
         case 'delete_bms': {
             $id = (int)($_REQUEST['id'] ?? 0);
             if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
+            $ketStmt = $pdo->prepare("SELECT keterangan FROM kas_bms WHERE id=?");
+            $ketStmt->execute([$id]);
+            $ket = $ketStmt->fetchColumn() ?: '';
             $pdo->prepare("DELETE FROM kas_bms WHERE id=?")->execute([$id]);
+            log_activity($pdo, 'kas_bms', 'hapus', $id, "Hapus kas_bms #$id: $ket");
             echo json_encode(['ok' => true]);
+            break;
+        }
+        case 'prune_riwayat': {
+            $sebelum = $_POST['sebelum'] ?? '';
+            if ($sebelum === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'sebelum required']);
+                break;
+            }
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $sebelum)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'invalid date']);
+                break;
+            }
+            $maxDate = date('Y-m-d', strtotime('+30 days'));
+            if ($sebelum > $maxDate) {
+                http_response_code(400);
+                echo json_encode(['error' => 'sebelum cannot be future date > 30 days']);
+                break;
+            }
+            $stmt = $pdo->prepare("DELETE FROM activity_log WHERE created_at < ?");
+            $stmt->execute([$sebelum . ' 00:00:00']);
+            $deleted = $stmt->rowCount();
+            echo json_encode(['ok' => true, 'deleted' => $deleted]);
             break;
         }
         default:

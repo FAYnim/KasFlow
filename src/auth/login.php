@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $stmt->fetch();
     if ($user && password_verify($password, $user['password'])) {
         $_SESSION['admin_logged'] = true;
+        $_SESSION['admin_username'] = $user['username'];
         $_SESSION['admin_nama'] = $user['nama'];
         header('Location: ../admin/dashboard.php');
         exit;

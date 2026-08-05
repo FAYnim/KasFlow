@@ -59,6 +59,10 @@
                     <i class="fa-solid fa-receipt w-4 text-center"></i>
                     <span>Cashflow</span>
                 </a>
+                <a data-tab="riwayat" class="sidebar-nav-item">
+                    <i class="fa-solid fa-clock-rotate-left w-4 text-center"></i>
+                    <span>Riwayat</span>
+                </a>
             </nav>
         </div>
 
@@ -198,6 +202,43 @@
             </div>
 
             <div id="bms-wrap" class="table-container overflow-x-auto"></div>
+        </section>
+
+        <!-- Riwayat Section -->
+        <section data-tab-content="riwayat" class="tab-content hidden">
+            <div class="mb-6">
+                <h2 class="display-md mb-1">Riwayat</h2>
+                <p class="text-sm text-subtle">Catatan perubahan data keuangan kelas.</p>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-4 items-end">
+                <label class="text-xs text-subtle">
+                    <span class="block mb-1">Aksi</span>
+                    <select id="riwayat-aksi" class="input-linear">
+                        <option value="">Semua</option>
+                        <option value="tambah">Tambah</option>
+                        <option value="edit">Edit</option>
+                        <option value="hapus">Hapus</option>
+                        <option value="update_status">Update Status</option>
+                    </select>
+                </label>
+                <label class="text-xs text-subtle">
+                    <span class="block mb-1">Dari</span>
+                    <input type="date" id="riwayat-dari" class="input-linear">
+                </label>
+                <label class="text-xs text-subtle">
+                    <span class="block mb-1">Sampai</span>
+                    <input type="date" id="riwayat-sampai" class="input-linear">
+                </label>
+                <button id="riwayat-apply" type="button" class="btn-primary text-xs gap-2">
+                    <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
+                </button>
+                <button id="riwayat-reset" type="button" class="btn-secondary text-xs gap-2">
+                    <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
+                </button>
+            </div>
+            <div id="riwayat-wrap" class="table-container overflow-x-auto">
+                <div class="text-center py-6 text-subtle">Pilih tab Riwayat untuk memuat data.</div>
+            </div>
         </section>
     </main>
 

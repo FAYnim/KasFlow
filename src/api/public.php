@@ -120,6 +120,33 @@ try {
             ]);
             break;
         }
+        case 'get_riwayat': {
+            $where = [];
+            $args = [];
+            $dari = $_GET['dari'] ?? '';
+            $sampai = $_GET['sampai'] ?? '';
+            $aksi = $_GET['aksi'] ?? '';
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari)) {
+                $where[] = 'created_at >= ?';
+                $args[] = $dari . ' 00:00:00';
+            }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) {
+                $where[] = 'created_at <= ?';
+                $args[] = $sampai . ' 23:59:59';
+            }
+            if (in_array($aksi, ['tambah', 'edit', 'hapus', 'update_status'], true)) {
+                $where[] = 'aksi = ?';
+                $args[] = $aksi;
+            }
+            $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+            $hasFilter = ($dari || $sampai || $aksi);
+            $limit = $hasFilter ? 500 : 50;
+            $stmt = $pdo->prepare("SELECT id, created_at, modul, aksi, entitas_id, ringkasan, admin_username, admin_nama FROM activity_log $sqlWhere ORDER BY created_at DESC, id DESC LIMIT $limit");
+            $stmt->execute($args);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($rows);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);

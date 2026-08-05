@@ -45,6 +45,7 @@ $(function () {
         jurnal: loadJurnal,
         kasbon: loadKasbon,
         bms: loadBms,
+        riwayat: loadRiwayat,
     };
 
     $('#btn-hamburger').on('click', () => $('#sidebar').toggleClass('-translate-x-full'));
@@ -332,4 +333,58 @@ $(function () {
     }
 
     activate('dashboard');
+
+    // ── Riwayat helpers & loader ──────────────────────────────────────────
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function truncate(s, n) {
+        s = String(s ?? '');
+        return s.length > n ? s.slice(0, n) + '\u2026' : s;
+    }
+    function formatDateTime(s) {
+        if (!s) return '-';
+        const d = new Date(s.replace(' ', 'T'));
+        if (isNaN(d.getTime())) return s;
+        const pad = n => String(n).padStart(2, '0');
+        return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+    function loadRiwayat() {
+        const params = new URLSearchParams({action: 'get_riwayat'});
+        const aksi = $('#riwayat-aksi').val();
+        const dari = $('#riwayat-dari').val();
+        const sampai = $('#riwayat-sampai').val();
+        if (aksi) params.set('aksi', aksi);
+        if (dari) params.set('dari', dari);
+        if (sampai) params.set('sampai', sampai);
+        $('#riwayat-wrap').html('<div class="text-center py-6 text-subtle">Memuat…</div>');
+        $.getJSON('src/api/public.php?' + params.toString(), function(rows) {
+            if (!rows || !rows.length) {
+                $('#riwayat-wrap').html('<div class="text-center py-6 text-subtle">Belum ada riwayat.</div>');
+                return;
+            }
+            let html = '<table class="table-linear w-full"><thead><tr><th>Waktu</th><th>Modul</th><th>Aksi</th><th>Ringkasan</th><th>Oleh</th></tr></thead><tbody>';
+            rows.forEach(r => {
+                html += '<tr>'
+                    + '<td class="text-xs text-subtle whitespace-nowrap">' + formatDateTime(r.created_at) + '</td>'
+                    + '<td><span class="badge-neutral">' + escapeHtml(r.modul) + '</span></td>'
+                    + '<td><span class="badge-' + escapeHtml(r.aksi) + '">' + escapeHtml(r.aksi) + '</span></td>'
+                    + '<td title="' + escapeHtml(r.ringkasan) + '">' + escapeHtml(truncate(r.ringkasan, 80)) + '</td>'
+                    + '<td class="text-sm">' + escapeHtml(r.admin_nama || r.admin_username || '-') + '</td>'
+                    + '</tr>';
+            });
+            html += '</tbody></table>';
+            $('#riwayat-wrap').html(html);
+        }).fail(function() {
+            $('#riwayat-wrap').html('<div class="text-center py-6 text-subtle">Gagal memuat data.</div>');
+        });
+    }
+    $('#riwayat-apply').on('click', loadRiwayat);
+    $('#riwayat-reset').on('click', function() {
+        $('#riwayat-aksi').val('');
+        $('#riwayat-dari').val('');
+        $('#riwayat-sampai').val('');
+        loadRiwayat();
+    });
 });

@@ -50,6 +50,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
                     <span>Kasbon</span>
                 </a>
+                <a data-tab="riwayat" class="sidebar-nav-item">
+                    <i class="fa-solid fa-clock-rotate-left w-4 text-center"></i>
+                    <span>Riwayat</span>
+                </a>
                 <a data-tab="jurnal" class="sidebar-nav-item">
                     <i class="fa-solid fa-receipt w-4 text-center"></i>
                     <span>Cashflow</span>
@@ -258,6 +262,49 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
             </div>
 
             <div id="bms-wrap" class="table-container overflow-x-auto"></div>
+        </section>
+
+        <!-- Section: Riwayat -->
+        <section data-tab-content="riwayat" class="tab-content hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="display-md">Riwayat Aktivitas</h2>
+                    <p class="text-sm text-[#8a8f98] mt-1">Jejak perubahan data. Hapus log lama untuk kontrol ukuran.</p>
+                </div>
+                <button id="riwayat-prune-btn" type="button" class="btn-secondary text-xs gap-2">
+                    <i class="fa-solid fa-broom text-[10px]"></i>
+                    <span>Hapus Log Lama…</span>
+                </button>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-4 items-end">
+                <label class="text-xs text-[#8a8f98]">
+                    <span class="block mb-1">Aksi</span>
+                    <select id="riwayat-aksi" class="input-linear">
+                        <option value="">Semua</option>
+                        <option value="tambah">Tambah</option>
+                        <option value="edit">Edit</option>
+                        <option value="hapus">Hapus</option>
+                        <option value="update_status">Update Status</option>
+                    </select>
+                </label>
+                <label class="text-xs text-[#8a8f98]">
+                    <span class="block mb-1">Dari</span>
+                    <input type="date" id="riwayat-dari" class="input-linear">
+                </label>
+                <label class="text-xs text-[#8a8f98]">
+                    <span class="block mb-1">Sampai</span>
+                    <input type="date" id="riwayat-sampai" class="input-linear">
+                </label>
+                <button id="riwayat-apply" type="button" class="btn-primary text-xs gap-2">
+                    <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
+                </button>
+                <button id="riwayat-reset" type="button" class="btn-secondary text-xs gap-2">
+                    <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
+                </button>
+            </div>
+            <div id="riwayat-wrap" class="table-container overflow-x-auto">
+                <div class="text-center py-6 text-[#8a8f98]">Pilih tab Riwayat untuk memuat data.</div>
+            </div>
         </section>
     </main>
 
