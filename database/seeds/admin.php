@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../../config/database.php';
 $hash = password_hash('admin123', PASSWORD_DEFAULT);
 $pdo = db();
 

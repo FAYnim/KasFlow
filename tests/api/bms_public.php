@@ -8,7 +8,7 @@ function fail(string $msg): void {
     $fail++;
 }
 
-require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../../config/database.php';
 $pdo = db();
 
 $pdo->exec("DELETE FROM kas_bms WHERE keterangan LIKE 'TEST_%'");

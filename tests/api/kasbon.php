@@ -9,7 +9,7 @@ function fail(string $msg): void {
 }
 
 // --- Schema test ---
-require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../../config/database.php';
 $pdo = db();
 
 $pdo->exec("DELETE FROM kasbon WHERE nama LIKE 'TEST_%'");
