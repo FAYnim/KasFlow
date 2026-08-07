@@ -366,11 +366,26 @@ $(function () {
             }
             let html = '<table class="table-linear w-full"><thead><tr><th>Waktu</th><th>Modul</th><th>Aksi</th><th>Ringkasan</th><th>Oleh</th></tr></thead><tbody>';
             rows.forEach(r => {
+                let cellRingkasan = escapeHtml(r.ringkasan);
+                if (r.detail) {
+                    try {
+                        const d = (typeof r.detail === 'string') ? JSON.parse(r.detail) : r.detail;
+                        if (d && Array.isArray(d.perubahan) && d.perubahan.length > 0) {
+                            const list = d.perubahan.map(p => {
+                                const stBadge = p.status === 'lunas' 
+                                    ? '<span class="text-emerald-600 dark:text-emerald-400 font-semibold">Lunas</span>' 
+                                    : '<span class="text-amber-600 dark:text-amber-400 font-semibold">Belum Lunas</span>';
+                                return `• <b>${escapeHtml(p.nama)}</b> — Minggu ${escapeHtml(p.minggu)} (${stBadge})`;
+                            }).join('<br>');
+                            cellRingkasan += `<details class="mt-1 text-xs text-subtle cursor-pointer"><summary class="text-xs text-primary font-medium underline">Lihat Rincian (${d.perubahan.length} item)</summary><div class="mt-1 p-2 bg-surface-subtle rounded border border-subtle leading-relaxed">${list}</div></details>`;
+                        }
+                    } catch(e) {}
+                }
                 html += '<tr>'
                     + '<td class="text-xs text-subtle whitespace-nowrap">' + formatDateTime(r.created_at) + '</td>'
                     + '<td><span class="badge-neutral">' + escapeHtml(r.modul) + '</span></td>'
                     + '<td><span class="badge-' + escapeHtml(r.aksi) + '">' + escapeHtml(r.aksi) + '</span></td>'
-                    + '<td title="' + escapeHtml(r.ringkasan) + '">' + escapeHtml(truncate(r.ringkasan, 80)) + '</td>'
+                    + '<td>' + cellRingkasan + '</td>'
                     + '<td class="text-sm">' + escapeHtml(r.admin_nama || r.admin_username || '-') + '</td>'
                     + '</tr>';
             });

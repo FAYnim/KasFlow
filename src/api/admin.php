@@ -53,7 +53,20 @@ try {
             $namaStmt->execute([$siswa_id]);
             $namaSiswa = $namaStmt->fetchColumn() ?: ('#' . $siswa_id);
             $verb = $checked ? 'Centang' : 'Hapus centang';
-            log_activity($pdo, 'kas_mingguan', 'update_status', $siswa_id, "$verb kas $namaSiswa minggu $minggu ($bulan $tahun)");
+            $detail = [
+                'bulan' => $bulan,
+                'tahun' => $tahun,
+                'total_perubahan' => 1,
+                'perubahan' => [
+                    [
+                        'siswa_id' => $siswa_id,
+                        'nama' => $namaSiswa,
+                        'minggu' => $minggu,
+                        'status' => $checked ? 'lunas' : 'batal'
+                    ]
+                ]
+            ];
+            log_activity($pdo, 'kas_mingguan', 'update_status', $siswa_id, "$verb kas $namaSiswa minggu $minggu ($bulan $tahun)", $detail);
             echo json_encode(['ok' => true, 'total_bayar' => (float)$row['total_bayar']]);
             break;
         }
@@ -92,7 +105,54 @@ try {
             $stmt = $pdo->prepare("SELECT siswa_id, total_bayar FROM kas_mingguan WHERE bulan=? AND tahun=?");
             $stmt->execute([$bulan, $tahun]);
             foreach ($stmt as $r) $totals[(int)$r['siswa_id']] = (float)$r['total_bayar'];
-            log_activity($pdo, 'kas_mingguan', 'update_status', null, "Bulk update kas $bulan $tahun (" . count($changes) . ' perubahan)');
+
+            // Build detailed log
+            $namaMap = [];
+            $sids = array_unique(array_filter(array_map(fn($c) => (int)($c['siswa_id'] ?? 0), $changes)));
+            if (!empty($sids)) {
+                $inClause = implode(',', array_fill(0, count($sids), '?'));
+                $stmtSiswa = $pdo->prepare("SELECT id, nama FROM siswa WHERE id IN ($inClause)");
+                $stmtSiswa->execute(array_values($sids));
+                while ($row = $stmtSiswa->fetch()) {
+                    $namaMap[(int)$row['id']] = $row['nama'];
+                }
+            }
+
+            $perubahan = [];
+            $summaryItems = [];
+            foreach ($changes as $c) {
+                $sid = (int)($c['siswa_id'] ?? 0);
+                $m   = (int)($c['minggu'] ?? 0);
+                $chk = (int)($c['checked'] ?? 0);
+                if ($sid <= 0 || !in_array($m, [1,2,3,4,5], true)) continue;
+                $namaSiswa = $namaMap[$sid] ?? ("#" . $sid);
+                $perubahan[] = [
+                    'siswa_id' => $sid,
+                    'nama' => $namaSiswa,
+                    'minggu' => $m,
+                    'status' => $chk ? 'lunas' : 'batal'
+                ];
+                $summaryItems[] = "$namaSiswa (M$m: " . ($chk ? 'Lunas' : 'Batal') . ")";
+            }
+
+            $totalPerubahan = count($perubahan);
+            $summaryStr = "";
+            if ($totalPerubahan > 0) {
+                $firstFew = array_slice($summaryItems, 0, 3);
+                $summaryStr = ": " . implode(', ', $firstFew);
+                if ($totalPerubahan > 3) {
+                    $summaryStr .= " + " . ($totalPerubahan - 3) . " lainnya";
+                }
+            }
+            $ringkasan = "Update kas $bulan $tahun ($totalPerubahan perubahan)$summaryStr";
+
+            $detail = [
+                'bulan' => $bulan,
+                'tahun' => $tahun,
+                'total_perubahan' => $totalPerubahan,
+                'perubahan' => $perubahan
+            ];
+            log_activity($pdo, 'kas_mingguan', 'update_status', null, $ringkasan, $detail);
             echo json_encode(['ok' => true, 'totals' => $totals, 'saved' => count($changes)]);
             break;
         }

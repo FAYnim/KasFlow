@@ -141,7 +141,7 @@ try {
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             $hasFilter = ($dari || $sampai || $aksi);
             $limit = $hasFilter ? 500 : 50;
-            $stmt = $pdo->prepare("SELECT id, created_at, modul, aksi, entitas_id, ringkasan, admin_username, admin_nama FROM activity_log $sqlWhere ORDER BY created_at DESC, id DESC LIMIT $limit");
+            $stmt = $pdo->prepare("SELECT id, created_at, modul, aksi, entitas_id, ringkasan, detail, admin_username, admin_nama FROM activity_log $sqlWhere ORDER BY created_at DESC, id DESC LIMIT $limit");
             $stmt->execute($args);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($rows);
