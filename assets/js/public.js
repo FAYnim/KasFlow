@@ -370,14 +370,34 @@ $(function () {
                 if (r.detail) {
                     try {
                         const d = (typeof r.detail === 'string') ? JSON.parse(r.detail) : r.detail;
-                        if (d && Array.isArray(d.perubahan) && d.perubahan.length > 0) {
-                            const list = d.perubahan.map(p => {
-                                const stBadge = p.status === 'lunas' 
-                                    ? '<span class="text-emerald-600 dark:text-emerald-400 font-semibold">Lunas</span>' 
-                                    : '<span class="text-amber-600 dark:text-amber-400 font-semibold">Belum Lunas</span>';
-                                return `• <b>${escapeHtml(p.nama)}</b> — Minggu ${escapeHtml(p.minggu)} (${stBadge})`;
-                            }).join('<br>');
-                            cellRingkasan += `<details class="mt-1 text-xs text-subtle cursor-pointer"><summary class="text-xs text-primary font-medium underline">Lihat Rincian (${d.perubahan.length} item)</summary><div class="mt-1 p-2 bg-surface-subtle rounded border border-subtle leading-relaxed">${list}</div></details>`;
+                        if (d && typeof d === 'object') {
+                            if (Array.isArray(d.perubahan) && d.perubahan.length > 0) {
+                                const list = d.perubahan.map(p => {
+                                    const stBadge = p.status === 'lunas' 
+                                        ? '<span class="text-emerald-600 dark:text-emerald-400 font-semibold">Lunas</span>' 
+                                        : '<span class="text-amber-600 dark:text-amber-400 font-semibold">Belum Lunas</span>';
+                                    return `• <b>${escapeHtml(p.nama)}</b> — Minggu ${escapeHtml(p.minggu)} (${stBadge})`;
+                                }).join('<br>');
+                                cellRingkasan += `<details class="mt-1 text-xs text-subtle cursor-pointer"><summary class="text-xs text-primary font-medium underline">Lihat Rincian (${d.perubahan.length} item)</summary><div class="mt-1 p-2 bg-surface-subtle rounded border border-subtle leading-relaxed">${list}</div></details>`;
+                            } else {
+                                const keys = Object.keys(d).filter(k => d[k] !== null && d[k] !== '');
+                                if (keys.length > 0) {
+                                    const labels = {
+                                        nama: 'Nama', absen: 'No. Absen', tanggal: 'Tanggal',
+                                        keterangan: 'Keterangan', jenis: 'Jenis', nominal: 'Nominal',
+                                        jumlah: 'Jumlah', status: 'Status', id: 'ID Entitas'
+                                    };
+                                    const list = keys.map(k => {
+                                        let val = d[k];
+                                        if ((k === 'nominal' || k === 'jumlah') && typeof val === 'number') {
+                                            val = 'Rp ' + val.toLocaleString('id-ID');
+                                        }
+                                        const label = labels[k] || k;
+                                        return `• <b>${escapeHtml(label)}:</b> ${escapeHtml(val)}`;
+                                    }).join('<br>');
+                                    cellRingkasan += `<details class="mt-1 text-xs text-subtle cursor-pointer"><summary class="text-xs text-primary font-medium underline">Lihat Rincian</summary><div class="mt-1 p-2 bg-surface-subtle rounded border border-subtle leading-relaxed">${list}</div></details>`;
+                                }
+                            }
                         }
                     } catch(e) {}
                 }
