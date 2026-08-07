@@ -11,7 +11,8 @@ function fail(string $msg): void {
 require_once __DIR__ . '/../../config/database.php';
 $pdo = db();
 
-$pdo->exec("DELETE FROM kas_bms WHERE keterangan LIKE 'TEST_%'");
+$existing = $pdo->query("SELECT * FROM kas_bms WHERE keterangan NOT LIKE 'TEST_%'")->fetchAll(PDO::FETCH_ASSOC);
+$pdo->exec("DELETE FROM kas_bms");
 
 $pdo->prepare("INSERT INTO kas_bms (tanggal, keterangan, jenis, jumlah) VALUES (?,?,?,?)")
     ->execute(['2026-08-01', 'TEST_seed_setor', 'setor', 100000.00]);
@@ -72,7 +73,13 @@ foreach (['id','tanggal','keterangan','jenis','jumlah'] as $f) {
 }
 echo "PASS: get_bms row shape\n";
 
-$pdo->exec("DELETE FROM kas_bms WHERE keterangan LIKE 'TEST_%'");
+$pdo->exec("DELETE FROM kas_bms");
+if (!empty($existing)) {
+    $ins = $pdo->prepare("INSERT INTO kas_bms (id, tanggal, keterangan, jenis, jumlah, created_at) VALUES (?,?,?,?,?,?)");
+    foreach ($existing as $r) {
+        $ins->execute([$r['id'], $r['tanggal'], $r['keterangan'], $r['jenis'], $r['jumlah'], $r['created_at']]);
+    }
+}
 ob_end_flush();
 
 if ($fail > 0) {
