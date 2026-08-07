@@ -39,11 +39,11 @@ try {
             break;
         }
         case 'get_jurnal': {
-            $bulan = $_GET['bulan'] ?? '';
-            $tahun = $_GET['tahun'] ?? '';
-            $where = []; $args = [];
             $bulanIdx = $_GET['bulan'] ?? '';
-            $tahun = $_GET['tahun'] ?? '';
+            $tahun    = $_GET['tahun'] ?? '';
+            $page     = max(1, (int)($_GET['page'] ?? 1));
+            $limit    = max(5, min(100, (int)($_GET['limit'] ?? 15)));
+            $offset   = ($page - 1) * $limit;
             $where = []; $args = [];
             if ($bulanIdx !== '') {
                 $bulanMap = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
@@ -51,9 +51,16 @@ try {
             }
             if ($tahun !== '') { $where[] = 'YEAR(tanggal) = ?'; $args[] = (int)$tahun; }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-            $stmt = $pdo->prepare("SELECT id, tanggal, keterangan, jenis, nominal FROM jurnal_kas $sqlWhere ORDER BY tanggal DESC, id DESC");
+            // Total records for pagination meta
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM jurnal_kas $sqlWhere");
+            $stmtCount->execute($args);
+            $totalRecords = (int)$stmtCount->fetchColumn();
+            $totalPages   = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
+            // Paginated rows
+            $stmt = $pdo->prepare("SELECT id, tanggal, keterangan, jenis, nominal FROM jurnal_kas $sqlWhere ORDER BY tanggal DESC, id DESC LIMIT $limit OFFSET $offset");
             $stmt->execute($args);
             $rows = $stmt->fetchAll();
+            // Line chart & donut use full (unpaged) dataset
             $saldo = 0;
             $line = [];
             $allAsc = $pdo->query("SELECT tanggal, jenis, nominal FROM jurnal_kas ORDER BY tanggal ASC, id ASC")->fetchAll();
@@ -61,12 +68,24 @@ try {
                 $saldo += $r['jenis'] === 'masuk' ? (float)$r['nominal'] : -(float)$r['nominal'];
                 $line[] = ['tanggal' => $r['tanggal'], 'saldo' => $saldo];
             }
-            $totMasuk = array_sum(array_map(fn($r) => $r['jenis']==='masuk' ? (float)$r['nominal'] : 0, $rows));
-            $totKeluar = array_sum(array_map(fn($r) => $r['jenis']==='keluar' ? (float)$r['nominal'] : 0, $rows));
+            // Donut totals based on current filter (all pages)
+            $stmtAll = $pdo->prepare("SELECT jenis, SUM(nominal) AS total FROM jurnal_kas $sqlWhere GROUP BY jenis");
+            $stmtAll->execute($args);
+            $totMasuk = 0; $totKeluar = 0;
+            foreach ($stmtAll->fetchAll() as $r) {
+                if ($r['jenis'] === 'masuk') $totMasuk = (float)$r['total'];
+                else $totKeluar = (float)$r['total'];
+            }
             echo json_encode([
-                'transaksi' => $rows,
+                'transaksi'  => $rows,
+                'pagination' => [
+                    'page'          => $page,
+                    'limit'         => $limit,
+                    'total_records' => $totalRecords,
+                    'total_pages'   => $totalPages,
+                ],
                 'line_chart' => $line,
-                'donut' => ['masuk' => $totMasuk, 'keluar' => $totKeluar],
+                'donut'      => ['masuk' => $totMasuk, 'keluar' => $totKeluar],
             ]);
             break;
         }
@@ -122,29 +141,44 @@ try {
         }
         case 'get_riwayat': {
             $where = [];
-            $args = [];
-            $dari = $_GET['dari'] ?? '';
-            $sampai = $_GET['sampai'] ?? '';
-            $aksi = $_GET['aksi'] ?? '';
+            $args  = [];
+            $dari    = $_GET['dari']   ?? '';
+            $sampai  = $_GET['sampai'] ?? '';
+            $aksi    = $_GET['aksi']   ?? '';
+            $page    = max(1, (int)($_GET['page']  ?? 1));
+            $limit   = max(5, min(100, (int)($_GET['limit'] ?? 15)));
+            $offset  = ($page - 1) * $limit;
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari)) {
                 $where[] = 'created_at >= ?';
-                $args[] = $dari . ' 00:00:00';
+                $args[]  = $dari . ' 00:00:00';
             }
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) {
                 $where[] = 'created_at <= ?';
-                $args[] = $sampai . ' 23:59:59';
+                $args[]  = $sampai . ' 23:59:59';
             }
             if (in_array($aksi, ['tambah', 'edit', 'hapus', 'update_status'], true)) {
                 $where[] = 'aksi = ?';
-                $args[] = $aksi;
+                $args[]  = $aksi;
             }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-            $hasFilter = ($dari || $sampai || $aksi);
-            $limit = $hasFilter ? 500 : 50;
-            $stmt = $pdo->prepare("SELECT id, created_at, modul, aksi, entitas_id, ringkasan, detail, admin_username, admin_nama FROM activity_log $sqlWhere ORDER BY created_at DESC, id DESC LIMIT $limit");
+            // Total records for pagination meta
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM activity_log $sqlWhere");
+            $stmtCount->execute($args);
+            $totalRecords = (int)$stmtCount->fetchColumn();
+            $totalPages   = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
+            // Paginated rows
+            $stmt = $pdo->prepare("SELECT id, created_at, modul, aksi, entitas_id, ringkasan, detail, admin_username, admin_nama FROM activity_log $sqlWhere ORDER BY created_at DESC, id DESC LIMIT $limit OFFSET $offset");
             $stmt->execute($args);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            echo json_encode($rows);
+            echo json_encode([
+                'data'       => $rows,
+                'pagination' => [
+                    'page'          => $page,
+                    'limit'         => $limit,
+                    'total_records' => $totalRecords,
+                    'total_pages'   => $totalPages,
+                ],
+            ]);
             break;
         }
         default:

@@ -144,6 +144,7 @@
                 </button>
             </div>
             <div class="table-container overflow-x-auto" id="jurnal-table-wrap"></div>
+            <div id="jurnal-pagination"></div>
         </section>
 
         <!-- Kasbon Section -->
@@ -239,6 +240,7 @@
             <div id="riwayat-wrap" class="table-container overflow-x-auto">
                 <div class="text-center py-6 text-subtle">Pilih tab Riwayat untuk memuat data.</div>
             </div>
+            <div id="riwayat-pagination"></div>
         </section>
     </main>
 

@@ -159,6 +159,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </button>
             </div>
             <div id="jurnal-wrap" class="table-container overflow-x-auto"></div>
+            <div id="jurnal-pagination"></div>
         </section>
 
         <!-- Section: Ekspor Laporan -->
@@ -305,6 +306,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
             <div id="riwayat-wrap" class="table-container overflow-x-auto">
                 <div class="text-center py-6 text-[#8a8f98]">Pilih tab Riwayat untuk memuat data.</div>
             </div>
+            <div id="riwayat-pagination"></div>
         </section>
     </main>
 

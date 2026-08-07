@@ -37,10 +37,11 @@ $(function () {
 
     $('#jurnal-bulan').html([''].concat(bulanList).map(b => `<option value="${b}">${b||'Semua'}</option>`).join(''));
     $('#jurnal-tahun').html([''].concat([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1]).map(y => `<option value="${y}">${y||'Semua'}</option>`).join(''));
-    $('#jurnal-bulan, #jurnal-tahun').on('change', lJurnal);
+    $('#jurnal-bulan, #jurnal-tahun').on('change', () => { adminJurnalPage = 1; lJurnal(); });
     $('#jurnal-reset').on('click', () => {
         $('#jurnal-bulan').val('');
         $('#jurnal-tahun').val('');
+        adminJurnalPage = 1;
         lJurnal();
     });
 
@@ -364,6 +365,52 @@ $(function () {
         lKas();
     });
 
+    // ── Admin pagination state & helpers ────────────────────────────────
+    let adminJurnalPage  = 1;
+    let adminRiwayatPage = 1;
+
+    function renderPagination(containerId, pagination, onPage) {
+        const $container = $('#' + containerId);
+        if (!pagination || pagination.total_pages <= 1) {
+            $container.empty();
+            return;
+        }
+        const { page, total_pages, total_records, limit } = pagination;
+        const from = ((page - 1) * limit) + 1;
+        const to   = Math.min(page * limit, total_records);
+
+        // Windowed pages: first, last, current-1..current+1
+        const pages = new Set([1, total_pages]);
+        for (let i = Math.max(1, page - 1); i <= Math.min(total_pages, page + 1); i++) pages.add(i);
+        const sorted = Array.from(pages).sort((a, b) => a - b);
+
+        let btns = '';
+        btns += `<button class="pagination-btn${page === 1 ? ' pagination-btn-disabled' : ''}" data-page="${page - 1}" ${page === 1 ? 'disabled' : ''}>
+                    <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                </button>`;
+        let prev = 0;
+        sorted.forEach(p => {
+            if (p - prev > 1) btns += `<button class="pagination-btn pagination-btn-ellipsis">…</button>`;
+            btns += `<button class="pagination-btn${p === page ? ' pagination-btn-active' : ''}" data-page="${p}">${p}</button>`;
+            prev = p;
+        });
+        btns += `<button class="pagination-btn${page === total_pages ? ' pagination-btn-disabled' : ''}" data-page="${page + 1}" ${page === total_pages ? 'disabled' : ''}>
+                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </button>`;
+
+        $container.html(`
+            <div class="pagination-container">
+                <span class="pagination-info">Menampilkan ${from}–${to} dari ${total_records} data</span>
+                <div class="pagination-controls">${btns}</div>
+            </div>
+        `);
+
+        $container.find('.pagination-btn[data-page]').not('.pagination-btn-disabled').not('.pagination-btn-ellipsis').on('click', function () {
+            const p = parseInt($(this).data('page'));
+            if (p >= 1 && p <= total_pages && p !== page) onPage(p);
+        });
+    }
+
     // Jurnal Modal & CRUD
     $('#btn-add-jurnal').on('click', () => openJurnalModal());
     $('#modal-close, #modal-close-btn').on('click', () => $('#modal-jurnal').addClass('hidden'));
@@ -395,8 +442,9 @@ $(function () {
         }, 'json');
     });
 
-    function lJurnal() {
-        const params = { action: 'get_jurnal' };
+    function lJurnal(page) {
+        if (page !== undefined) adminJurnalPage = page;
+        const params = { action: 'get_jurnal', page: adminJurnalPage, limit: 15 };
         const b = $('#jurnal-bulan').val();
         const t = $('#jurnal-tahun').val();
         if (b) params.bulan = b;
@@ -413,7 +461,7 @@ $(function () {
                     </tr>
                 </thead>
                 <tbody>`;
-            if (r.transaksi.length === 0) {
+            if (!r.transaksi || r.transaksi.length === 0) {
                 h += `<tr><td colspan="5" class="text-center py-6 text-[#8a8f98]">Belum ada jurnal transaksi.</td></tr>`;
             } else {
                 h += r.transaksi.map(t =>
@@ -442,6 +490,7 @@ $(function () {
             }
             h += '</tbody></table>';
             $('#jurnal-wrap').html(h);
+            renderPagination('jurnal-pagination', r.pagination, (p) => lJurnal(p));
         });
     }
 
@@ -633,17 +682,20 @@ $(function () {
         const pad = n => String(n).padStart(2, '0');
         return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
-    function loadRiwayatAdmin() {
-        const params = new URLSearchParams({action: 'get_riwayat'});
-        const aksi = $('#riwayat-aksi').val();
-        const dari = $('#riwayat-dari').val();
+    function loadRiwayatAdmin(page) {
+        if (page !== undefined) adminRiwayatPage = page;
+        const params = new URLSearchParams({ action: 'get_riwayat', page: adminRiwayatPage, limit: 15 });
+        const aksi   = $('#riwayat-aksi').val();
+        const dari   = $('#riwayat-dari').val();
         const sampai = $('#riwayat-sampai').val();
-        if (aksi) params.set('aksi', aksi);
-        if (dari) params.set('dari', dari);
+        if (aksi)   params.set('aksi', aksi);
+        if (dari)   params.set('dari', dari);
         if (sampai) params.set('sampai', sampai);
         $('#riwayat-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Memuat…</div>');
-        $.getJSON('../../src/api/public.php?' + params.toString(), function(rows) {
-            if (!rows || !rows.length) {
+        $('#riwayat-pagination').empty();
+        $.getJSON('../../src/api/public.php?' + params.toString(), function(res) {
+            const rows = res.data || [];
+            if (!rows.length) {
                 $('#riwayat-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Belum ada riwayat.</div>');
                 return;
             }
@@ -694,15 +746,17 @@ $(function () {
             });
             html += '</tbody></table>';
             $('#riwayat-wrap').html(html);
+            renderPagination('riwayat-pagination', res.pagination, (p) => loadRiwayatAdmin(p));
         }).fail(function() {
             $('#riwayat-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Gagal memuat data.</div>');
         });
     }
-    $('#riwayat-apply').on('click', loadRiwayatAdmin);
+    $('#riwayat-apply').on('click', () => { adminRiwayatPage = 1; loadRiwayatAdmin(); });
     $('#riwayat-reset').on('click', function() {
         $('#riwayat-aksi').val('');
         $('#riwayat-dari').val('');
         $('#riwayat-sampai').val('');
+        adminRiwayatPage = 1;
         loadRiwayatAdmin();
     });
     $('#riwayat-prune-btn').on('click', function() {

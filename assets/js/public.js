@@ -62,10 +62,11 @@ $(function () {
 
     $('#jurnal-bulan').html([''].concat(bulanList).map(b => `<option value="${b}">${b||'Semua'}</option>`).join(''));
     $('#jurnal-tahun').html([''].concat([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1]).map(y => `<option value="${y}">${y||'Semua'}</option>`).join(''));
-    $('#jurnal-bulan, #jurnal-tahun').on('change', loadJurnal);
+    $('#jurnal-bulan, #jurnal-tahun').on('change', () => { jurnalPage = 1; loadJurnal(); });
     $('#jurnal-reset').on('click', () => {
         $('#jurnal-bulan').val('');
         $('#jurnal-tahun').val('');
+        jurnalPage = 1;
         loadJurnal();
     });
 
@@ -207,8 +208,67 @@ $(function () {
 
     function filterKas() { renderKas(); }
 
-    function loadJurnal() {
-        const params = { action: 'get_jurnal' };
+    // ── Pagination state ─────────────────────────────────────────────────
+    let jurnalPage  = 1;
+    let riwayatPage = 1;
+
+    /**
+     * Render pagination controls into a container element.
+     * @param {string} containerId  - jQuery selector id (without #)
+     * @param {object} pagination   - { page, limit, total_records, total_pages }
+     * @param {function} onPage     - callback(pageNumber) when user clicks a page button
+     */
+    function renderPagination(containerId, pagination, onPage) {
+        const $container = $('#' + containerId);
+        if (!pagination || pagination.total_pages <= 1) {
+            $container.empty();
+            return;
+        }
+        const { page, total_pages, total_records, limit } = pagination;
+        const from = ((page - 1) * limit) + 1;
+        const to   = Math.min(page * limit, total_records);
+
+        // Build page buttons (windowed: always show first, last, current±1)
+        const pages = new Set([1, total_pages]);
+        for (let i = Math.max(1, page - 1); i <= Math.min(total_pages, page + 1); i++) pages.add(i);
+        const sorted = Array.from(pages).sort((a, b) => a - b);
+
+        let btns = '';
+        // Prev button
+        btns += `<button class="pagination-btn${page === 1 ? ' pagination-btn-disabled' : ''}" data-page="${page - 1}" ${page === 1 ? 'disabled' : ''}>
+                    <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                </button>`;
+
+        let prev = 0;
+        sorted.forEach(p => {
+            if (p - prev > 1) {
+                btns += `<button class="pagination-btn pagination-btn-ellipsis">…</button>`;
+            }
+            btns += `<button class="pagination-btn${p === page ? ' pagination-btn-active' : ''}" data-page="${p}">${p}</button>`;
+            prev = p;
+        });
+
+        // Next button
+        btns += `<button class="pagination-btn${page === total_pages ? ' pagination-btn-disabled' : ''}" data-page="${page + 1}" ${page === total_pages ? 'disabled' : ''}>
+                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </button>`;
+
+        $container.html(`
+            <div class="pagination-container">
+                <span class="pagination-info">Menampilkan ${from}–${to} dari ${total_records} data</span>
+                <div class="pagination-controls">${btns}</div>
+            </div>
+        `);
+
+        $container.find('.pagination-btn[data-page]').not('.pagination-btn-disabled').not('.pagination-btn-ellipsis').on('click', function () {
+            const p = parseInt($(this).data('page'));
+            if (p >= 1 && p <= total_pages && p !== page) onPage(p);
+        });
+    }
+
+    function loadJurnal(page) {
+        if (page !== undefined) jurnalPage = page;
+        const params = { action: 'get_jurnal', page: jurnalPage, limit: 15 };
         const b = $('#jurnal-bulan').val();
         const t = $('#jurnal-tahun').val();
         if (b) params.bulan = b;
@@ -224,7 +284,7 @@ $(function () {
                     </tr>
                 </thead>
                 <tbody>`;
-            if (r.transaksi.length === 0) {
+            if (!r.transaksi || r.transaksi.length === 0) {
                 h += `<tr><td colspan="4" class="text-center py-6 text-subtle">Belum ada transaksi jurnal.</td></tr>`;
             } else {
                 h += r.transaksi.map(t =>
@@ -243,6 +303,7 @@ $(function () {
             }
             h += '</tbody></table>';
             $('#jurnal-table-wrap').html(h);
+            renderPagination('jurnal-pagination', r.pagination, (p) => loadJurnal(p));
         });
     }
 
@@ -350,17 +411,20 @@ $(function () {
         const pad = n => String(n).padStart(2, '0');
         return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
-    function loadRiwayat() {
-        const params = new URLSearchParams({action: 'get_riwayat'});
-        const aksi = $('#riwayat-aksi').val();
-        const dari = $('#riwayat-dari').val();
+    function loadRiwayat(page) {
+        if (page !== undefined) riwayatPage = page;
+        const params = new URLSearchParams({ action: 'get_riwayat', page: riwayatPage, limit: 15 });
+        const aksi   = $('#riwayat-aksi').val();
+        const dari   = $('#riwayat-dari').val();
         const sampai = $('#riwayat-sampai').val();
-        if (aksi) params.set('aksi', aksi);
-        if (dari) params.set('dari', dari);
+        if (aksi)   params.set('aksi', aksi);
+        if (dari)   params.set('dari', dari);
         if (sampai) params.set('sampai', sampai);
         $('#riwayat-wrap').html('<div class="text-center py-6 text-subtle">Memuat…</div>');
-        $.getJSON('src/api/public.php?' + params.toString(), function(rows) {
-            if (!rows || !rows.length) {
+        $('#riwayat-pagination').empty();
+        $.getJSON('src/api/public.php?' + params.toString(), function(res) {
+            const rows = res.data || [];
+            if (!rows.length) {
                 $('#riwayat-wrap').html('<div class="text-center py-6 text-subtle">Belum ada riwayat.</div>');
                 return;
             }
@@ -411,15 +475,17 @@ $(function () {
             });
             html += '</tbody></table>';
             $('#riwayat-wrap').html(html);
+            renderPagination('riwayat-pagination', res.pagination, (p) => loadRiwayat(p));
         }).fail(function() {
             $('#riwayat-wrap').html('<div class="text-center py-6 text-subtle">Gagal memuat data.</div>');
         });
     }
-    $('#riwayat-apply').on('click', loadRiwayat);
+    $('#riwayat-apply').on('click', () => { riwayatPage = 1; loadRiwayat(); });
     $('#riwayat-reset').on('click', function() {
         $('#riwayat-aksi').val('');
         $('#riwayat-dari').val('');
         $('#riwayat-sampai').val('');
+        riwayatPage = 1;
         loadRiwayat();
     });
 });
