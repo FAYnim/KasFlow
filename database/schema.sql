@@ -87,6 +87,7 @@ CREATE TABLE activity_log (
     aksi VARCHAR(20) NOT NULL,
     entitas_id INT NULL,
     ringkasan VARCHAR(500) NOT NULL,
+    detail JSON NULL,
     admin_username VARCHAR(50) NULL,
     admin_nama VARCHAR(100) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -467,3 +467,75 @@ input[type="checkbox"].kas-cb:checked::after {
 .badge-update_status { background: var(--surface-2); color: #f59e0b; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
 .badge-neutral       { background: var(--surface-2); color: var(--ink-muted); padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
 
+/* ── Pagination Component ─────────────────────────────────────────────── */
+.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--hairline);
+  background-color: var(--surface-1);
+  border-radius: 0 0 12px 12px;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: var(--ink-subtle);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid var(--hairline);
+  background-color: var(--surface-1);
+  color: var(--ink-subtle);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.pagination-btn:hover:not(:disabled):not(.pagination-btn-active) {
+  background-color: var(--surface-2);
+  border-color: var(--hairline-strong);
+  color: var(--ink);
+}
+
+.pagination-btn-active {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  cursor: default;
+}
+
+.pagination-btn:disabled,
+.pagination-btn-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.pagination-btn-ellipsis {
+  border: none;
+  background: transparent;
+  color: var(--ink-tertiary);
+  cursor: default;
+  pointer-events: none;
+}
+
