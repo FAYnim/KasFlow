@@ -53,7 +53,7 @@ $(function () {
     function lKasbon() {
         const bulan = $('#admin-kasbon-bulan').val();
         const tahun = $('#admin-kasbon-tahun').val();
-        $.getJSON('../../src/api/public.php', { action: 'get_kasbon', bulan, tahun }, function(data) {
+        $.getJSON('src/api/public.php', { action: 'get_kasbon', bulan, tahun }, function(data) {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
@@ -118,7 +118,7 @@ $(function () {
         const id = $(this).data('id');
         const newStatus = $(this).data('status');
         const action = newStatus === 'lunas' ? 'mark_lunas_kasbon' : 'mark_belum_lunas_kasbon';
-        $.post('../../src/api/admin.php?action=' + action, { id: id }, function() {
+        $.post('src/api/admin.php?action=' + action, { id: id }, function() {
             lKasbon();
         }, 'json').fail(function() {
             alert('Gagal mengubah status kasbon.');
@@ -127,7 +127,7 @@ $(function () {
 
     $(document).on('click', '.del-kasbon', function () {
         if (!confirm('Hapus kasbon ini?')) return;
-        $.post('../../src/api/admin.php?action=delete_kasbon', { id: $(this).data('id') }, function() {
+        $.post('src/api/admin.php?action=delete_kasbon', { id: $(this).data('id') }, function() {
             lKasbon();
         }, 'json').fail(function() {
             alert('Gagal menghapus kasbon.');
@@ -150,7 +150,7 @@ $(function () {
             jumlah: jumlah,
             status: $('#kasbon-status').val()
         };
-        $.post('../../src/api/admin.php?action=' + payload.action, payload, function(res) {
+        $.post('src/api/admin.php?action=' + payload.action, payload, function(res) {
             if (res.ok) {
                 $('#form-kasbon')[0].reset();
                 $('#kasbon-edit-id').val('');
@@ -173,7 +173,7 @@ $(function () {
     });
 
     function lDash() {
-        $.getJSON('../../src/api/public.php?action=get_summary', s => {
+        $.getJSON('src/api/public.php?action=get_summary', s => {
             const cards = [
                 ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Saldo BMS', fmt(s.saldo_bms), 'text-[#38bdf8]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
@@ -205,7 +205,7 @@ $(function () {
         return filled.concat(empty);
     }
     function lSiswa() {
-        $.getJSON('../../src/api/admin.php?action=list_siswa', rows => {
+        $.getJSON('src/api/admin.php?action=list_siswa', rows => {
             const sorted = sortSiswa(rows);
             const icon = siswaSortDir === 'asc'
                 ? '<i class="fa-solid fa-arrow-up text-[9px]"></i>'
@@ -252,12 +252,12 @@ $(function () {
 
     $(document).on('click', '.del-s', function () {
         if (!confirm('Hapus siswa ini beserta seluruh data kas terkait?')) return;
-        $.post('../../src/api/admin.php?action=delete_siswa', { id: $(this).data('id') }, r => lSiswa(), 'json');
+        $.post('src/api/admin.php?action=delete_siswa', { id: $(this).data('id') }, r => lSiswa(), 'json');
     });
 
     $('#form-siswa').on('submit', function (e) {
         e.preventDefault();
-        $.post('../../src/api/admin.php?action=add_siswa', $(this).serialize(), r => {
+        $.post('src/api/admin.php?action=add_siswa', $(this).serialize(), r => {
             if (r.ok) { this.reset(); lSiswa(); } else alert(r.error);
         }, 'json');
     });
@@ -265,7 +265,7 @@ $(function () {
     function lKas() {
         const bulan = $('#admin-bulan').val(), tahun = $('#admin-tahun').val();
         kasState.bulan = bulan; kasState.tahun = tahun;
-        $.getJSON('../../src/api/public.php', { action:'get_kas', bulan, tahun }, res => {
+        $.getJSON('src/api/public.php', { action:'get_kas', bulan, tahun }, res => {
             const rows = res.rows || [], tarif = res.tarif || 0;
             kasState.tarif = tarif; kasState.saved = {}; kasState.pending = {};
             rows.forEach(r => {
@@ -359,7 +359,7 @@ $(function () {
         if (changes.length === 0) return;
         const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Menyimpan...</span>');
         $.ajax({
-            url: '../../src/api/admin.php?action=bulk_update_kas',
+            url: 'src/api/admin.php?action=bulk_update_kas',
             method: 'POST',
             data: { bulan: kasState.bulan, tahun: kasState.tahun, changes: JSON.stringify(changes) },
             dataType: 'json',
@@ -459,7 +459,7 @@ $(function () {
         e.preventDefault();
         const id = this.id.value;
         const action = id ? 'update_jurnal' : 'add_jurnal';
-        $.post('../../src/api/admin.php?action=' + action, $(this).serialize(), r => {
+        $.post('src/api/admin.php?action=' + action, $(this).serialize(), r => {
             if (r.ok) { 
                 $('#modal-jurnal').addClass('hidden'); 
                 lJurnal(); 
@@ -476,7 +476,7 @@ $(function () {
         const t = $('#jurnal-tahun').val();
         if (b) params.bulan = b;
         if (t) params.tahun = t;
-        $.getJSON('../../src/api/public.php', params, r => {
+        $.getJSON('src/api/public.php', params, r => {
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
@@ -523,7 +523,7 @@ $(function () {
 
     $(document).on('click', '.edit-j', function () {
         const id = $(this).data('id');
-        $.getJSON('../../src/api/public.php?action=get_jurnal', r => {
+        $.getJSON('src/api/public.php?action=get_jurnal', r => {
             const t = r.transaksi.find(x => x.id == id);
             if (t) openJurnalModal(t);
         });
@@ -531,14 +531,14 @@ $(function () {
 
     $(document).on('click', '.del-j', function () {
         if (!confirm('Hapus transaksi ini?')) return;
-        $.post('../../src/api/admin.php?action=delete_jurnal', { id: $(this).data('id') }, r => lJurnal(), 'json');
+        $.post('src/api/admin.php?action=delete_jurnal', { id: $(this).data('id') }, r => lJurnal(), 'json');
     });
 
     // Ekspor
     function lEkspor() {
         const dari = $('#form-ekspor [name=dari]').val();
         const sampai = $('#form-ekspor [name=sampai]').val();
-        $.getJSON('../../src/api/public.php?action=get_jurnal', r => {
+        $.getJSON('src/api/public.php?action=get_jurnal', r => {
             const rows = r.transaksi.filter(t => (!dari || t.tanggal >= dari) && (!sampai || t.tanggal <= sampai));
             let h = `<table class="table-linear">
                 <thead>
@@ -590,7 +590,7 @@ $(function () {
 
     // Kas BMS
     function lBms() {
-        $.getJSON('../../src/api/public.php?action=get_bms', function(data) {
+        $.getJSON('src/api/public.php?action=get_bms', function(data) {
             const rows = (data && data.rows) || [];
             let h = `<table class="table-linear">
                 <thead>
@@ -671,7 +671,7 @@ $(function () {
         };
         const action = id ? 'update_bms' : 'add_bms';
         if (id) payload.id = id;
-        $.post('../../src/api/admin.php?action=' + action, payload, function (res) {
+        $.post('src/api/admin.php?action=' + action, payload, function (res) {
             if (res && res.ok) {
                 $('#bms-modal').addClass('hidden');
                 lBms();
@@ -686,7 +686,7 @@ $(function () {
     $(document).on('click', '.del-bms', function () {
         if (!confirm('Hapus transaksi kas BMS ini?')) return;
         const id = $(this).data('id');
-        $.post('../../src/api/admin.php?action=delete_bms', { id: id }, function () {
+        $.post('src/api/admin.php?action=delete_bms', { id: id }, function () {
             lBms();
         }, 'json').fail(function () {
             alert('Gagal menghapus.');
@@ -720,7 +720,7 @@ $(function () {
         if (sampai) params.set('sampai', sampai);
         $('#riwayat-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Memuat…</div>');
         $('#riwayat-pagination').empty();
-        $.getJSON('../../src/api/public.php?' + params.toString(), function(res) {
+        $.getJSON('src/api/public.php?' + params.toString(), function(res) {
             const rows = res.data || [];
             if (!rows.length) {
                 $('#riwayat-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Belum ada riwayat.</div>');
@@ -791,7 +791,7 @@ $(function () {
         if (!sebelum) return;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(sebelum)) { alert('Format tanggal tidak valid. Gunakan YYYY-MM-DD.'); return; }
         if (!confirm('Hapus permanen semua log sebelum ' + sebelum + '? Tindakan ini tidak dapat dibatalkan.')) return;
-        $.post('../../src/api/admin.php?action=prune_riwayat', {sebelum}, function(res) {
+        $.post('src/api/admin.php?action=prune_riwayat', {sebelum}, function(res) {
             if (res && res.ok) { alert('Dihapus: ' + res.deleted + ' entri'); loadRiwayatAdmin(); }
             else alert('Gagal: ' + (res && res.error ? res.error : 'unknown'));
         }, 'json').fail(function(xhr) { alert('Gagal: HTTP ' + xhr.status); });

@@ -67,7 +67,7 @@
         </div>
 
         <div class="pt-4 border-t border-[var(--hairline)] mt-auto">
-            <a href="src/auth/login" class="sidebar-nav-item text-xs gap-2">
+            <a href="login" class="sidebar-nav-item text-xs gap-2">
                 <i class="fa-solid fa-user-shield w-4 text-center"></i>
                 <span>Login Bendahara</span>
             </a>

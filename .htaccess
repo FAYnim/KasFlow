@@ -1,6 +1,9 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Root pages: /dashboard, /login, /logout (with or without trailing slash)
+    RewriteRule ^(dashboard|login|logout)/?$ $1.php [L,QSA]
+
     # Clean URL: Map extensionless URL requests to corresponding .php file if it exists
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
