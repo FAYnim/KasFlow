@@ -221,7 +221,7 @@ try {
             break;
         }
         case 'list_siswa': {
-            $rows = $pdo->query("SELECT id, absen, nama FROM siswa ORDER BY nama ASC")->fetchAll();
+            $rows = $pdo->query("SELECT id, absen, nama FROM siswa ORDER BY absen ASC, nama ASC")->fetchAll();
             echo json_encode($rows);
             break;
         }

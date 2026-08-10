@@ -191,21 +191,43 @@ $(function () {
         });
     }
 
+    let siswaSortDir = 'asc';
+    function sortSiswa(rows) {
+        const has = (s) => s.absen !== null && s.absen !== undefined && String(s.absen).trim() !== '';
+        const filled = rows.filter(has);
+        const empty = rows.filter(s => !has(s));
+        const sign = siswaSortDir === 'asc' ? 1 : -1;
+        filled.sort((a, b) => {
+            const an = Number(a.absen), bn = Number(b.absen);
+            if (!Number.isNaN(an) && !Number.isNaN(bn)) return (an - bn) * sign;
+            return String(a.absen).localeCompare(String(b.absen), 'id') * sign;
+        });
+        return filled.concat(empty);
+    }
     function lSiswa() {
         $.getJSON('../../src/api/admin.php?action=list_siswa', rows => {
+            const sorted = sortSiswa(rows);
+            const icon = siswaSortDir === 'asc'
+                ? '<i class="fa-solid fa-arrow-up text-[9px]"></i>'
+                : '<i class="fa-solid fa-arrow-down text-[9px]"></i>';
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
-                        <th class="w-32">Absen</th>
+                        <th class="w-32">
+                            <button id="siswa-sort-absen" type="button" class="inline-flex items-center gap-1.5 hover:text-[#f7f8f8] transition-colors">
+                                <span>Absen</span>
+                                <span id="siswa-sort-icon" class="text-[#5e6ad2]">${icon}</span>
+                            </button>
+                        </th>
                         <th>Nama Siswa</th>
                         <th class="w-28 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>`;
-            if (rows.length === 0) {
+            if (sorted.length === 0) {
                 h += `<tr><td colspan="3" class="text-center py-6 text-[#8a8f98]">Belum ada data siswa.</td></tr>`;
             } else {
-                h += rows.map(s =>
+                h += sorted.map(s =>
                     `<tr>
                         <td class="font-mono text-xs text-[#8a8f98]">${s.absen||'-'}</td>
                         <td class="font-medium text-[#f7f8f8]">${s.nama}</td>
@@ -222,6 +244,11 @@ $(function () {
             $('#siswa-wrap').html(h);
         });
     }
+
+    $(document).on('click', '#siswa-sort-absen', function () {
+        siswaSortDir = siswaSortDir === 'asc' ? 'desc' : 'asc';
+        lSiswa();
+    });
 
     $(document).on('click', '.del-s', function () {
         if (!confirm('Hapus siswa ini beserta seluruh data kas terkait?')) return;
