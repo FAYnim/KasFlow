@@ -393,7 +393,7 @@ $(function () {
         });
     }
 
-    activate('dashboard');
+    activate('kas');
 
     // ── Riwayat helpers & loader ──────────────────────────────────────────
     function escapeHtml(s) {
