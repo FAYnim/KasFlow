@@ -39,11 +39,7 @@
         <div>
             <div class="eyebrow px-3 py-2 text-[11px] mb-1">Navigasi Utama</div>
             <nav class="space-y-0.5">
-                <a data-tab="dashboard" class="sidebar-nav-item active">
-                    <i class="fa-solid fa-gauge w-4 text-center"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a data-tab="kas" class="sidebar-nav-item">
+                <a data-tab="kas" class="sidebar-nav-item active">
                     <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
                     <span>Kas Kelas</span>
                 </a>
@@ -58,6 +54,10 @@
                 <a data-tab="jurnal" class="sidebar-nav-item">
                     <i class="fa-solid fa-receipt w-4 text-center"></i>
                     <span>Cashflow</span>
+                </a>
+                <a data-tab="dashboard" class="sidebar-nav-item">
+                    <i class="fa-solid fa-gauge w-4 text-center"></i>
+                    <span>Statistik</span>
                 </a>
                 <a data-tab="riwayat" class="sidebar-nav-item">
                     <i class="fa-solid fa-clock-rotate-left w-4 text-center"></i>
@@ -76,10 +76,10 @@
 
     <!-- Main Content Area -->
     <main class="pt-20 pb-12 px-4 md:px-8 md:ml-60 max-w-6xl">
-        <!-- Dashboard Section -->
-        <section data-tab-content="dashboard" class="tab-content">
+        <!-- Dashboard Section (Statistik) -->
+        <section data-tab-content="dashboard" class="tab-content hidden">
             <div class="mb-6">
-                <h2 class="display-md mb-1">Keuangan RPL 1</h2>
+                <h2 class="display-md mb-1">Statistik Keuangan</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="summary-cards"></div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -103,7 +103,7 @@
         </section>
 
         <!-- Kas Kelas Section -->
-        <section data-tab-content="kas" class="tab-content hidden">
+        <section data-tab-content="kas" class="tab-content">
             <div class="mb-6">
                 <h2 class="display-md mb-1">Kas Kelas</h2>
             </div>
