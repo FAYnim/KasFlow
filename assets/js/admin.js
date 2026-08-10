@@ -3,6 +3,28 @@ $(function () {
     const $navItems = $('[data-tab]');
     const kasState = { saved: {}, pending: {}, tarif: 0, bulan: '', tahun: 0 };
 
+    // Theme Switcher Management for Admin
+    function updateThemeUI(theme) {
+        if (theme === 'dark') {
+            $('#theme-toggle-icon').attr('class', 'fa-solid fa-moon text-indigo-400 text-sm');
+            $('#theme-toggle-btn').attr('title', 'Switch to Light Theme');
+        } else {
+            $('#theme-toggle-icon').attr('class', 'fa-solid fa-sun text-amber-500 text-sm');
+            $('#theme-toggle-btn').attr('title', 'Switch to Dark Theme');
+        }
+    }
+
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    $('html').attr('data-theme', currentTheme);
+    updateThemeUI(currentTheme);
+
+    $('#theme-toggle-btn').on('click', function () {
+        const newTheme = $('html').attr('data-theme') === 'dark' ? 'light' : 'dark';
+        $('html').attr('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateThemeUI(newTheme);
+    });
+
     const activate = (n) => { 
         $tabs.addClass('hidden'); 
         $(`[data-tab-content="${n}"]`).removeClass('hidden'); 
@@ -68,7 +90,7 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (!data || data.length === 0) {
-                h += `<tr><td colspan="7" class="text-center py-6 text-[#8a8f98]">Tidak ada data kasbon.</td></tr>`;
+                h += `<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data kasbon.</td></tr>`;
             } else {
                 h += data.map(function(r, i) {
                     const badge = r.status === 'lunas'
@@ -78,11 +100,11 @@ $(function () {
                         ? '<button class="text-yellow-400 hover:text-yellow-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="belum_lunas" title="Tandai Belum Lunas"><i class="fa-solid fa-rotate-left"></i></button>'
                         : '<button class="text-green-400 hover:text-green-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="lunas" title="Tandai Lunas"><i class="fa-solid fa-circle-check"></i></button>';
                     return '<tr>' +
-                        '<td class="font-mono text-xs text-[#8a8f98]">' + (i + 1) + '</td>' +
-                        '<td class="font-mono text-xs text-[#8a8f98]">' + r.tanggal + '</td>' +
-                        '<td class="font-medium text-[#f7f8f8]">' + r.nama + '</td>' +
-                        '<td class="text-[#8a8f98]">' + r.keterangan + '</td>' +
-                        '<td class="text-right font-mono-num font-medium text-[#f7f8f8]">' + fmt(r.jumlah) + '</td>' +
+                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + (i + 1) + '</td>' +
+                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + r.tanggal + '</td>' +
+                        '<td class="font-medium text-[var(--ink)]">' + r.nama + '</td>' +
+                        '<td class="text-[var(--ink-muted)]">' + r.keterangan + '</td>' +
+                        '<td class="text-right font-mono-num font-medium text-[var(--ink)]">' + fmt(r.jumlah) + '</td>' +
                         '<td>' + badge + '</td>' +
                         '<td class="text-right space-x-1">' +
                             '<button class="btn-secondary text-xs px-2.5 py-1 edit-kasbon gap-1" data-id="' + r.id + '" data-nama="' + r.nama + '" data-tanggal="' + r.tanggal + '" data-keterangan="' + r.keterangan + '" data-jumlah="' + r.jumlah + '" data-status="' + r.status + '">' +
@@ -98,7 +120,7 @@ $(function () {
             h += '</tbody></table>';
             $('#kasbon-wrap').html(h);
         }).fail(function() {
-            $('#kasbon-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Gagal memuat data kasbon.</div>');
+            $('#kasbon-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data kasbon.</div>');
         });
     }
 
@@ -175,15 +197,15 @@ $(function () {
     function lDash() {
         $.getJSON('src/api/public.php?action=get_summary', s => {
             const cards = [
-                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[#828fff]', '<i class="fa-solid fa-vault text-sm"></i>'],
-                ['Saldo BMS', fmt(s.saldo_bms), 'text-[#38bdf8]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Total Kasbon', fmt(s.total_kasbon), 'text-[#fbbf24]', '<i class="fa-solid fa-handshake text-sm"></i>'],
+                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
+                ['Saldo BMS', fmt(s.saldo_bms), 'text-[var(--accent-sky)]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
+                ['Total Kasbon', fmt(s.total_kasbon), 'text-[var(--accent-orange)]', '<i class="fa-solid fa-handshake text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
                     <div class="flex items-center justify-between mb-2">
                         <span class="eyebrow">${t}</span>
-                        <span class="text-[#8a8f98]">${icon}</span>
+                        <span class="text-[var(--ink-muted)]">${icon}</span>
                     </div>
                     <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
                 </div>`
@@ -214,9 +236,9 @@ $(function () {
                 <thead>
                     <tr>
                         <th class="w-32">
-                            <button id="siswa-sort-absen" type="button" class="inline-flex items-center gap-1.5 hover:text-[#f7f8f8] transition-colors">
+                            <button id="siswa-sort-absen" type="button" class="inline-flex items-center gap-1.5 hover:text-[var(--ink)] transition-colors">
                                 <span>Absen</span>
-                                <span id="siswa-sort-icon" class="text-[#5e6ad2]">${icon}</span>
+                                <span id="siswa-sort-icon" class="text-[var(--primary)]">${icon}</span>
                             </button>
                         </th>
                         <th>Nama Siswa</th>
@@ -225,12 +247,12 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (sorted.length === 0) {
-                h += `<tr><td colspan="3" class="text-center py-6 text-[#8a8f98]">Belum ada data siswa.</td></tr>`;
+                h += `<tr><td colspan="3" class="text-center py-6 text-[var(--ink-muted)]">Belum ada data siswa.</td></tr>`;
             } else {
                 h += sorted.map(s =>
                     `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${s.absen||'-'}</td>
-                        <td class="font-medium text-[#f7f8f8]">${s.nama}</td>
+                        <td class="font-mono text-xs text-[var(--ink-muted)]">${s.absen||'-'}</td>
+                        <td class="font-medium text-[var(--ink)]">${s.nama}</td>
                         <td class="text-right">
                             <button class="btn-danger del-s text-xs gap-1" data-id="${s.id}">
                                 <i class="fa-solid fa-trash-can text-[10px]"></i>
@@ -290,13 +312,13 @@ $(function () {
             </thead>
             <tbody>`;
         if (rows.length === 0) {
-            h += `<tr><td colspan="7" class="text-center py-6 text-[#8a8f98]">Tidak ada data kas siswa.</td></tr>`;
+            h += `<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data kas siswa.</td></tr>`;
         } else {
             h += rows.map(r => {
                 const state = kasState.pending[r.id] || kasState.saved[r.id] || {};
                 const total = [1,2,3,4,5].reduce((s,i) => s + (state[i] || 0), 0) * tarif;
                 return `<tr>
-                    <td class="font-medium text-[#f7f8f8]">${r.nama}</td>
+                    <td class="font-medium text-[var(--ink)]">${r.nama}</td>
                     ${[1,2,3,4,5].map(i => {
                         const dirty = kasState.pending[r.id] && kasState.pending[r.id][i] !== kasState.saved[r.id][i];
                         return `<td class="text-center">
@@ -304,7 +326,7 @@ $(function () {
                             ${dirty ? '<span class="block w-1.5 h-1.5 rounded-full bg-amber-400 mx-auto mt-0.5" title="Belum disimpan"></span>' : ''}
                         </td>`;
                     }).join('')}
-                    <td class="text-right font-mono-num font-medium text-[#f7f8f8] total-cell" data-siswa="${r.id}">${fmt(total)}</td>
+                    <td class="text-right font-mono-num font-medium text-[var(--ink)] total-cell" data-siswa="${r.id}">${fmt(total)}</td>
                 </tr>`;
             }).join('');
         }
@@ -489,19 +511,19 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (!r.transaksi || r.transaksi.length === 0) {
-                h += `<tr><td colspan="5" class="text-center py-6 text-[#8a8f98]">Belum ada jurnal transaksi.</td></tr>`;
+                h += `<tr><td colspan="5" class="text-center py-6 text-[var(--ink-muted)]">Belum ada jurnal transaksi.</td></tr>`;
             } else {
                 h += r.transaksi.map(t =>
                     `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${t.tanggal}</td>
-                        <td class="text-[#f7f8f8]">${t.keterangan}</td>
+                        <td class="font-mono text-xs text-[var(--ink-muted)]">${t.tanggal}</td>
+                        <td class="text-[var(--ink)]">${t.keterangan}</td>
                         <td>
                             <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
                                 <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
                             </span>
                         </td>
-                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(t.nominal)}</td>
+                        <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(t.nominal)}</td>
                         <td class="text-right space-x-1">
                             <button class="btn-secondary text-xs px-2.5 py-1 edit-j gap-1" data-id="${t.id}">
                                 <i class="fa-solid fa-pen text-[10px]"></i>
@@ -551,19 +573,19 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (rows.length === 0) {
-                h += `<tr><td colspan="4" class="text-center py-6 text-[#8a8f98]">Tidak ada data jurnal untuk rentang tanggal ini.</td></tr>`;
+                h += `<tr><td colspan="4" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data jurnal untuk rentang tanggal ini.</td></tr>`;
             } else {
                 h += rows.map(t => 
                     `<tr>
-                        <td class="font-mono text-xs text-[#8a8f98]">${t.tanggal}</td>
-                        <td class="text-[#f7f8f8]">${t.keterangan}</td>
+                        <td class="font-mono text-xs text-[var(--ink-muted)]">${t.tanggal}</td>
+                        <td class="text-[var(--ink)]">${t.keterangan}</td>
                         <td>
                             <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
                                 <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
                             </span>
                         </td>
-                        <td class="text-right font-mono-num font-medium text-[#f7f8f8]">${fmt(t.nominal)}</td>
+                        <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(t.nominal)}</td>
                     </tr>`
                 ).join('');
             }
@@ -605,18 +627,18 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (rows.length === 0) {
-                h += `<tr><td colspan="6" class="text-center py-6 text-[#8a8f98]">Belum ada data kas BMS.</td></tr>`;
+                h += `<tr><td colspan="6" class="text-center py-6 text-[var(--ink-muted)]">Belum ada data kas BMS.</td></tr>`;
             } else {
                 h += rows.map(function(r, i) {
                     const badge = r.jenis === 'setor'
                         ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i> <span>Setor</span></span>'
                         : '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i> <span>Tarik</span></span>';
                     return '<tr>' +
-                        '<td class="font-mono text-xs text-[#8a8f98]">' + (i + 1) + '</td>' +
-                        '<td class="font-mono text-xs text-[#8a8f98]">' + r.tanggal + '</td>' +
-                        '<td class="text-[#f7f8f8]">' + r.keterangan + '</td>' +
+                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + (i + 1) + '</td>' +
+                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + r.tanggal + '</td>' +
+                        '<td class="text-[var(--ink)]">' + r.keterangan + '</td>' +
                         '<td>' + badge + '</td>' +
-                        '<td class="text-right font-mono-num font-medium text-[#f7f8f8]">' + fmt(r.jumlah) + '</td>' +
+                        '<td class="text-right font-mono-num font-medium text-[var(--ink)]">' + fmt(r.jumlah) + '</td>' +
                         '<td class="text-right space-x-1">' +
                             '<button class="btn-secondary text-xs px-2.5 py-1 edit-bms gap-1" data-id="' + r.id + '" data-tanggal="' + r.tanggal + '" data-keterangan="' + r.keterangan + '" data-jenis="' + r.jenis + '" data-jumlah="' + r.jumlah + '">' +
                                 '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
@@ -631,7 +653,7 @@ $(function () {
             h += '</tbody></table>';
             $('#bms-wrap').html(h);
         }).fail(function() {
-            $('#bms-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Gagal memuat data kas BMS.</div>');
+            $('#bms-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data kas BMS.</div>');
         });
     }
 
@@ -718,12 +740,12 @@ $(function () {
         if (aksi)   params.set('aksi', aksi);
         if (dari)   params.set('dari', dari);
         if (sampai) params.set('sampai', sampai);
-        $('#riwayat-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Memuat…</div>');
+        $('#riwayat-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Memuat…</div>');
         $('#riwayat-pagination').empty();
         $.getJSON('src/api/public.php?' + params.toString(), function(res) {
             const rows = res.data || [];
             if (!rows.length) {
-                $('#riwayat-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Belum ada riwayat.</div>');
+                $('#riwayat-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Belum ada riwayat.</div>');
                 return;
             }
             let html = '<table class="table-linear w-full"><thead><tr><th>Waktu</th><th>Modul</th><th>Aksi</th><th>Ringkasan</th><th>Oleh</th></tr></thead><tbody>';
@@ -740,7 +762,7 @@ $(function () {
                                         : '<span class="text-amber-400 font-semibold">Belum Lunas</span>';
                                     return `• <b>${escapeHtml(p.nama)}</b> — Minggu ${escapeHtml(p.minggu)} (${stBadge})`;
                                 }).join('<br>');
-                                cellRingkasan += `<details class="mt-1 text-xs text-[#8a8f98] cursor-pointer"><summary class="text-xs text-blue-400 font-medium underline">Lihat Rincian (${d.perubahan.length} item)</summary><div class="mt-1 p-2 bg-[#1a1d24] rounded border border-[#2a2e39] text-[#ced2da] leading-relaxed">${list}</div></details>`;
+                                cellRingkasan += `<details class="mt-1 text-xs text-[var(--ink-muted)] cursor-pointer"><summary class="text-xs text-[var(--primary)] font-medium underline">Lihat Rincian (${d.perubahan.length} item)</summary><div class="mt-1 p-2 bg-[var(--surface-2)] rounded border border-[var(--hairline)] text-[var(--ink)] leading-relaxed">${list}</div></details>`;
                             } else {
                                 const keys = Object.keys(d).filter(k => d[k] !== null && d[k] !== '');
                                 if (keys.length > 0) {
@@ -757,14 +779,14 @@ $(function () {
                                         const label = labels[k] || k;
                                         return `• <b>${escapeHtml(label)}:</b> ${escapeHtml(val)}`;
                                     }).join('<br>');
-                                    cellRingkasan += `<details class="mt-1 text-xs text-[#8a8f98] cursor-pointer"><summary class="text-xs text-blue-400 font-medium underline">Lihat Rincian</summary><div class="mt-1 p-2 bg-[#1a1d24] rounded border border-[#2a2e39] text-[#ced2da] leading-relaxed">${list}</div></details>`;
+                                    cellRingkasan += `<details class="mt-1 text-xs text-[var(--ink-muted)] cursor-pointer"><summary class="text-xs text-[var(--primary)] font-medium underline">Lihat Rincian</summary><div class="mt-1 p-2 bg-[var(--surface-2)] rounded border border-[var(--hairline)] text-[var(--ink)] leading-relaxed">${list}</div></details>`;
                                 }
                             }
                         }
                     } catch(e) {}
                 }
                 html += '<tr>'
-                    + '<td class="text-xs text-[#8a8f98] whitespace-nowrap">' + formatDateTime(r.created_at) + '</td>'
+                    + '<td class="text-xs text-[var(--ink-muted)] whitespace-nowrap">' + formatDateTime(r.created_at) + '</td>'
                     + '<td><span class="badge-neutral">' + escapeHtml(r.modul) + '</span></td>'
                     + '<td><span class="badge-' + escapeHtml(r.aksi) + '">' + escapeHtml(r.aksi) + '</span></td>'
                     + '<td>' + cellRingkasan + '</td>'
@@ -775,7 +797,7 @@ $(function () {
             $('#riwayat-wrap').html(html);
             renderPagination('riwayat-pagination', res.pagination, (p) => loadRiwayatAdmin(p));
         }).fail(function() {
-            $('#riwayat-wrap').html('<div class="text-center py-6 text-[#8a8f98]">Gagal memuat data.</div>');
+            $('#riwayat-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data.</div>');
         });
     }
     $('#riwayat-apply').on('click', () => { adminRiwayatPage = 1; loadRiwayatAdmin(); });

@@ -1,4 +1,4 @@
-$(function () {
+    $(function () {
     const bulanList = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     const $tabs = $('[data-tab-content]');
     const $navItems = $('[data-tab]');
@@ -113,10 +113,11 @@ $(function () {
         const data   = r.line_chart.map(x => x.saldo);
 
         const isDark = $('html').attr('data-theme') === 'dark';
-        const gridColor = isDark ? '#23252a' : '#e2e8f0';
-        const textColor = isDark ? '#8a8f98' : '#64748b';
-        const donutBorderColor = isDark ? '#0f1011' : '#ffffff';
-        const primaryColor = isDark ? '#5e6ad2' : '#4f46e5';
+        const gridColor = isDark ? '#2f2f2f' : '#e6e6e6';
+        const textColor = isDark ? '#9b9b9b' : '#615d59';
+        const donutBorderColor = isDark ? '#202020' : '#ffffff';
+        const primaryColor = isDark ? '#2383e2' : '#0075de';
+        const expenseColor = isDark ? '#ff8c3a' : '#dd5b00';
 
         Chart.defaults.color = textColor;
         Chart.defaults.font.family = "'Inter', sans-serif";
@@ -130,7 +131,7 @@ $(function () {
                     label: 'Saldo',
                     data,
                     borderColor: primaryColor,
-                    backgroundColor: isDark ? 'rgba(94, 106, 210, 0.12)' : 'rgba(79, 70, 229, 0.12)',
+                    backgroundColor: isDark ? 'rgba(35, 131, 226, 0.12)' : 'rgba(0, 117, 222, 0.12)',
                     borderWidth: 2,
                     pointBackgroundColor: primaryColor,
                     fill: true,
@@ -154,7 +155,7 @@ $(function () {
                 labels: ['Pemasukan', 'Pengeluaran'],
                 datasets: [{
                     data: [r.donut.masuk, r.donut.keluar],
-                    backgroundColor: [primaryColor, isDark ? '#e5484d' : '#dc2626'],
+                    backgroundColor: [primaryColor, expenseColor],
                     borderColor: donutBorderColor,
                     borderWidth: 2
                 }]
