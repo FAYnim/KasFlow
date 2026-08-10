@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (empty($_SESSION['admin_logged'])) { header('Location: ../auth/login.php'); exit; }
+if (empty($_SESSION['admin_logged'])) { header('Location: ../auth/login'); exit; }
 $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
 ?>
 <!DOCTYPE html>
@@ -66,7 +66,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
         </div>
 
         <div class="mt-8 pt-4 border-t border-[#23252a]">
-            <a href="../auth/logout.php" class="btn-danger w-full justify-center gap-2">
+            <a href="../auth/logout" class="btn-danger w-full justify-center gap-2">
                 <i class="fa-solid fa-right-from-bracket text-xs"></i>
                 <span>Keluar (Logout)</span>
             </a>
@@ -80,7 +80,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 <div class="eyebrow">Sesi Aktif</div>
                 <div class="text-sm text-[#8a8f98]">Login sebagai <b class="text-[#f7f8f8]"><?= htmlspecialchars($nama) ?></b></div>
             </div>
-            <a href="../../index.php" target="_blank" class="btn-secondary text-xs gap-2">
+            <a href="../../" target="_blank" class="btn-secondary text-xs gap-2">
                 <span>Buka Web Publik</span>
                 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
             </a>

@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['admin_logged'] = true;
         $_SESSION['admin_username'] = $user['username'];
         $_SESSION['admin_nama'] = $user['nama'];
-        header('Location: ../admin/dashboard.php');
+        header('Location: ../admin/dashboard');
         exit;
     }
     $error = 'Username atau password salah';
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </button>
 
             <div class="mt-6 text-center border-t border-[#23252a] pt-4">
-                <a href="../../index.php" class="text-xs text-[#8a8f98] hover:text-[#f7f8f8] transition-colors inline-flex items-center gap-2">
+                <a href="../../" class="text-xs text-[#8a8f98] hover:text-[#f7f8f8] transition-colors inline-flex items-center gap-2">
                     <i class="fa-solid fa-arrow-left text-[10px]"></i>
                     <span>Kembali ke Web Publik</span>
                 </a>
