@@ -30,7 +30,7 @@ try {
                        COALESCE(k.minggu_5,0) m5, COALESCE(k.total_bayar,0) total_bayar
                 FROM siswa s
                 LEFT JOIN kas_mingguan k ON k.siswa_id = s.id AND k.bulan = ? AND k.tahun = ?
-                ORDER BY s.nama ASC
+                ORDER BY s.absen ASC, s.nama ASC
             ");
             $stmt->execute([$bulan, $tahun]);
             $rows = $stmt->fetchAll();
