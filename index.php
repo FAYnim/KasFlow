@@ -24,6 +24,9 @@
                 <i class="fa-solid fa-bars text-base"></i>
             </button>
             <div class="brand-mark">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-money-bill-wave text-xs"></i>
+                </div>
                 <span>Cashflow RPL 1</span>
             </div>
         </div>

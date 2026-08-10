@@ -1,70 +1,100 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root, [data-theme="light"] {
-  /* Linear Light Design System Palette */
-  --canvas: #f8f9fa;
+  /* Notion Design System Palette - Light (Warm Paper) */
+  --canvas: #f6f5f4;
+  --canvas-soft: #f6f5f4;
   --surface-1: #ffffff;
-  --surface-2: #f1f5f9;
-  --surface-3: #e2e8f0;
-  --surface-4: #cbd5e1;
+  --surface-2: #f0efed;
+  --surface-3: #e6e6e6;
+  --surface-4: #d3d3d3;
   
-  --hairline: #e2e8f0;
-  --hairline-strong: #cbd5e1;
-  --hairline-tertiary: #94a3b8;
+  --hairline: #e6e6e6;
+  --hairline-strong: #d3d3d3;
+  --hairline-tertiary: #b3b3b3;
   
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-focus: #6366f1;
+  --primary: #0075de;
+  --primary-hover: #005bab;
+  --primary-focus: #0075de;
+  --secondary: #213183;
   --on-primary: #ffffff;
   
-  --ink: #0f172a;
-  --ink-muted: #334155;
-  --ink-subtle: #64748b;
-  --ink-tertiary: #94a3b8;
+  --ink: #000000;
+  --ink-secondary: #31302e;
+  --ink-muted: #615d59;
+  --ink-subtle: #615d59;
+  --ink-tertiary: #a39e98;
+  --ink-faint: #a39e98;
   
-  --semantic-success: #16a34a;
-  --semantic-success-bg: rgba(22, 163, 74, 0.1);
-  --semantic-danger: #dc2626;
-  --semantic-danger-bg: rgba(220, 38, 38, 0.1);
-  --semantic-info: #4f46e5;
-  --semantic-info-bg: rgba(79, 70, 229, 0.1);
+  /* Notion Decorative Sticker Palette */
+  --accent-sky: #62aef0;
+  --accent-purple: #d6b6f6;
+  --accent-purple-deep: #391c57;
+  --accent-pink: #ff64c8;
+  --accent-orange: #dd5b00;
+  --accent-orange-deep: #793400;
+  --accent-teal: #2a9d99;
+  --accent-green: #1aae39;
+  --accent-brown: #523410;
   
-  --top-nav-bg: rgba(255, 255, 255, 0.85);
+  --semantic-success: #1aae39;
+  --semantic-success-bg: rgba(26, 174, 57, 0.1);
+  --semantic-danger: #dd5b00;
+  --semantic-danger-bg: rgba(221, 91, 0, 0.1);
+  --semantic-info: #0075de;
+  --semantic-info-bg: rgba(0, 117, 222, 0.1);
+  
+  --top-nav-bg: rgba(255, 255, 255, 0.9);
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 [data-theme="dark"] {
-  /* Linear Dark Design System Palette */
-  --canvas: #010102;
-  --surface-1: #0f1011;
-  --surface-2: #141516;
-  --surface-3: #18191a;
-  --surface-4: #191a1b;
+  /* Notion Design System Palette - Dark */
+  --canvas: #191919;
+  --canvas-soft: #191919;
+  --surface-1: #202020;
+  --surface-2: #262626;
+  --surface-3: #2f2f2f;
+  --surface-4: #383838;
   
-  --hairline: #23252a;
-  --hairline-strong: #34343a;
-  --hairline-tertiary: #3e3e44;
+  --hairline: #2f2f2f;
+  --hairline-strong: #3f3f3f;
+  --hairline-tertiary: #525252;
   
-  --primary: #5e6ad2;
-  --primary-hover: #828fff;
-  --primary-focus: #5e69d1;
+  --primary: #2383e2;
+  --primary-hover: #0075de;
+  --primary-focus: #2383e2;
+  --secondary: #213183;
   --on-primary: #ffffff;
   
-  --ink: #f7f8f8;
-  --ink-muted: #d0d6e0;
-  --ink-subtle: #8a8f98;
-  --ink-tertiary: #62666d;
+  --ink: #f7f7f7;
+  --ink-secondary: #d3d3d3;
+  --ink-muted: #9b9b9b;
+  --ink-subtle: #9b9b9b;
+  --ink-tertiary: #6f6f6f;
+  --ink-faint: #6f6f6f;
   
-  --semantic-success: #27a644;
-  --semantic-success-bg: rgba(39, 166, 68, 0.12);
-  --semantic-danger: #e5484d;
-  --semantic-danger-bg: rgba(229, 72, 77, 0.12);
-  --semantic-info: #5e6ad2;
-  --semantic-info-bg: rgba(94, 106, 210, 0.12);
+  /* Decorative Sticker Accents Dark */
+  --accent-sky: #62aef0;
+  --accent-purple: #d6b6f6;
+  --accent-purple-deep: #d6b6f6;
+  --accent-pink: #ff64c8;
+  --accent-orange: #ff8c3a;
+  --accent-orange-deep: #ff8c3a;
+  --accent-teal: #36c5c0;
+  --accent-green: #2aae48;
+  --accent-brown: #d4a373;
   
-  --top-nav-bg: rgba(1, 1, 2, 0.85);
+  --semantic-success: #2aae48;
+  --semantic-success-bg: rgba(42, 174, 72, 0.15);
+  --semantic-danger: #ff6059;
+  --semantic-danger-bg: rgba(255, 96, 89, 0.15);
+  --semantic-info: #2383e2;
+  --semantic-info-bg: rgba(35, 131, 226, 0.15);
+  
+  --top-nav-bg: rgba(25, 25, 25, 0.9);
 }
 
 /* Base resets & global styles */
@@ -78,55 +108,71 @@ body {
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.5;
-  letter-spacing: -0.05px;
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   margin: 0;
   padding: 0;
 }
 
-/* Headings with Linear measured negative tracking */
-h1, .display-xl {
-  font-size: 2.25rem;
-  font-weight: 600;
-  letter-spacing: -1.2px;
-  line-height: 1.15;
+/* Headings with Notion measured negative tracking */
+h1, .display-xl, .display-1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -1.875px;
+  line-height: 1.05;
   color: var(--ink);
 }
 
-h2, .display-md {
-  font-size: 1.75rem;
-  font-weight: 600;
-  letter-spacing: -0.8px;
-  line-height: 1.2;
+h2, .display-md, .heading-1, .heading-2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  letter-spacing: -0.625px;
+  line-height: 1.23;
   color: var(--ink);
 }
 
-h3, .headline {
+h3, .headline, .heading-3 {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.25px;
+  line-height: 1.27;
+  color: var(--ink);
+}
+
+.title {
   font-size: 1.25rem;
   font-weight: 600;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.125px;
+  line-height: 1.4;
   color: var(--ink);
 }
 
 .eyebrow {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0.4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.125px;
   text-transform: uppercase;
   color: var(--ink-subtle);
+  line-height: 1.33;
 }
 
 /* Surface Cards & Panels */
-.card-linear {
+.card-linear, .card-notion {
   background-color: var(--surface-1);
   border: 1px solid var(--hairline);
   border-radius: 12px;
   padding: 24px;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.card-linear:hover {
+[data-theme="dark"] .card-linear, 
+[data-theme="dark"] .card-notion {
+  box-shadow: none;
+}
+
+.card-linear:hover, .card-notion:hover {
   border-color: var(--hairline-strong);
 }
 
@@ -146,17 +192,21 @@ h3, .headline {
   color: var(--on-primary);
   font-size: 14px;
   font-weight: 500;
-  padding: 8px 16px;
-  border-radius: 8px;
+  padding: 8px 20px;
+  border-radius: 9999px;
   border: none;
   cursor: pointer;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
   text-decoration: none;
 }
 
 .btn-primary:hover {
   background-color: var(--primary-hover);
   color: var(--on-primary);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
 }
 
 .btn-primary:focus-visible {
@@ -172,11 +222,12 @@ h3, .headline {
   color: var(--ink);
   font-size: 14px;
   font-weight: 500;
-  padding: 8px 16px;
-  border-radius: 8px;
+  padding: 8px 18px;
+  border-radius: 9999px;
   border: 1px solid var(--hairline);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
   text-decoration: none;
 }
 
@@ -184,6 +235,31 @@ h3, .headline {
   background-color: var(--surface-2);
   border-color: var(--hairline-strong);
   color: var(--ink);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.btn-utility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--surface-1);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  text-decoration: none;
+}
+
+.btn-utility:hover {
+  background-color: var(--surface-2);
+  border-color: var(--hairline-strong);
 }
 
 .btn-danger {
@@ -194,16 +270,17 @@ h3, .headline {
   color: var(--semantic-danger);
   font-size: 13px;
   font-weight: 500;
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(229, 72, 77, 0.2);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1px solid rgba(221, 91, 0, 0.25);
   cursor: pointer;
   transition: all 0.15s ease;
+  text-decoration: none;
 }
 
 .btn-danger:hover {
-  background-color: rgba(229, 72, 77, 0.2);
-  border-color: rgba(229, 72, 77, 0.4);
+  background-color: rgba(221, 91, 0, 0.2);
+  border-color: rgba(221, 91, 0, 0.4);
 }
 
 /* Forms & Inputs */
@@ -211,8 +288,8 @@ h3, .headline {
   background-color: var(--surface-1);
   color: var(--ink);
   border: 1px solid var(--hairline);
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 4px;
+  padding: 6px 10px;
   font-size: 14px;
   font-family: var(--font-sans);
   outline: none;
@@ -226,11 +303,11 @@ h3, .headline {
 
 .input-linear:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(94, 106, 210, 0.25);
+  box-shadow: 0 0 0 2px rgba(0, 117, 222, 0.2);
 }
 
 select.input-linear option {
-  background-color: var(--surface-2);
+  background-color: var(--surface-1);
   color: var(--ink);
 }
 
@@ -252,19 +329,19 @@ select.input-linear option {
 .table-linear th {
   background-color: var(--surface-2);
   color: var(--ink-subtle);
-  font-weight: 500;
+  font-weight: 600;
   text-align: left;
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--hairline);
-  font-size: 13px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.125px;
 }
 
 .table-linear td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--hairline);
-  color: var(--ink-muted);
+  color: var(--ink-secondary);
 }
 
 .table-linear tbody tr {
@@ -279,8 +356,8 @@ select.input-linear option {
   background-color: var(--surface-2);
 }
 
-/* Badges & Status */
-.badge-status {
+/* Badges & Status - Notion Sticker Style */
+.badge-status, .badge-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -292,15 +369,15 @@ select.input-linear option {
 }
 
 .badge-success {
-  background-color: var(--semantic-success-bg);
-  color: var(--semantic-success);
-  border: 1px solid rgba(22, 163, 74, 0.25);
+  background-color: rgba(26, 174, 57, 0.12);
+  color: var(--accent-green);
+  border: 1px solid rgba(26, 174, 57, 0.25);
 }
 
 .badge-danger {
-  background-color: var(--semantic-danger-bg);
-  color: var(--semantic-danger);
-  border: 1px solid rgba(220, 38, 38, 0.25);
+  background-color: rgba(221, 91, 0, 0.12);
+  color: var(--accent-orange);
+  border: 1px solid rgba(221, 91, 0, 0.25);
 }
 
 .badge-neutral {
@@ -323,8 +400,8 @@ select.input-linear option {
   right: 0;
   height: 56px;
   background-color: var(--top-nav-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--hairline);
   z-index: 40;
   display: flex;
@@ -341,20 +418,21 @@ select.input-linear option {
   font-weight: 600;
   font-size: 16px;
   color: var(--ink);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
 }
 
 .brand-icon {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
-  background: linear-gradient(135deg, #5e6ad2 0%, #828fff 100%);
+  background: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* Sidebar */
@@ -376,9 +454,9 @@ select.input-linear option {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: 8px;
-  color: var(--ink-subtle);
+  color: var(--ink-muted);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -394,16 +472,15 @@ select.input-linear option {
 
 .sidebar-nav-item.active {
   background-color: var(--surface-2);
-  color: var(--ink);
-  border-left: 2px solid var(--primary);
-  padding-left: 10px;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 /* Modals */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
   z-index: 50;
   display: flex;
@@ -412,23 +489,31 @@ select.input-linear option {
   padding: 16px;
 }
 
+[data-theme="dark"] .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
 .modal-card {
   background-color: var(--surface-1);
-  border: 1px solid var(--hairline-strong);
+  border: 1px solid var(--hairline);
   border-radius: 12px;
   width: 100%;
   max-width: 440px;
   padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] .modal-card {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
 }
 
-/* Checkbox Linear styling */
+/* Checkbox Notion styling */
 input[type="checkbox"].kas-cb {
   appearance: none;
   -webkit-appearance: none;
   width: 18px;
   height: 18px;
-  background-color: var(--surface-2);
+  background-color: var(--surface-1);
   border: 1px solid var(--hairline-strong);
   border-radius: 4px;
   cursor: pointer;
@@ -460,12 +545,16 @@ input[type="checkbox"].kas-cb:checked::after {
   letter-spacing: -0.5px;
 }
 
-/* Activity Log Badge Classes */
-.badge-tambah        { background: var(--surface-2); color: #27a644; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
-.badge-edit          { background: var(--surface-2); color: #5e6ad2; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
-.badge-hapus         { background: var(--surface-2); color: #ef4444; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
-.badge-update_status { background: var(--surface-2); color: #f59e0b; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
-.badge-neutral       { background: var(--surface-2); color: var(--ink-muted); padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+/* Activity Log Badge Classes - Notion Sticker Palette */
+.badge-tambah        { background: rgba(26, 174, 57, 0.12); color: #1aae39; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+.badge-edit          { background: rgba(0, 117, 222, 0.12); color: #0075de; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+.badge-hapus         { background: rgba(221, 91, 0, 0.12); color: #dd5b00; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+.badge-update_status { background: rgba(214, 182, 246, 0.2); color: #793400; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+
+[data-theme="dark"] .badge-tambah { color: #2aae48; }
+[data-theme="dark"] .badge-edit { color: #2383e2; }
+[data-theme="dark"] .badge-hapus { color: #ff8c3a; }
+[data-theme="dark"] .badge-update_status { color: #d6b6f6; }
 
 /* ── Pagination Component ─────────────────────────────────────────────── */
 .pagination-container {
@@ -498,7 +587,7 @@ input[type="checkbox"].kas-cb:checked::after {
   min-width: 32px;
   height: 32px;
   padding: 0 8px;
-  border-radius: 7px;
+  border-radius: 6px;
   border: 1px solid var(--hairline);
   background-color: var(--surface-1);
   color: var(--ink-subtle);
@@ -538,4 +627,3 @@ input[type="checkbox"].kas-cb:checked::after {
   cursor: default;
   pointer-events: none;
 }
-
