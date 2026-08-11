@@ -247,23 +247,35 @@ try {
             break;
         }
         case 'get_transfers': {
-            $page  = max(1, (int)($_GET['page']  ?? 1));
-            $limit = max(5, min(100, (int)($_GET['limit'] ?? 15)));
-            $offset = ($page - 1) * $limit;
-            $stmtCount = $pdo->query("SELECT COUNT(DISTINCT transfer_pair_id) FROM storage_transactions WHERE ref_type='transfer_out'");
+            $page   = max(1, (int)($_GET['page']   ?? 1));
+            $limit  = max(5, min(100, (int)($_GET['limit'] ?? 15)));
+            $dari   = $_GET['dari']   ?? '';
+            $sampai = $_GET['sampai'] ?? '';
+            $where  = ["t.ref_type = 'transfer_out'"];
+            $args   = [];
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 't.tanggal >= ?'; $args[] = $dari; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 't.tanggal <= ?'; $args[] = $sampai; }
+            $sqlWhere = 'WHERE ' . implode(' AND ', $where);
+
+            $stmtCount = $pdo->prepare("SELECT COUNT(DISTINCT t.transfer_pair_id) FROM storage_transactions t $sqlWhere");
+            $stmtCount->execute($args);
             $totalRecords = (int)$stmtCount->fetchColumn();
             $totalPages   = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
-            $rows = $pdo->query("
+            $offset = ($page - 1) * $limit;
+
+            $stmt = $pdo->prepare("
                 SELECT t.id, t.tanggal, t.nominal, t.keterangan, t.transfer_pair_id,
                        fa.name AS from_name, ta.name AS to_name
                 FROM storage_transactions t
                 JOIN storage_transactions t2 ON t2.transfer_pair_id = t.id AND t2.id <> t.id
                 JOIN storage_accounts fa ON fa.id = t.account_id
                 JOIN storage_accounts ta ON ta.id = t2.account_id
-                WHERE t.ref_type = 'transfer_out'
+                $sqlWhere
                 ORDER BY t.tanggal DESC, t.id DESC
                 LIMIT $limit OFFSET $offset
-            ")->fetchAll(PDO::FETCH_ASSOC);
+            ");
+            $stmt->execute($args);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($rows as &$r) $r['nominal'] = (float)$r['nominal'];
             unset($r);
             echo json_encode([

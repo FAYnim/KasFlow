@@ -47,8 +47,15 @@ $(function () {
         riwayat: loadRiwayatAdmin,
     };
 
-    $('[data-tab]').on('click', function () { activate($(this).data('tab')); });
-    activate('dashboard');
+    $('[data-tab]').on('click', function () {
+        const tab = $(this).data('tab');
+        if (history.replaceState) history.replaceState(null, null, '#' + tab);
+        else location.hash = tab;
+        activate(tab);
+    });
+
+    const initTab = location.hash.replace('#', '') || 'dashboard';
+    activate(loaders[initTab] ? initTab : 'dashboard');
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
     const bulanList = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -841,6 +848,7 @@ $(function () {
         $.post('src/api/admin.php?action=add_transfer', payload, function (res) {
             if (res && res.ok) {
                 $('#modal-transfer').addClass('hidden');
+                transferPage = 1;
                 loadAlokasiAdmin();
             } else {
                 alert('Gagal menyimpan transfer: ' + (res && res.error ? res.error : 'unknown'));
@@ -851,6 +859,9 @@ $(function () {
     });
 
     function loadAlokasiAdmin() {
+        loadAlokasiHistory();
+        loadTransferList();
+
         $.getJSON('src/api/admin.php?action=list_accounts', function (accs) {
             alokasiAccounts = accs;
             // Fetch breakdown (saldos + recent transfers) and history together
@@ -903,12 +914,8 @@ $(function () {
                     </div>
                 `).join('') : '<div class="text-subtle text-sm py-2">Belum ada transfer.</div>');
 
-                // Transfers full list (admin table with delete)
-                loadTransferList();
                 lDash();
             });
-
-            loadAlokasiHistory();
         }).fail(function () {
             $('#alokasi-accounts').html('<div class="text-subtle text-sm">Gagal memuat data alokasi.</div>');
         });
@@ -973,7 +980,16 @@ $(function () {
 
     function loadTransferList(page) {
         if (page !== undefined) transferPage = page;
-        $.getJSON('src/api/public.php?action=get_transfers&page=' + transferPage + '&limit=15', function (res) {
+        const params = new URLSearchParams({ action: 'get_transfers', page: transferPage, limit: 15 });
+        const dari   = $('#alokasi-dari').val();
+        const sampai = $('#alokasi-sampai').val();
+        if (dari)   params.set('dari', dari);
+        if (sampai) params.set('sampai', sampai);
+
+        $('#alokasi-transfers-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Memuat…</div>');
+        $('#alokasi-transfers-pagination').empty();
+
+        $.getJSON('src/api/public.php?' + params.toString(), function (res) {
             const rows = res.data || [];
             let h = '<table class="table-linear"><thead><tr><th class="w-16">#</th><th class="w-32">Tanggal</th><th>Dari</th><th>Ke</th><th>Keterangan</th><th class="text-right w-36">Nominal</th><th class="w-28 text-right">Aksi</th></tr></thead><tbody>';
             if (!rows.length) {
@@ -1002,15 +1018,23 @@ $(function () {
     $(document).on('click', '.del-transfer', function () {
         if (!confirm('Hapus transfer ini? Saldo akan dikembalikan.')) return;
         $.post('src/api/admin.php?action=delete_transfer', { transfer_pair_id: $(this).data('pair') }, function () {
+            transferPage = 1;
             loadAlokasiAdmin();
         }, 'json').fail(function () { alert('Gagal menghapus.'); });
     });
 
-    $('#alokasi-apply').on('click', () => { alokasiPage = 1; loadAlokasiHistory(); });
+    $('#alokasi-apply').on('click', () => {
+        alokasiPage = 1;
+        transferPage = 1;
+        loadAlokasiHistory();
+        loadTransferList();
+    });
+
     $('#alokasi-reset').on('click', function () {
         $('#alokasi-dari').val('');
         $('#alokasi-sampai').val('');
         alokasiPage = 1;
+        transferPage = 1;
         loadAlokasiAdmin();
     });
 
