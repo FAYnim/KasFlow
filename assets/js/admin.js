@@ -858,8 +858,9 @@ $(function () {
                 alokasiSaldos = {};
                 (s.accounts || []).forEach(a => { alokasiSaldos[a.id] = a.saldo; });
                 // Render cards with actual saldo
-                $('#alokasi-accounts').html(accs.map((a, i) => {
-                    const colorClass = ['text-[var(--primary)]', 'text-violet-400', 'text-emerald-400'][i % 3];
+                const PT_COLORS_ADMIN = { cash: 'text-[var(--primary)]', ewallet: 'text-violet-400', bank: 'text-emerald-400', other: 'text-amber-400' };
+                $('#alokasi-accounts').html(accs.map(a => {
+                    const colorClass = PT_COLORS_ADMIN[a.parent_type] || PT_COLORS_ADMIN[a.type] || 'text-[var(--primary)]';
                     const icon = a.icon || 'fa-solid fa-vault';
                     return `<div class="card-linear">
                         <div class="flex items-center justify-between mb-2">
@@ -1114,4 +1115,187 @@ $(function () {
             else alert('Gagal: ' + (res && res.error ? res.error : 'unknown'));
         }, 'json').fail(function(xhr) { alert('Gagal: HTTP ' + xhr.status); });
     });
+
+    // ── Kelola Tempat Penyimpanan (Storage Accounts) ─────────────────────
+    const SA_PRESETS = [
+        { name: 'Cash',          parent_type: 'cash',    icon: 'fa-solid fa-wallet',                type: 'cash' },
+        { name: 'DANA',          parent_type: 'ewallet', icon: 'fa-solid fa-mobile-screen',         type: 'ewallet_dana' },
+        { name: 'Gopay',         parent_type: 'ewallet', icon: 'fa-solid fa-mobile-screen-button',  type: 'ewallet_gopay' },
+        { name: 'OVO',           parent_type: 'ewallet', icon: 'fa-solid fa-circle-dollar-to-slot', type: 'ewallet_ovo' },
+        { name: 'ShopeePay',     parent_type: 'ewallet', icon: 'fa-solid fa-bag-shopping',          type: 'ewallet_shopee' },
+        { name: 'LinkAja',       parent_type: 'ewallet', icon: 'fa-solid fa-link',                  type: 'ewallet_linkaja' },
+        { name: 'SeaBank',       parent_type: 'bank',    icon: 'fa-solid fa-building-columns',      type: 'bank_seabank' },
+        { name: 'Bank Mandiri',  parent_type: 'bank',    icon: 'fa-solid fa-building-columns',      type: 'bank_mandiri' },
+        { name: 'BCA',           parent_type: 'bank',    icon: 'fa-solid fa-landmark',              type: 'bank_bca' },
+        { name: 'BRI',           parent_type: 'bank',    icon: 'fa-solid fa-landmark-dome',         type: 'bank_bri' },
+        { name: 'BNI',           parent_type: 'bank',    icon: 'fa-solid fa-landmark',              type: 'bank_bni' },
+        { name: 'Jenius',        parent_type: 'bank',    icon: 'fa-solid fa-j',                     type: 'bank_jenius' },
+    ];
+
+    const SA_PARENT_LABELS = { cash: 'Tunai', ewallet: 'E-Wallet', bank: 'Bank', other: 'Lainnya' };
+    const SA_PARENT_COLORS = { cash: 'text-[var(--primary)]', ewallet: 'text-violet-400', bank: 'text-emerald-400', other: 'text-amber-400' };
+
+    function saResetForm() {
+        $('#sa-edit-id').val('');
+        $('#sa-name').val('');
+        $('#sa-parent-type').val('cash');
+        $('#sa-icon').val('');
+        $('#sa-sort').val('99');
+        $('#sa-icon-preview').html('<i class="fa-solid fa-vault"></i>');
+        $('#sa-submit-label').text('Tambah Akun');
+        $('#sa-submit-btn i').removeClass('fa-floppy-disk').addClass('fa-plus');
+        $('#sa-cancel-edit').addClass('hidden');
+    }
+
+    function saLoadList() {
+        $.getJSON('src/api/admin.php?action=list_storage_accounts_all', function (accs) {
+            if (!accs.length) {
+                $('#storage-accounts-list').html('<div class="text-subtle text-sm py-4 text-center">Belum ada tempat penyimpanan.</div>');
+                return;
+            }
+            const html = accs.map(a => {
+                const icon   = a.icon || 'fa-solid fa-vault';
+                const pLabel = SA_PARENT_LABELS[a.parent_type] || a.parent_type;
+                const pColor = SA_PARENT_COLORS[a.parent_type] || 'text-[var(--ink-muted)]';
+                const activeClass   = a.is_active ? '' : 'opacity-50';
+                const toggleLabel   = a.is_active ? 'Nonaktifkan' : 'Aktifkan';
+                const toggleIcon    = a.is_active ? 'fa-toggle-on' : 'fa-toggle-off';
+                const toggleColor   = a.is_active ? 'text-emerald-400' : 'text-[var(--ink-muted)]';
+                const canDelete     = a.tx_count === 0;
+                return `<div class="flex items-center gap-3 px-3 py-2 rounded-lg border border-[var(--hairline)] bg-[var(--surface-2)] ${activeClass}" data-sa-id="${a.id}">
+                    <span class="text-lg ${pColor} w-5 text-center"><i class="${escapeHtml(icon)}"></i></span>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-[var(--ink)] truncate">${escapeHtml(a.name)}</div>
+                        <div class="text-[11px] text-[var(--ink-muted)]">${escapeHtml(pLabel)} &middot; ${a.tx_count} transaksi &middot; Saldo: ${fmt(a.saldo)}</div>
+                    </div>
+                    <div class="flex gap-1.5 flex-shrink-0">
+                        <button class="btn-secondary text-xs px-2 py-1 sa-edit-btn" data-id="${a.id}" title="Edit">
+                            <i class="fa-solid fa-pen text-[10px]"></i>
+                        </button>
+                        <button class="btn-secondary text-xs px-2 py-1 sa-toggle-btn ${toggleColor}" data-id="${a.id}" title="${toggleLabel}">
+                            <i class="fa-solid ${toggleIcon} text-sm"></i>
+                        </button>
+                        ${canDelete
+                            ? `<button class="btn-danger text-xs px-2 py-1 sa-delete-btn" data-id="${a.id}" data-name="${escapeHtml(a.name)}" title="Hapus"><i class="fa-solid fa-trash text-[10px]"></i></button>`
+                            : `<button class="btn-secondary text-xs px-2 py-1 opacity-40 cursor-not-allowed" title="Ada transaksi — nonaktifkan saja" disabled><i class="fa-solid fa-trash text-[10px]"></i></button>`
+                        }
+                    </div>
+                </div>`;
+            }).join('');
+            $('#storage-accounts-list').html(html);
+
+            // Preset: tampilkan yang belum ada
+            const existingNames = new Set(accs.map(a => a.name));
+            const presetHtml = SA_PRESETS.filter(p => !existingNames.has(p.name)).map(p =>
+                `<button type="button" class="btn-secondary text-xs gap-1.5 sa-preset-btn px-2.5 py-1.5"
+                    data-name="${escapeHtml(p.name)}" data-type="${p.type}" data-parent="${p.parent_type}" data-icon="${p.icon}">
+                    <i class="${p.icon} text-[10px]"></i> ${escapeHtml(p.name)}
+                </button>`
+            ).join('');
+            $('#storage-presets').html(presetHtml || '<span class="text-subtle text-xs">Semua preset sudah ditambahkan ✓</span>');
+        }).fail(function () {
+            $('#storage-accounts-list').html('<div class="text-rose-400 text-sm py-4 text-center">Gagal memuat daftar akun.</div>');
+        });
+    }
+
+    // Buka modal
+    $('#alokasi-manage-accounts-btn').on('click', function () {
+        saResetForm();
+        saLoadList();
+        $('#modal-storage-accounts').removeClass('hidden');
+    });
+    // Tutup modal — refresh kartu saldo
+    $('#storage-modal-close').on('click', function () {
+        $('#modal-storage-accounts').addClass('hidden');
+        loadAlokasiAdmin();
+    });
+
+    // Icon live preview
+    $(document).on('input', '#sa-icon', function () {
+        const cls = $(this).val().trim() || 'fa-solid fa-vault';
+        $('#sa-icon-preview').html(`<i class="${escapeHtml(cls)}"></i>`);
+    });
+
+    // Klik preset: isi form & scroll ke form
+    $(document).on('click', '.sa-preset-btn', function () {
+        saResetForm();
+        $('#sa-name').val($(this).data('name'));
+        $('#sa-parent-type').val($(this).data('parent'));
+        $('#sa-icon').val($(this).data('icon'));
+        $('#sa-icon').trigger('input');
+        $('#sa-submit-label').text('Tambah Akun');
+        $('#sa-name').focus();
+    });
+
+    // Edit akun
+    $(document).on('click', '.sa-edit-btn', function () {
+        const id = $(this).data('id');
+        $.getJSON('src/api/admin.php?action=list_storage_accounts_all', function (accs) {
+            const a = accs.find(x => x.id == id);
+            if (!a) return;
+            $('#sa-edit-id').val(a.id);
+            $('#sa-name').val(a.name);
+            $('#sa-parent-type').val(a.parent_type || 'other');
+            $('#sa-icon').val(a.icon || '');
+            $('#sa-icon').trigger('input');
+            $('#sa-sort').val(a.sort_order);
+            $('#sa-submit-label').text('Simpan Perubahan');
+            $('#sa-submit-btn i').removeClass('fa-plus').addClass('fa-floppy-disk');
+            $('#sa-cancel-edit').removeClass('hidden');
+            $('#sa-name').focus();
+        });
+    });
+
+    // Batal edit
+    $('#sa-cancel-edit').on('click', saResetForm);
+
+    // Submit form
+    $('#form-storage-account').on('submit', function (e) {
+        e.preventDefault();
+        const id         = $('#sa-edit-id').val();
+        const name       = $('#sa-name').val().trim();
+        const parentType = $('#sa-parent-type').val();
+        const icon       = $('#sa-icon').val().trim() || 'fa-solid fa-vault';
+        const sort       = parseInt($('#sa-sort').val()) || 99;
+        const type       = id ? parentType : (parentType + '_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''));
+        const payload = { name, type, parent_type: parentType, icon, sort_order: sort };
+        if (id) payload.id = id;
+
+        const action = id ? 'update_storage_account' : 'add_storage_account';
+        $.post('src/api/admin.php?action=' + action, payload, function (res) {
+            if (res && res.ok) {
+                saResetForm();
+                saLoadList();
+            } else {
+                alert('Gagal: ' + (res && res.error ? res.error : 'unknown'));
+            }
+        }, 'json').fail(function (xhr) {
+            try { const r = JSON.parse(xhr.responseText); alert('Gagal: ' + (r.error || 'unknown')); }
+            catch (_) { alert('Gagal (HTTP ' + xhr.status + ')'); }
+        });
+    });
+
+    // Toggle aktif/nonaktif
+    $(document).on('click', '.sa-toggle-btn', function () {
+        const id = $(this).data('id');
+        $.post('src/api/admin.php?action=toggle_storage_account', { id }, function (res) {
+            if (res && res.ok) saLoadList();
+            else alert('Gagal: ' + (res && res.error ? res.error : 'unknown'));
+        }, 'json');
+    });
+
+    // Hapus akun
+    $(document).on('click', '.sa-delete-btn', function () {
+        const id   = $(this).data('id');
+        const name = $(this).data('name');
+        if (!confirm(`Hapus tempat penyimpanan "${name}"?\nTindakan ini tidak dapat dibatalkan.`)) return;
+        $.post('src/api/admin.php?action=delete_storage_account', { id }, function (res) {
+            if (res && res.ok) saLoadList();
+            else alert('Gagal: ' + (res && res.error ? res.error : 'unknown'));
+        }, 'json').fail(function (xhr) {
+            try { const r = JSON.parse(xhr.responseText); alert('Gagal: ' + (r.error || 'unknown')); }
+            catch (_) { alert('Gagal (HTTP ' + xhr.status + ')'); }
+        });
+    });
+
 });

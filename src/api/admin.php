@@ -589,6 +589,96 @@ try {
             echo json_encode(['ok' => true, 'deleted' => $deleted]);
             break;
         }
+        // ── Kelola Tempat Penyimpanan (Storage Accounts CRUD) ──────────────
+        case 'list_storage_accounts_all': {
+            // Semua akun + statistik transaksi (digunakan admin)
+            $rows = $pdo->query("
+                SELECT a.id, a.name, a.type, a.parent_type, a.icon, a.is_active, a.sort_order,
+                       COALESCE(SUM(CASE WHEN t.jenis='masuk' THEN t.nominal ELSE -t.nominal END), 0) AS saldo,
+                       COUNT(DISTINCT t.id) AS tx_count
+                FROM storage_accounts a
+                LEFT JOIN storage_transactions t ON t.account_id = a.id
+                GROUP BY a.id
+                ORDER BY a.sort_order, a.id
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as &$r) {
+                $r['saldo']    = (float)$r['saldo'];
+                $r['tx_count'] = (int)$r['tx_count'];
+                $r['is_active'] = (bool)(int)$r['is_active'];
+            }
+            unset($r);
+            echo json_encode($rows);
+            break;
+        }
+        case 'add_storage_account': {
+            $name   = trim($_POST['name'] ?? '');
+            $type   = trim($_POST['type'] ?? 'other');
+            $ptype  = trim($_POST['parent_type'] ?? 'other');
+            $icon   = trim($_POST['icon'] ?? 'fa-solid fa-vault');
+            $sort   = (int)($_POST['sort_order'] ?? 99);
+            if ($name === '') { http_response_code(400); echo json_encode(['error'=>'name required']); break; }
+            // Cek duplikasi nama
+            $dup = $pdo->prepare("SELECT id FROM storage_accounts WHERE name = ?");
+            $dup->execute([$name]);
+            if ($dup->fetchColumn() !== false) { http_response_code(409); echo json_encode(['error'=>'Nama akun sudah ada']); break; }
+            $ins = $pdo->prepare("INSERT INTO storage_accounts (name, type, parent_type, icon, sort_order, is_active) VALUES (?,?,?,?,?,1)");
+            $ins->execute([$name, $type, $ptype, $icon, $sort]);
+            $newId = (int)$pdo->lastInsertId();
+            log_activity($pdo, 'storage_account', 'tambah', $newId, "Tambah tempat simpan: $name ($type)", ['name'=>$name,'type'=>$type,'parent_type'=>$ptype,'icon'=>$icon]);
+            echo json_encode(['ok'=>true, 'id'=>$newId]);
+            break;
+        }
+        case 'update_storage_account': {
+            $id    = (int)($_POST['id'] ?? 0);
+            $name  = trim($_POST['name'] ?? '');
+            $type  = trim($_POST['type'] ?? 'other');
+            $ptype = trim($_POST['parent_type'] ?? 'other');
+            $icon  = trim($_POST['icon'] ?? 'fa-solid fa-vault');
+            $sort  = (int)($_POST['sort_order'] ?? 99);
+            if ($id <= 0 || $name === '') { http_response_code(400); echo json_encode(['error'=>'id and name required']); break; }
+            // Cek duplikasi nama (selain diri sendiri)
+            $dup = $pdo->prepare("SELECT id FROM storage_accounts WHERE name = ? AND id <> ?");
+            $dup->execute([$name, $id]);
+            if ($dup->fetchColumn() !== false) { http_response_code(409); echo json_encode(['error'=>'Nama akun sudah ada']); break; }
+            $pdo->prepare("UPDATE storage_accounts SET name=?, type=?, parent_type=?, icon=?, sort_order=? WHERE id=?")->execute([$name, $type, $ptype, $icon, $sort, $id]);
+            log_activity($pdo, 'storage_account', 'ubah', $id, "Ubah tempat simpan #$id → $name", ['name'=>$name,'type'=>$type,'parent_type'=>$ptype,'icon'=>$icon]);
+            echo json_encode(['ok'=>true]);
+            break;
+        }
+        case 'toggle_storage_account': {
+            $id = (int)($_POST['id'] ?? 0);
+            if ($id <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid id']); break; }
+            $row = $pdo->prepare("SELECT name, is_active FROM storage_accounts WHERE id=?");
+            $row->execute([$id]);
+            $acc = $row->fetch(PDO::FETCH_ASSOC);
+            if (!$acc) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            $newState = $acc['is_active'] ? 0 : 1;
+            $pdo->prepare("UPDATE storage_accounts SET is_active=? WHERE id=?")->execute([$newState, $id]);
+            $label = $newState ? 'aktifkan' : 'nonaktifkan';
+            log_activity($pdo, 'storage_account', $label, $id, ucfirst($label) . " tempat simpan: {$acc['name']}", ['id'=>$id,'is_active'=>$newState]);
+            echo json_encode(['ok'=>true, 'is_active'=>(bool)$newState]);
+            break;
+        }
+        case 'delete_storage_account': {
+            $id = (int)($_POST['id'] ?? 0);
+            if ($id <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid id']); break; }
+            // Cek apakah sudah pernah ada transaksi — kalau iya, tolak
+            $usedCheck = $pdo->prepare("SELECT COUNT(*) FROM storage_transactions WHERE account_id = ?");
+            $usedCheck->execute([$id]);
+            if ($usedCheck->fetchColumn() > 0) {
+                http_response_code(409);
+                echo json_encode(['error'=>'Akun sudah memiliki riwayat transaksi dan tidak bisa dihapus. Nonaktifkan saja.']);
+                break;
+            }
+            $row = $pdo->prepare("SELECT name FROM storage_accounts WHERE id=?");
+            $row->execute([$id]);
+            $name = $row->fetchColumn();
+            if (!$name) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            $pdo->prepare("DELETE FROM storage_accounts WHERE id=?")->execute([$id]);
+            log_activity($pdo, 'storage_account', 'hapus', $id, "Hapus tempat simpan: $name", ['id'=>$id,'name'=>$name]);
+            echo json_encode(['ok'=>true]);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);

@@ -405,12 +405,13 @@
     function loadAlokasi() {
         $.getJSON('src/api/public.php?action=get_storage_breakdown', function (s) {
             const accounts = s.accounts || [];
-            $('#alokasi-accounts').html(accounts.map((a, i) => {
-                const colorClass = ['text-[var(--primary)]', 'text-violet-400', 'text-emerald-400'][i % 3];
+            const PT_COLORS = { cash: 'text-[var(--primary)]', ewallet: 'text-violet-400', bank: 'text-emerald-400', other: 'text-amber-400' };
+            $('#alokasi-accounts').html(accounts.map(a => {
+                const colorClass = PT_COLORS[a.parent_type] || PT_COLORS[a.type] || 'text-[var(--primary)]';
                 const icon = a.icon || 'fa-solid fa-vault';
                 return `<div class="card-linear">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="eyebrow">${a.name}</span>
+                        <span class="eyebrow">${escapeHtml(a.name)}</span>
                         <span class="text-subtle"><i class="${icon} text-sm"></i></span>
                     </div>
                     <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(a.saldo)}</div>

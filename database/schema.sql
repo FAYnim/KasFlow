@@ -102,7 +102,8 @@ CREATE TABLE activity_log (
 CREATE TABLE storage_accounts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
-    type ENUM('cash','ewallet','bank') NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'other',
+    parent_type VARCHAR(20) NOT NULL DEFAULT 'other',
     icon VARCHAR(50) NULL,
     is_active TINYINT(1) DEFAULT 1,
     sort_order INT DEFAULT 0,
@@ -137,7 +138,11 @@ CREATE TABLE storage_allocations (
     INDEX idx_sa_tanggal (tanggal)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO storage_accounts (name, type, icon, sort_order) VALUES
-    ('Cash',     'cash',    'fa-solid fa-wallet',           1),
-    ('E-Wallet', 'ewallet', 'fa-solid fa-mobile-screen',    2),
-    ('Bank',     'bank',    'fa-solid fa-building-columns', 3);
+INSERT INTO storage_accounts (name, type, parent_type, icon, sort_order) VALUES
+    ('Cash',          'cash',          'cash',    'fa-solid fa-wallet',                1),
+    ('DANA',          'ewallet_dana',  'ewallet', 'fa-solid fa-mobile-screen',         2),
+    ('Gopay',         'ewallet_gopay', 'ewallet', 'fa-solid fa-mobile-screen-button',  3),
+    ('E-Wallet Lain', 'ewallet',       'ewallet', 'fa-solid fa-credit-card',           4),
+    ('SeaBank',       'bank_seabank',  'bank',    'fa-solid fa-building-columns',      5),
+    ('Bank Mandiri',  'bank_mandiri',  'bank',    'fa-solid fa-building-columns',      6),
+    ('Bank Lain',     'bank',          'bank',    'fa-solid fa-landmark',              7);

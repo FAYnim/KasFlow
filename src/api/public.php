@@ -141,7 +141,7 @@ try {
         }
         case 'get_storage_breakdown': {
             $rows = $pdo->query("
-                SELECT a.id, a.name, a.type, a.icon,
+                SELECT a.id, a.name, a.type, a.parent_type, a.icon,
                        COALESCE(SUM(CASE WHEN t.jenis='masuk' THEN t.nominal ELSE -t.nominal END), 0) AS saldo
                 FROM storage_accounts a
                 LEFT JOIN storage_transactions t ON t.account_id = a.id

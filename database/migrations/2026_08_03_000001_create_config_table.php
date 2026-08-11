@@ -15,7 +15,7 @@ $sel = $pdo->prepare('SELECT key_value FROM config WHERE key_name = ?');
 $ins = $pdo->prepare('INSERT INTO config (key_name, key_value) VALUES (?, ?)');
 foreach ($seeds as $k => $v) {
     $sel->execute([$k]);
-    if (!$sel->fetchColumn()) {
+    if ($sel->fetchColumn() === false) {
         $ins->execute([$k, $v]);
     }
 }

@@ -219,7 +219,7 @@
                 <p class="text-sm text-subtle">Sebaran saldo kas kelas ke beberapa tempat simpan (cash, e-wallet, bank).</p>
             </div>
 
-            <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+            <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6"></div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                 <div class="card-linear p-5">

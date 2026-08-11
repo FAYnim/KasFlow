@@ -294,17 +294,20 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <h2 class="display-md">Alokasi Dana</h2>
                     <p class="text-sm text-[var(--ink-muted)]">Pecah dana masuk ke beberapa tempat simpan, atau transfer antar akun.</p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-wrap">
                     <button id="alokasi-add-btn" class="btn-primary gap-2">
                         <i class="fa-solid fa-plus text-xs"></i><span>Alokasi Baru</span>
                     </button>
                     <button id="alokasi-transfer-btn" class="btn-secondary gap-2">
                         <i class="fa-solid fa-arrow-right-arrow-left text-xs"></i><span>Transfer</span>
                     </button>
+                    <button id="alokasi-manage-accounts-btn" class="btn-secondary gap-2">
+                        <i class="fa-solid fa-gear text-xs"></i><span>Kelola Akun Simpan</span>
+                    </button>
                 </div>
             </div>
 
-            <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+            <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6"></div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                 <div class="card-linear p-5">
@@ -576,6 +579,74 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </button>
             </div>
         </form>
+    </div>
+
+    <!-- Modal Kelola Akun Simpan -->
+    <div id="modal-storage-accounts" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width:680px;width:95%">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
+                <h3 class="headline text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-vault text-sm text-[var(--primary)]"></i>
+                    <span>Kelola Tempat Penyimpanan</span>
+                </h3>
+                <button type="button" id="storage-modal-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Quick Preset -->
+            <div class="mb-4">
+                <div class="eyebrow mb-2">Tambah Cepat (Preset)</div>
+                <div class="flex flex-wrap gap-2" id="storage-presets">
+                    <!-- diisi JS -->
+                </div>
+            </div>
+
+            <!-- Form Tambah / Edit -->
+            <form id="form-storage-account" class="card-linear p-3 mb-4 space-y-3">
+                <input type="hidden" id="sa-edit-id" value="">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="eyebrow block mb-1">Nama Akun *</label>
+                        <input type="text" id="sa-name" required class="input-linear" placeholder="Contoh: OVO, BCA, Dompet Tunai">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Tipe Kategori</label>
+                        <select id="sa-parent-type" class="input-linear">
+                            <option value="cash">Uang Tunai (Cash)</option>
+                            <option value="ewallet">E-Wallet</option>
+                            <option value="bank">Bank / Rekening</option>
+                            <option value="other">Lainnya</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Ikon <span class="text-[var(--ink-muted)] font-normal text-[11px]">FontAwesome class</span></label>
+                        <div class="flex gap-2 items-center">
+                            <input type="text" id="sa-icon" class="input-linear flex-1" placeholder="fa-solid fa-wallet">
+                            <span id="sa-icon-preview" class="text-[var(--ink-muted)] text-xl w-6 text-center"><i class="fa-solid fa-vault"></i></span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Urutan Tampil</label>
+                        <input type="number" id="sa-sort" class="input-linear" min="1" max="999" value="99">
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-1">
+                    <button type="submit" id="sa-submit-btn" class="btn-primary gap-2 text-sm">
+                        <i class="fa-solid fa-plus text-xs"></i><span id="sa-submit-label">Tambah Akun</span>
+                    </button>
+                    <button type="button" id="sa-cancel-edit" class="btn-secondary text-sm hidden">
+                        <i class="fa-solid fa-xmark text-xs"></i> Batal Edit
+                    </button>
+                </div>
+            </form>
+
+            <!-- Daftar Akun -->
+            <div class="eyebrow mb-2">Daftar Tempat Penyimpanan</div>
+            <div id="storage-accounts-list" class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                <div class="text-subtle text-sm py-4 text-center">Memuat...</div>
+            </div>
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
