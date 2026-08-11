@@ -59,6 +59,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
                     <span>Kas BMS</span>
                 </a>
+                <a data-tab="alokasi" class="sidebar-nav-item">
+                    <i class="fa-solid fa-vault w-4 text-center"></i>
+                    <span>Alokasi Dana</span>
+                </a>
                 <a data-tab="kasbon" class="sidebar-nav-item">
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
                     <span>Kasbon</span>
@@ -283,6 +287,62 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
             <div id="bms-wrap" class="table-container overflow-x-auto"></div>
         </section>
 
+        <!-- Section: Alokasi Dana -->
+        <section data-tab-content="alokasi" class="tab-content hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="display-md">Alokasi Dana</h2>
+                    <p class="text-sm text-[var(--ink-muted)]">Pecah dana masuk ke beberapa tempat simpan, atau transfer antar akun.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button id="alokasi-add-btn" class="btn-primary gap-2">
+                        <i class="fa-solid fa-plus text-xs"></i><span>Alokasi Baru</span>
+                    </button>
+                    <button id="alokasi-transfer-btn" class="btn-secondary gap-2">
+                        <i class="fa-solid fa-arrow-right-arrow-left text-xs"></i><span>Transfer</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                <div class="card-linear p-5">
+                    <div class="eyebrow mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-pie"></i><span>Komposisi Saldo</span></div>
+                    <div class="h-[220px] flex items-center justify-center"><canvas id="alokasi-donut"></canvas></div>
+                </div>
+                <div class="card-linear p-5">
+                    <div class="eyebrow mb-3 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left"></i><span>Transfer Terbaru</span></div>
+                    <div id="alokasi-transfers-recent" class="space-y-2 text-sm"></div>
+                </div>
+            </div>
+
+            <div class="card-linear p-4 mb-3">
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div>
+                        <span class="eyebrow block mb-1">Dari</span>
+                        <input type="date" id="alokasi-dari" class="input-linear">
+                    </div>
+                    <div>
+                        <span class="eyebrow block mb-1">Sampai</span>
+                        <input type="date" id="alokasi-sampai" class="input-linear">
+                    </div>
+                    <button id="alokasi-apply" class="btn-primary text-xs gap-2">
+                        <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
+                    </button>
+                    <button id="alokasi-reset" class="btn-secondary text-xs gap-2">
+                        <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+            <div id="alokasi-allocations-wrap" class="table-container overflow-x-auto"></div>
+            <div id="alokasi-allocations-pagination"></div>
+
+            <div class="mt-8 mb-3"><h3 class="headline">Histori Transfer</h3></div>
+            <div id="alokasi-transfers-wrap" class="table-container overflow-x-auto"></div>
+            <div id="alokasi-transfers-pagination"></div>
+        </section>
+
         <!-- Section: Riwayat -->
         <section data-tab-content="riwayat" class="tab-content hidden">
             <div class="flex items-center justify-between mb-4">
@@ -415,6 +475,104 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 <button type="submit" id="bms-submit-btn" class="btn-primary gap-2">
                     <i class="fa-solid fa-floppy-disk text-xs"></i>
                     <span>Simpan</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal Form Alokasi Dana -->
+    <div id="modal-alokasi" class="modal-overlay hidden">
+        <form id="form-alokasi" class="modal-card">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
+                <h3 class="headline text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-vault text-sm text-[var(--primary)]"></i>
+                    <span>Form Alokasi Dana</span>
+                </h3>
+                <button type="button" id="alokasi-modal-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="alokasi-edit-id" value="">
+            <div class="space-y-3 mb-6">
+                <div>
+                    <label class="eyebrow block mb-1">Tanggal</label>
+                    <input type="date" id="alokasi-tanggal" required class="input-linear">
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Sumber Dana</label>
+                    <select id="alokasi-ref_type" class="input-linear">
+                        <option value="bms_setor">Setor BMS</option>
+                        <option value="bms_tarik">Tarik BMS</option>
+                        <option value="kas_mingguan">Kas Mingguan</option>
+                        <option value="manual">Manual / Lainnya</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Keterangan</label>
+                    <input type="text" id="alokasi-keterangan" placeholder="Contoh: Hasil iuran minggu 3" class="input-linear">
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Total Nominal (Rp)</label>
+                    <input type="number" id="alokasi-total" min="1" step="any" required placeholder="0" class="input-linear">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="eyebrow">Pembagian ke Akun</label>
+                        <button type="button" id="alokasi-add-line" class="btn-secondary text-xs gap-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i><span>Tambah Baris</span>
+                        </button>
+                    </div>
+                    <div id="alokasi-lines" class="space-y-2"></div>
+                    <div class="text-xs text-[var(--ink-muted)] mt-2">Sisa belum dialokasikan: <b id="alokasi-remaining">Rp 0</b></div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" id="alokasi-cancel-btn" class="btn-secondary">Batal</button>
+                <button type="submit" id="alokasi-submit-btn" class="btn-primary gap-2">
+                    <i class="fa-solid fa-floppy-disk text-xs"></i><span>Simpan Alokasi</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal Form Transfer -->
+    <div id="modal-transfer" class="modal-overlay hidden">
+        <form id="form-transfer" class="modal-card">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
+                <h3 class="headline text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-right-arrow-left text-sm text-[var(--primary)]"></i>
+                    <span>Form Transfer</span>
+                </h3>
+                <button type="button" id="transfer-modal-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-3 mb-6">
+                <div>
+                    <label class="eyebrow block mb-1">Tanggal</label>
+                    <input type="date" id="transfer-tanggal" required class="input-linear">
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Dari Akun</label>
+                    <select id="transfer-from" class="input-linear"></select>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Ke Akun</label>
+                    <select id="transfer-to" class="input-linear"></select>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Nominal (Rp)</label>
+                    <input type="number" id="transfer-nominal" min="1" step="any" required placeholder="0" class="input-linear">
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Keterangan</label>
+                    <input type="text" id="transfer-keterangan" placeholder="Contoh: Setor tunai ke rekening" class="input-linear">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" id="transfer-cancel-btn" class="btn-secondary">Batal</button>
+                <button type="submit" id="transfer-submit-btn" class="btn-primary gap-2">
+                    <i class="fa-solid fa-floppy-disk text-xs"></i><span>Simpan Transfer</span>
                 </button>
             </div>
         </form>

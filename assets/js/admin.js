@@ -43,6 +43,7 @@ $(function () {
         kasbon: lKasbon,
         ekspor: lEkspor,
         bms: lBms,
+        alokasi: loadAlokasiAdmin,
         riwayat: loadRiwayatAdmin,
     };
 
@@ -715,6 +716,299 @@ $(function () {
         }, 'json').fail(function () {
             alert('Gagal menghapus.');
         });
+    });
+
+    // ── Alokasi Dana (admin) ────────────────────────────────────────────
+    let alokasiPage = 1, transferPage = 1;
+    let alokasiAccounts = [];
+    let alokasiSaldos = {};
+    let alokasiDonut = null;
+    const alokasiColors = ['#60a5fa', '#a78bfa', '#34d399', '#fbbf24', '#f87171'];
+
+    function alokasiRenderLine(a) {
+        const opt = alokasiAccounts.map(x => `<option value="${x.id}" ${x.id == a.account_id ? 'selected' : ''}>${escapeHtml(x.name)}</option>`).join('');
+        return `<div class="alokasi-line flex items-center gap-2">
+            <select class="input-linear flex-1">${opt}</select>
+            <input type="number" min="1" step="any" class="input-linear w-36" value="${a.nominal || ''}" placeholder="Nominal">
+            <button type="button" class="btn-danger text-xs px-2.5 py-1 alokasi-del-line"><i class="fa-solid fa-xmark text-[10px]"></i></button>
+        </div>`;
+    }
+
+    function alokasiUpdateRemaining() {
+        const total = parseFloat($('#alokasi-total').val()) || 0;
+        let sum = 0;
+        $('#alokasi-lines .alokasi-line input[type="number"]').each(function () { sum += parseFloat($(this).val()) || 0; });
+        $('#alokasi-remaining').text(fmt(total - sum));
+        $('#alokasi-remaining').parent().removeClass('text-amber-400 text-rose-400 text-emerald-400');
+        const diff = total - sum;
+        if (Math.abs(diff) < 0.01) $('#alokasi-remaining').parent().addClass('text-emerald-400');
+        else if (diff > 0) $('#alokasi-remaining').parent().addClass('text-amber-400');
+        else $('#alokasi-remaining').parent().addClass('text-rose-400');
+    }
+
+    function alokasiCollectLines() {
+        const lines = [];
+        $('#alokasi-lines .alokasi-line').each(function () {
+            lines.push({
+                account_id: parseInt($(this).find('select').val(), 10),
+                nominal: parseFloat($(this).find('input[type="number"]').val()) || 0,
+            });
+        });
+        return lines;
+    }
+
+    // Modal open (add mode)
+    function alokasiOpenModal(alloc) {
+        $('#alokasi-edit-id').val(alloc ? alloc.id : '');
+        $('#alokasi-tanggal').val(new Date().toISOString().slice(0, 10));
+        $('#alokasi-ref_type').val(alloc ? alloc.ref_type : 'bms_setor');
+        $('#alokasi-keterangan').val(alloc ? alloc.keterangan : '');
+        $('#alokasi-total').val(alloc ? alloc.total_nominal : '');
+        $('#alokasi-lines').empty();
+        const lines = alloc ? alloc.lines : [{}];
+        lines.forEach(l => $('#alokasi-lines').append(alokasiRenderLine(l || {})));
+        $('#alokasi-submit-btn').html(alloc
+            ? '<i class="fa-solid fa-floppy-disk text-xs"></i><span>Update</span>'
+            : '<i class="fa-solid fa-floppy-disk text-xs"></i><span>Simpan Alokasi</span>');
+        alokasiUpdateRemaining();
+        $('#modal-alokasi').removeClass('hidden');
+    }
+
+    $('#alokasi-add-btn').on('click', () => alokasiOpenModal(null));
+    $('#alokasi-modal-close, #alokasi-cancel-btn').on('click', () => $('#modal-alokasi').addClass('hidden'));
+
+    $(document).on('click', '.alokasi-add-line-retry, #alokasi-add-line', () => {
+        $('#alokasi-lines').append(alokasiRenderLine({}));
+        alokasiUpdateRemaining();
+    });
+    $(document).on('click', '.alokasi-del-line', function () {
+        $(this).closest('.alokasi-line').remove();
+        alokasiUpdateRemaining();
+    });
+    $('#alokasi-total, #alokasi-lines').on('input', alokasiUpdateRemaining);
+    // Wait for dynamic lines: delegate
+    $(document).on('input', '#alokasi-lines input', alokasiUpdateRemaining);
+
+    $('#form-alokasi').on('submit', function (e) {
+        e.preventDefault();
+        const id = $('#alokasi-edit-id').val();
+        const payload = {
+            tanggal:        $('#alokasi-tanggal').val(),
+            ref_type:       $('#alokasi-ref_type').val(),
+            keterangan:     $('#alokasi-keterangan').val(),
+            total_nominal:  $('#alokasi-total').val(),
+            lines: JSON.stringify(alokasiCollectLines()),
+        };
+        if (id) payload.id = id;
+        $.post('src/api/admin.php?action=' + (id ? 'update_allocation' : 'add_allocation'), payload, function (res) {
+            if (res && res.ok) {
+                $('#modal-alokasi').addClass('hidden');
+                loadAlokasiAdmin();
+            } else {
+                alert('Gagal menyimpan: ' + (res && res.error ? res.error : 'unknown'));
+            }
+        }, 'json').fail(function (xhr) {
+            alert('Gagal menyimpan (HTTP ' + xhr.status + ').');
+        });
+    });
+
+    // Transfer modal
+    function transferOpenModal() {
+        $('#transfer-tanggal').val(new Date().toISOString().slice(0, 10));
+        $('#transfer-keterangan').val('');
+        $('#transfer-nominal').val('');
+        const toOpts = alokasiAccounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+        $('#transfer-from').html(toOpts);
+        $('#transfer-to').html(toOpts);
+        if (alokasiAccounts.length > 1) $('#transfer-to').val(alokasiAccounts[1].id);
+        $('#modal-transfer').removeClass('hidden');
+    }
+    $('#alokasi-transfer-btn').on('click', transferOpenModal);
+    $('#transfer-modal-close, #transfer-cancel-btn').on('click', () => $('#modal-transfer').addClass('hidden'));
+
+    $('#form-transfer').on('submit', function (e) {
+        e.preventDefault();
+        const fromId = parseInt($('#transfer-from').val(), 10);
+        const toId   = parseInt($('#transfer-to').val(), 10);
+        if (fromId === toId) { alert('Akun asal dan tujuan harus berbeda.'); return; }
+        const payload = {
+            tanggal:    $('#transfer-tanggal').val(),
+            from_id:    fromId,
+            to_id:      toId,
+            nominal:    $('#transfer-nominal').val(),
+            keterangan: $('#transfer-keterangan').val(),
+        };
+        $.post('src/api/admin.php?action=add_transfer', payload, function (res) {
+            if (res && res.ok) {
+                $('#modal-transfer').addClass('hidden');
+                loadAlokasiAdmin();
+            } else {
+                alert('Gagal menyimpan transfer: ' + (res && res.error ? res.error : 'unknown'));
+            }
+        }, 'json').fail(function (xhr) {
+            alert('Gagal menyimpan (HTTP ' + xhr.status + ').');
+        });
+    });
+
+    function loadAlokasiAdmin() {
+        $.getJSON('src/api/admin.php?action=list_accounts', function (accs) {
+            alokasiAccounts = accs;
+            // Fetch breakdown (saldos + recent transfers) and history together
+            $.getJSON('src/api/public.php?action=get_storage_breakdown', function (s) {
+                alokasiSaldos = {};
+                (s.accounts || []).forEach(a => { alokasiSaldos[a.id] = a.saldo; });
+                // Render cards with actual saldo
+                $('#alokasi-accounts').html(accs.map((a, i) => {
+                    const colorClass = ['text-[var(--primary)]', 'text-violet-400', 'text-emerald-400'][i % 3];
+                    const icon = a.icon || 'fa-solid fa-vault';
+                    return `<div class="card-linear">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="eyebrow">${escapeHtml(a.name)}</span>
+                            <span class="text-[var(--ink-muted)]"><i class="${icon} text-sm"></i></span>
+                        </div>
+                        <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(a.saldo)}</div>
+                    </div>`;
+                }).join(''));
+
+                // Donut
+                const ctx = document.getElementById('alokasi-donut');
+                if (ctx) {
+                    if (alokasiDonut) alokasiDonut.destroy();
+                    const data = s.donut && s.donut.data.length ? s.donut.data : [1];
+                    const labels = s.donut && s.donut.labels.length ? s.donut.labels : ['Belum ada data'];
+                    alokasiDonut = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: { labels, datasets: [{ data, backgroundColor: alokasiColors.slice(0, data.length), borderWidth: 0 }] },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '65%',
+                            plugins: {
+                                legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#fff' } },
+                                tooltip: { callbacks: { label: (c) => `${c.label}: ${fmt(c.parsed)}` } },
+                            },
+                        },
+                    });
+                }
+
+                // Recent transfers
+                const trs = s.recent_transfers || [];
+                $('#alokasi-transfers-recent').html(trs.length ? trs.map(t => `
+                    <div class="flex items-center justify-between border-b border-[var(--hairline)] last:border-0 py-2">
+                        <div>
+                            <div class="text-[var(--ink)]">${escapeHtml(t.from_name)} <i class="fa-solid fa-arrow-right text-[10px] text-[var(--ink-muted)] mx-1"></i> ${escapeHtml(t.to_name)}</div>
+                            <div class="text-xs text-[var(--ink-muted)] font-mono">${t.tanggal}</div>
+                        </div>
+                        <div class="font-mono-num font-medium text-[var(--ink)]">${fmt(t.nominal)}</div>
+                    </div>
+                `).join('') : '<div class="text-subtle text-sm py-2">Belum ada transfer.</div>');
+
+                // Transfers full list (admin table with delete)
+                loadTransferList();
+            });
+
+            loadAlokasiHistory();
+        }).fail(function () {
+            $('#alokasi-accounts').html('<div class="text-subtle text-sm">Gagal memuat data alokasi.</div>');
+        });
+    }
+
+    function loadAlokasiHistory(page) {
+        if (page !== undefined) alokasiPage = page;
+        const params = new URLSearchParams({ action: 'get_allocations', page: alokasiPage, limit: 15 });
+        const dari = $('#alokasi-dari').val();
+        const sampai = $('#alokasi-sampai').val();
+        if (dari) params.set('dari', dari);
+        if (sampai) params.set('sampai', sampai);
+        $('#alokasi-allocations-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Memuat…</div>');
+        $('#alokasi-allocations-pagination').empty();
+        $.getJSON('src/api/public.php?' + params.toString(), function (res) {
+            const rows = res.data || [];
+            const refLabel = { bms_setor: 'Setor BMS', bms_tarik: 'Tarik BMS', kas_mingguan: 'Kas Mingguan', manual: 'Manual' };
+            let h = '<table class="table-linear"><thead><tr><th class="w-16">#</th><th class="w-32">Tanggal</th><th>Sumber</th><th>Keterangan</th><th>Pembagian</th><th class="text-right w-36">Total</th><th class="w-28 text-right">Aksi</th></tr></thead><tbody>';
+            if (!rows.length) {
+                h += '<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Belum ada alokasi.</td></tr>';
+            } else {
+                rows.forEach((r, i) => {
+                    const lines = (r.lines || []).map(l => `${escapeHtml(l.account)} (${fmt(l.nominal)})`).join(', ');
+                    h += '<tr>' +
+                        `<td class="font-mono text-xs text-[var(--ink-muted)]">${(alokasiPage - 1) * 15 + i + 1}</td>` +
+                        `<td class="font-mono text-xs text-[var(--ink-muted)]">${r.tanggal}</td>` +
+                        `<td><span class="badge-neutral">${refLabel[r.ref_type] || r.ref_type}</span></td>` +
+                        `<td class="text-[var(--ink)]">${escapeHtml(r.keterangan || '-')}</td>` +
+                        `<td class="text-xs text-[var(--ink-muted)]">${lines || '-'}</td>` +
+                        `<td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.total_nominal)}</td>` +
+                        `<td class="text-right space-x-1">
+                            <button class="btn-secondary text-xs px-2.5 py-1 edit-alokasi gap-1" data-id="${r.id}"><i class="fa-solid fa-pen text-[10px]"></i><span>Edit</span></button>
+                            <button class="btn-danger text-xs px-2.5 py-1 del-alokasi gap-1" data-id="${r.id}"><i class="fa-solid fa-trash-can text-[10px]"></i><span>Hapus</span></button>
+                        </td>` +
+                    '</tr>';
+                });
+            }
+            h += '</tbody></table>';
+            $('#alokasi-allocations-wrap').html(h);
+            renderPagination('alokasi-allocations-pagination', res.pagination, (p) => loadAlokasiHistory(p));
+        }).fail(function () {
+            $('#alokasi-allocations-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data.</div>');
+        });
+    }
+
+    // Edit allocation: server returns full allocation w/ lines
+    $(document).on('click', '.edit-alokasi', function () {
+        const id = $(this).data('id');
+        $.getJSON('src/api/public.php?action=get_allocations&limit=1000', function (res) {
+            const alloc = (res.data || []).find(x => x.id == id);
+            if (alloc) alokasiOpenModal(alloc);
+            else alert('Alokasi tidak ditemukan.');
+        });
+    });
+
+    $(document).on('click', '.del-alokasi', function () {
+        if (!confirm('Hapus alokasi ini? Saldo akan dikembalikan.')) return;
+        $.post('src/api/admin.php?action=delete_allocation', { id: $(this).data('id') }, function () {
+            loadAlokasiAdmin();
+        }, 'json').fail(function () { alert('Gagal menghapus.'); });
+    });
+
+    function loadTransferList(page) {
+        if (page !== undefined) transferPage = page;
+        $.getJSON('src/api/public.php?action=get_transfers&page=' + transferPage + '&limit=15', function (res) {
+            const rows = res.data || [];
+            let h = '<table class="table-linear"><thead><tr><th class="w-16">#</th><th class="w-32">Tanggal</th><th>Dari</th><th>Ke</th><th>Keterangan</th><th class="text-right w-36">Nominal</th><th class="w-28 text-right">Aksi</th></tr></thead><tbody>';
+            if (!rows.length) {
+                h += '<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Belum ada transfer.</td></tr>';
+            } else {
+                rows.forEach((r, i) => {
+                    h += '<tr>' +
+                        `<td class="font-mono text-xs text-[var(--ink-muted)]">${(transferPage - 1) * 15 + i + 1}</td>` +
+                        `<td class="font-mono text-xs text-[var(--ink-muted)]">${r.tanggal}</td>` +
+                        `<td class="text-[var(--ink)]">${escapeHtml(r.from_name)}</td>` +
+                        `<td class="text-[var(--ink)]">${escapeHtml(r.to_name)}</td>` +
+                        `<td class="text-xs text-[var(--ink-muted)]">${escapeHtml(r.keterangan || '-')}</td>` +
+                        `<td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.nominal)}</td>` +
+                        `<td class="text-right"><button class="btn-danger text-xs px-2.5 py-1 del-transfer gap-1" data-pair="${r.transfer_pair_id}"><i class="fa-solid fa-trash-can text-[10px]"></i><span>Hapus</span></button></td>` +
+                    '</tr>';
+                });
+            }
+            h += '</tbody></table>';
+            $('#alokasi-transfers-wrap').html(h);
+            renderPagination('alokasi-transfers-pagination', res.pagination, (p) => loadTransferList(p));
+        }).fail(function () {
+            $('#alokasi-transfers-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data.</div>');
+        });
+    }
+
+    $(document).on('click', '.del-transfer', function () {
+        if (!confirm('Hapus transfer ini? Saldo akan dikembalikan.')) return;
+        $.post('src/api/admin.php?action=delete_transfer', { transfer_pair_id: $(this).data('pair') }, function () {
+            loadAlokasiAdmin();
+        }, 'json').fail(function () { alert('Gagal menghapus.'); });
+    });
+
+    $('#alokasi-apply').on('click', () => { alokasiPage = 1; loadAlokasiHistory(); });
+    $('#alokasi-reset').on('click', function () {
+        $('#alokasi-dari').val('');
+        $('#alokasi-sampai').val('');
+        alokasiPage = 1;
+        loadAlokasiAdmin();
     });
 
     // ── Riwayat helpers & loader (admin) ────────────────────────────

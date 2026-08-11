@@ -50,6 +50,10 @@
                     <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
                     <span>Kas BMS</span>
                 </a>
+                <a data-tab="alokasi" class="sidebar-nav-item">
+                    <i class="fa-solid fa-vault w-4 text-center"></i>
+                    <span>Alokasi Dana</span>
+                </a>
                 <a data-tab="kasbon" class="sidebar-nav-item">
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
                     <span>Kasbon</span>
@@ -206,6 +210,56 @@
             </div>
 
             <div id="bms-wrap" class="table-container overflow-x-auto"></div>
+        </section>
+
+        <!-- Alokasi Dana Section -->
+        <section data-tab-content="alokasi" class="tab-content hidden">
+            <div class="mb-6">
+                <h2 class="display-md mb-1">Alokasi Dana</h2>
+                <p class="text-sm text-subtle">Sebaran saldo kas kelas ke beberapa tempat simpan (cash, e-wallet, bank).</p>
+            </div>
+
+            <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                <div class="card-linear p-5">
+                    <div class="eyebrow mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Komposisi Saldo</span>
+                    </div>
+                    <div class="h-[220px] flex items-center justify-center">
+                        <canvas id="alokasi-donut"></canvas>
+                    </div>
+                </div>
+                <div class="card-linear p-5">
+                    <div class="eyebrow mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                        <span>Transfer Terbaru</span>
+                    </div>
+                    <div id="alokasi-transfers-recent" class="space-y-2 text-sm"></div>
+                </div>
+            </div>
+
+            <div class="card-linear p-4 mb-3">
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div>
+                        <span class="eyebrow block mb-1">Dari</span>
+                        <input type="date" id="alokasi-dari" class="input-linear">
+                    </div>
+                    <div>
+                        <span class="eyebrow block mb-1">Sampai</span>
+                        <input type="date" id="alokasi-sampai" class="input-linear">
+                    </div>
+                    <button id="alokasi-apply" class="btn-primary text-xs gap-2">
+                        <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
+                    </button>
+                    <button id="alokasi-reset" class="btn-secondary text-xs gap-2">
+                        <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+            <div id="alokasi-allocations-wrap" class="table-container overflow-x-auto"></div>
+            <div id="alokasi-allocations-pagination"></div>
         </section>
 
         <!-- Riwayat Section -->

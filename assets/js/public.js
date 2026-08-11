@@ -45,6 +45,7 @@
         jurnal: loadJurnal,
         kasbon: loadKasbon,
         bms: loadBms,
+        alokasi: loadAlokasi,
         riwayat: loadRiwayat,
     };
 
@@ -395,6 +396,114 @@
     }
 
     activate('kas');
+
+    // ── Alokasi Dana loader ──────────────────────────────────────────────
+    let alokasiPage = 1;
+    let alokasiDonut = null;
+    const alokasiColors = ['#60a5fa', '#a78bfa', '#34d399', '#fbbf24', '#f87171'];
+
+    function loadAlokasi() {
+        $.getJSON('src/api/public.php?action=get_storage_breakdown', function (s) {
+            const accounts = s.accounts || [];
+            $('#alokasi-accounts').html(accounts.map((a, i) => {
+                const colorClass = ['text-[var(--primary)]', 'text-violet-400', 'text-emerald-400'][i % 3];
+                const icon = a.icon || 'fa-solid fa-vault';
+                return `<div class="card-linear">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="eyebrow">${a.name}</span>
+                        <span class="text-subtle"><i class="${icon} text-sm"></i></span>
+                    </div>
+                    <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(a.saldo)}</div>
+                </div>`;
+            }).join('') || '<div class="text-subtle text-sm">Belum ada akun aktif.</div>');
+
+            // Donut
+            const ctx = document.getElementById('alokasi-donut');
+            if (ctx) {
+                if (alokasiDonut) alokasiDonut.destroy();
+                const data = s.donut && s.donut.data.length ? s.donut.data : [1];
+                const labels = s.donut && s.donut.labels.length ? s.donut.labels : ['Belum ada data'];
+                alokasiDonut = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels,
+                        datasets: [{
+                            data,
+                            backgroundColor: alokasiColors.slice(0, data.length),
+                            borderWidth: 0,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#fff' } },
+                            tooltip: { callbacks: { label: (c) => `${c.label}: ${fmt(c.parsed)}` } },
+                        },
+                    },
+                });
+            }
+
+            // Recent transfers
+            const trs = s.recent_transfers || [];
+            $('#alokasi-transfers-recent').html(trs.length ? trs.map(t => `
+                <div class="flex items-center justify-between border-b border-[var(--hairline)] last:border-0 py-2">
+                    <div>
+                        <div class="text-ink">${escapeHtml(t.from_name)} <i class="fa-solid fa-arrow-right text-[10px] text-subtle mx-1"></i> ${escapeHtml(t.to_name)}</div>
+                        <div class="text-xs text-subtle font-mono">${t.tanggal}</div>
+                    </div>
+                    <div class="font-mono-num font-medium text-ink">${fmt(t.nominal)}</div>
+                </div>
+            `).join('') : '<div class="text-subtle text-sm py-2">Belum ada transfer.</div>');
+
+            loadAlokasiHistory();
+        }).fail(function () {
+            $('#alokasi-accounts').html('<div class="text-subtle text-sm">Gagal memuat data alokasi.</div>');
+        });
+    }
+
+    function loadAlokasiHistory(page) {
+        if (page !== undefined) alokasiPage = page;
+        const params = new URLSearchParams({ action: 'get_allocations', page: alokasiPage, limit: 15 });
+        const dari   = $('#alokasi-dari').val();
+        const sampai = $('#alokasi-sampai').val();
+        if (dari)   params.set('dari', dari);
+        if (sampai) params.set('sampai', sampai);
+        $('#alokasi-allocations-wrap').html('<div class="text-center py-6 text-subtle">Memuat…</div>');
+        $('#alokasi-allocations-pagination').empty();
+        $.getJSON('src/api/public.php?' + params.toString(), function (res) {
+            const rows = res.data || [];
+            const refLabel = { bms_setor: 'Setor BMS', bms_tarik: 'Tarik BMS', kas_mingguan: 'Kas Mingguan', manual: 'Manual' };
+            let html = '<table class="table-linear"><thead><tr><th class="w-32">Tanggal</th><th>Sumber</th><th>Keterangan</th><th>Pembagian</th><th class="text-right w-36">Total</th></tr></thead><tbody>';
+            if (!rows.length) {
+                html += '<tr><td colspan="5" class="text-center py-6 text-subtle">Belum ada alokasi.</td></tr>';
+            } else {
+                rows.forEach(r => {
+                    const lines = (r.lines || []).map(l => `${escapeHtml(l.account)} (${fmt(l.nominal)})`).join(', ');
+                    html += `<tr>
+                        <td class="font-mono text-xs text-subtle">${r.tanggal}</td>
+                        <td><span class="badge-neutral">${refLabel[r.ref_type] || r.ref_type}</span></td>
+                        <td class="text-ink">${escapeHtml(r.keterangan || '-')}</td>
+                        <td class="text-subtle text-xs">${lines || '-'}</td>
+                        <td class="text-right font-mono-num font-medium text-ink">${fmt(r.total_nominal)}</td>
+                    </tr>`;
+                });
+            }
+            html += '</tbody></table>';
+            $('#alokasi-allocations-wrap').html(html);
+            renderPagination('alokasi-allocations-pagination', res.pagination, (p) => loadAlokasiHistory(p));
+        }).fail(function () {
+            $('#alokasi-allocations-wrap').html('<div class="text-center py-6 text-subtle">Gagal memuat data.</div>');
+        });
+    }
+    $('#alokasi-apply').on('click', () => { alokasiPage = 1; loadAlokasiHistory(); });
+    $('#alokasi-reset').on('click', function () {
+        $('#alokasi-dari').val('');
+        $('#alokasi-sampai').val('');
+        alokasiPage = 1;
+        loadAlokasi();
+    });
 
     // ── Riwayat helpers & loader ──────────────────────────────────────────
     function escapeHtml(s) {

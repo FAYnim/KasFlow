@@ -139,6 +139,142 @@ try {
             ]);
             break;
         }
+        case 'get_storage_breakdown': {
+            $rows = $pdo->query("
+                SELECT a.id, a.name, a.type, a.icon,
+                       COALESCE(SUM(CASE WHEN t.jenis='masuk' THEN t.nominal ELSE -t.nominal END), 0) AS saldo
+                FROM storage_accounts a
+                LEFT JOIN storage_transactions t ON t.account_id = a.id
+                WHERE a.is_active = 1
+                GROUP BY a.id
+                ORDER BY a.sort_order, a.id
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            $total = 0.0;
+            foreach ($rows as &$r) {
+                $r['saldo'] = (float)$r['saldo'];
+                $total += $r['saldo'];
+            }
+            unset($r);
+            $recentAllocs = $pdo->query("
+                SELECT a.id, a.tanggal, a.ref_type, a.total_nominal, a.keterangan,
+                       GROUP_CONCAT(CONCAT(sa.name, ':', t.nominal) SEPARATOR '|') AS line_info
+                FROM storage_allocations a
+                LEFT JOIN storage_transactions t ON t.ref_type='allocation' AND t.ref_id = a.id
+                LEFT JOIN storage_accounts sa ON sa.id = t.account_id
+                GROUP BY a.id
+                ORDER BY a.tanggal DESC, a.id DESC
+                LIMIT 5
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            $recentTransfers = $pdo->query("
+                SELECT t.id, t.tanggal, t.nominal, t.keterangan, t.transfer_pair_id,
+                       fa.name AS from_name, ta.name AS to_name
+                FROM storage_transactions t
+                JOIN storage_transactions t2 ON t2.transfer_pair_id = t.id AND t2.id <> t.id
+                JOIN storage_accounts fa ON fa.id = (SELECT account_id FROM storage_transactions WHERE id = t.id)
+                JOIN storage_accounts ta ON ta.id = t2.account_id
+                WHERE t.ref_type = 'transfer_out'
+                ORDER BY t.tanggal DESC, t.id DESC
+                LIMIT 5
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode([
+                'accounts' => $rows,
+                'total'    => $total,
+                'donut'    => [
+                    'labels' => array_map(fn($r) => $r['name'], $rows),
+                    'data'   => array_map(fn($r) => $r['saldo'], $rows),
+                ],
+                'recent_allocations' => array_map(function($a) {
+                    $lines = [];
+                    if (!empty($a['line_info'])) foreach (explode('|', $a['line_info']) as $p) {
+                        [$n, $v] = explode(':', $p, 2) + [null, null];
+                        if ($n !== null) $lines[] = ['account' => $n, 'nominal' => (float)$v];
+                    }
+                    $a['total_nominal'] = (float)$a['total_nominal'];
+                    $a['lines'] = $lines;
+                    return $a;
+                }, $recentAllocs),
+                'recent_transfers' => array_map(function($t) {
+                    $t['nominal'] = (float)$t['nominal'];
+                    return $t;
+                }, $recentTransfers),
+            ]);
+            break;
+        }
+        case 'get_allocations': {
+            $page  = max(1, (int)($_GET['page']  ?? 1));
+            $limit = max(5, min(100, (int)($_GET['limit'] ?? 15)));
+            $dari   = $_GET['dari']   ?? '';
+            $sampai = $_GET['sampai'] ?? '';
+            $where = []; $args = [];
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 'a.tanggal >= ?'; $args[] = $dari; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 'a.tanggal <= ?'; $args[] = $sampai; }
+            $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM storage_allocations a $sqlWhere");
+            $stmtCount->execute($args);
+            $totalRecords = (int)$stmtCount->fetchColumn();
+            $totalPages   = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
+            $offset = ($page - 1) * $limit;
+            $stmt = $pdo->prepare("
+                SELECT a.id, a.tanggal, a.ref_type, a.total_nominal, a.keterangan,
+                       GROUP_CONCAT(CONCAT(sa.name, ':', t.nominal) SEPARATOR '|') AS line_info
+                FROM storage_allocations a
+                LEFT JOIN storage_transactions t ON t.ref_type='allocation' AND t.ref_id = a.id
+                LEFT JOIN storage_accounts sa ON sa.id = t.account_id
+                $sqlWhere
+                GROUP BY a.id
+                ORDER BY a.tanggal DESC, a.id DESC
+                LIMIT $limit OFFSET $offset
+            ");
+            $stmt->execute($args);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = array_map(function($a) {
+                $lines = [];
+                if (!empty($a['line_info'])) foreach (explode('|', $a['line_info']) as $p) {
+                    [$n, $v] = explode(':', $p, 2) + [null, null];
+                    if ($n !== null) $lines[] = ['account' => $n, 'nominal' => (float)$v];
+                }
+                $a['total_nominal'] = (float)$a['total_nominal'];
+                $a['lines'] = $lines;
+                return $a;
+            }, $rows);
+            echo json_encode([
+                'data'       => $rows,
+                'pagination' => [
+                    'page' => $page, 'limit' => $limit,
+                    'total_records' => $totalRecords, 'total_pages' => $totalPages,
+                ],
+            ]);
+            break;
+        }
+        case 'get_transfers': {
+            $page  = max(1, (int)($_GET['page']  ?? 1));
+            $limit = max(5, min(100, (int)($_GET['limit'] ?? 15)));
+            $offset = ($page - 1) * $limit;
+            $stmtCount = $pdo->query("SELECT COUNT(DISTINCT transfer_pair_id) FROM storage_transactions WHERE ref_type='transfer_out'");
+            $totalRecords = (int)$stmtCount->fetchColumn();
+            $totalPages   = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
+            $rows = $pdo->query("
+                SELECT t.id, t.tanggal, t.nominal, t.keterangan, t.transfer_pair_id,
+                       fa.name AS from_name, ta.name AS to_name
+                FROM storage_transactions t
+                JOIN storage_transactions t2 ON t2.transfer_pair_id = t.id AND t2.id <> t.id
+                JOIN storage_accounts fa ON fa.id = t.account_id
+                JOIN storage_accounts ta ON ta.id = t2.account_id
+                WHERE t.ref_type = 'transfer_out'
+                ORDER BY t.tanggal DESC, t.id DESC
+                LIMIT $limit OFFSET $offset
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as &$r) $r['nominal'] = (float)$r['nominal'];
+            unset($r);
+            echo json_encode([
+                'data'       => $rows,
+                'pagination' => [
+                    'page' => $page, 'limit' => $limit,
+                    'total_records' => $totalRecords, 'total_pages' => $totalPages,
+                ],
+            ]);
+            break;
+        }
         case 'get_riwayat': {
             $where = [];
             $args  = [];
