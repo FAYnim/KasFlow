@@ -862,12 +862,13 @@ $(function () {
                 $('#alokasi-accounts').html(accs.map(a => {
                     const colorClass = PT_COLORS_ADMIN[a.parent_type] || PT_COLORS_ADMIN[a.type] || 'text-[var(--primary)]';
                     const icon = a.icon || 'fa-solid fa-vault';
+                    const saldo = alokasiSaldos[a.id] || 0;
                     return `<div class="card-linear">
                         <div class="flex items-center justify-between mb-2">
                             <span class="eyebrow">${escapeHtml(a.name)}</span>
                             <span class="text-[var(--ink-muted)]"><i class="${icon} text-sm"></i></span>
                         </div>
-                        <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(a.saldo)}</div>
+                        <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(saldo)}</div>
                     </div>`;
                 }).join(''));
 
@@ -904,6 +905,7 @@ $(function () {
 
                 // Transfers full list (admin table with delete)
                 loadTransferList();
+                lDash();
             });
 
             loadAlokasiHistory();
