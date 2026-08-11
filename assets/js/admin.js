@@ -305,6 +305,7 @@ $(function () {
         let h = `<table class="table-linear">
             <thead>
                 <tr>
+                    <th class="w-16">Absen</th>
                     <th>Nama Siswa</th>
                     ${[1,2,3,4,5].map(i => `<th class="text-center w-16">M${i}</th>`).join('')}
                     <th class="text-right w-36">Total Bayar</th>
@@ -312,13 +313,14 @@ $(function () {
             </thead>
             <tbody>`;
         if (rows.length === 0) {
-            h += `<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data kas siswa.</td></tr>`;
+            h += `<tr><td colspan="8" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data kas siswa.</td></tr>`;
         } else {
             h += rows.map(r => {
                 const state = kasState.pending[r.id] || kasState.saved[r.id] || {};
                 const total = [1,2,3,4,5].reduce((s,i) => s + (state[i] || 0), 0) * tarif;
                 return `<tr>
-                    <td class="font-medium text-[var(--ink)]">${r.nama}</td>
+                    <td class="text-[var(--ink-muted)] font-mono-num">${escapeHtml(r.absen || '-')}</td>
+                    <td class="font-medium text-[var(--ink)]">${escapeHtml(r.nama)}</td>
                     ${[1,2,3,4,5].map(i => {
                         const dirty = kasState.pending[r.id] && kasState.pending[r.id][i] !== kasState.saved[r.id][i];
                         return `<td class="text-center">
