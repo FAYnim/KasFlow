@@ -1,17 +1,26 @@
 <?php
+// Seed/reset dua akun bendahara.
+// Jalankan manual kalau perlu reset password: `php database/seeds/admin.php`
 require_once __DIR__ . '/../../config/database.php';
-$hash = password_hash('admin123', PASSWORD_DEFAULT);
+
+$accounts = [
+    ['ammar', 'bendahara2', 'Ammar'],
+    ['faris', 'bendahara1', 'Faris'],
+];
+
 $pdo = db();
+foreach ($accounts as [$username, $password, $nama]) {
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+    $check = $pdo->prepare("SELECT id FROM pengurus WHERE username = ?");
+    $check->execute([$username]);
 
-$check = $pdo->prepare("SELECT id FROM pengurus WHERE username = ?");
-$check->execute(['admin']);
+    if ($check->fetch()) {
+        $update = $pdo->prepare("UPDATE pengurus SET password = ?, nama = ? WHERE username = ?");
+        $update->execute([$hash, $nama, $username]);
+    } else {
+        $insert = $pdo->prepare("INSERT INTO pengurus (username, password, nama) VALUES (?, ?, ?)");
+        $insert->execute([$username, $hash, $nama]);
+    }
 
-if ($check->fetch()) {
-    $update = $pdo->prepare("UPDATE pengurus SET password = ?, nama = ? WHERE username = ?");
-    $update->execute([$hash, 'Admin', 'admin']);
-} else {
-    $insert = $pdo->prepare("INSERT INTO pengurus (username, password, nama) VALUES (?, ?, ?)");
-    $insert->execute(['admin', $hash, 'Admin']);
+    echo "Seeded: {$username}\n";
 }
-
-echo "Seeded admin account: admin\n";

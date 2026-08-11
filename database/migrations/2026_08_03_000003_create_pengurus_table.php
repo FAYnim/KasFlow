@@ -8,16 +8,22 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS pengurus (
     nama VARCHAR(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-$hash = password_hash('admin123', PASSWORD_DEFAULT);
-$check = $pdo->prepare("SELECT id FROM pengurus WHERE username = ?");
-$check->execute(['admin']);
-
-if ($check->fetch()) {
-    $update = $pdo->prepare("UPDATE pengurus SET password = ?, nama = ? WHERE username = ?");
-    $update->execute([$hash, 'Admin', 'admin']);
-} else {
-    $insert = $pdo->prepare("INSERT INTO pengurus (username, password, nama) VALUES (?, ?, ?)");
-    $insert->execute(['admin', $hash, 'Admin']);
+// Default bendahara accounts. To rotate: run `php database/seeds/admin.php`.
+$defaults = [
+    ['ammar', 'bendahara2', 'Ammar'],
+    ['faris', 'bendahara1', 'Faris'],
+];
+foreach ($defaults as [$u, $p, $n]) {
+    $hash = password_hash($p, PASSWORD_DEFAULT);
+    $check = $pdo->prepare("SELECT id FROM pengurus WHERE username = ?");
+    $check->execute([$u]);
+    if ($check->fetch()) {
+        $upd = $pdo->prepare("UPDATE pengurus SET password = ?, nama = ? WHERE username = ?");
+        $upd->execute([$hash, $n, $u]);
+    } else {
+        $ins = $pdo->prepare("INSERT INTO pengurus (username, password, nama) VALUES (?, ?, ?)");
+        $ins->execute([$u, $hash, $n]);
+    }
 }
 
 echo "migrated: pengurus\n";

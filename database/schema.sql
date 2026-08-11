@@ -62,10 +62,11 @@ CREATE TABLE pengurus (
     nama VARCHAR(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Default bendahara: username=admin, password=admin123
--- Hash generated via password_hash('admin123', PASSWORD_DEFAULT)
+-- Default bendahara accounts. Hash via password_hash($password, PASSWORD_DEFAULT).
+-- To rotate: run `php database/seeds/admin.php`.
 INSERT INTO pengurus (username, password, nama) VALUES
-    ('admin', '$2y$10$REPLACE_WITH_REAL_HASH', 'Bendahara RPL 1');
+    ('ammar', '$2y$12$zcP0hWd75iWOgRp3jqJZ6eDmHaQlE3pDh3aePBvpdj88ICNO.zwym', 'Ammar'),
+    ('faris', '$2y$12$79xliM6TEho/KXgQVUw63u87qNmXtvE/LyppHLt7NxvIv6KuJuvfe', 'Faris');
 
 CREATE TABLE kasbon (
     id INT AUTO_INCREMENT PRIMARY KEY,
