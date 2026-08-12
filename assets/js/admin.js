@@ -23,6 +23,11 @@ $(function () {
         $('html').attr('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
         updateThemeUI(newTheme);
+        if (typeof alokasiDonut !== 'undefined' && alokasiDonut) {
+            const inkColor = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#fff';
+            alokasiDonut.options.plugins.legend.labels.color = inkColor;
+            alokasiDonut.update();
+        }
     });
 
     const activate = (n) => { 
@@ -889,9 +894,10 @@ $(function () {
                     if (alokasiDonut) alokasiDonut.destroy();
                     const data = s.donut && s.donut.data.length ? s.donut.data : [1];
                     const labels = s.donut && s.donut.labels.length ? s.donut.labels : ['Belum ada data'];
+                    const colors = data.map((_, idx) => alokasiColors[idx % alokasiColors.length]);
                     alokasiDonut = new Chart(ctx, {
                         type: 'doughnut',
-                        data: { labels, datasets: [{ data, backgroundColor: alokasiColors.slice(0, data.length), borderWidth: 0 }] },
+                        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
                         options: {
                             responsive: true, maintainAspectRatio: false, cutout: '65%',
                             plugins: {
