@@ -53,14 +53,8 @@ $(function () {
     };
 
     $('[data-tab]').on('click', function () {
-        const tab = $(this).data('tab');
-        if (history.replaceState) history.replaceState(null, null, '#' + tab);
-        else location.hash = tab;
-        activate(tab);
+        activate($(this).data('tab'));
     });
-
-    const initTab = location.hash.replace('#', '') || 'dashboard';
-    activate(loaders[initTab] ? initTab : 'dashboard');
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
     const bulanList = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -84,6 +78,8 @@ $(function () {
     $('#admin-kasbon-bulan').html(bulanList.map(b => `<option ${b===bulanList[now.getMonth()]?'selected':''}>${b}</option>`).join(''));
     $('#admin-kasbon-tahun').html([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option ${y===now.getFullYear()?'selected':''}>${y}</option>`).join(''));
     $('#admin-kasbon-bulan, #admin-kasbon-tahun').on('change', lKasbon);
+
+    activate('dashboard');
 
     function lKasbon() {
         const bulan = $('#admin-kasbon-bulan').val();
