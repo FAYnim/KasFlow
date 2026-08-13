@@ -12,7 +12,7 @@ try {
             $sumSetor = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='setor'")->fetchColumn();
             $sumTarik = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='tarik'")->fetchColumn();
             $saldoBms = $sumSetor - $sumTarik;
-            $totalKasbon = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon")->fetchColumn();
+            $totalKasbon = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='belum_lunas'")->fetchColumn();
             echo json_encode([
                 'total_kas_terkumpul' => $totalKas,
                 'saldo_bms' => $saldoBms,
