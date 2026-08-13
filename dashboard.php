@@ -28,17 +28,45 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
     <link rel="stylesheet" href="assets/css/print.css" media="print">
 </head>
 <body class="min-h-screen flex flex-col md:flex-row md:h-screen md:overflow-hidden">
-    <!-- Admin Sidebar Navigation -->
-    <aside class="w-full md:w-60 bg-[var(--surface-1)] border-r border-[var(--hairline)] min-h-screen p-4 flex-shrink-0 flex flex-col justify-between md:h-screen md:overflow-hidden md:sticky md:top-0">
-        <div>
-            <div class="brand-mark mb-6 px-2 py-1 gap-3">
+    <!-- Admin Mobile Header Bar -->
+    <header class="md:hidden sticky top-0 z-30 bg-[var(--surface-1)] border-b border-[var(--hairline)] px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <button id="btn-hamburger" class="p-2 rounded-lg hover:bg-[var(--surface-2)] text-[var(--ink-subtle)] hover:text-[var(--ink)] transition-colors focus:outline-none" aria-label="Toggle Navigation">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+            <div class="brand-mark gap-2.5">
                 <div class="brand-icon">
                     <i class="fa-solid fa-money-bill-wave text-xs"></i>
                 </div>
-                <div class="flex flex-col">
-                    <span class="text-sm font-semibold">Admin Bendahara</span>
-                    <span class="text-[11px] text-[var(--ink-muted)] font-normal">Cashflow RPL 1</span>
+                <span class="text-sm font-semibold">Admin Bendahara</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="theme-toggle-btn-mobile" class="btn-secondary p-2 w-9 h-9 flex items-center justify-center rounded-lg cursor-pointer" title="Switch Theme">
+                <i id="theme-toggle-icon-mobile" class="fa-solid fa-moon text-indigo-400 text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Overlay Backdrop for Mobile Sidebar -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 hidden md:hidden transition-opacity"></div>
+
+    <!-- Admin Sidebar Navigation -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-[var(--surface-1)] border-r border-[var(--hairline)] p-4 flex flex-col justify-between transition-transform duration-300 ease-in-out transform -translate-x-full md:translate-x-0 md:static md:w-60 md:h-screen md:sticky md:top-0 md:z-auto md:flex-shrink-0 md:min-h-0 md:overflow-hidden">
+        <div>
+            <div class="brand-mark mb-6 px-2 py-1 gap-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="brand-icon">
+                        <i class="fa-solid fa-money-bill-wave text-xs"></i>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-semibold">Admin Bendahara</span>
+                        <span class="text-[11px] text-[var(--ink-muted)] font-normal">Cashflow RPL 1</span>
+                    </div>
                 </div>
+                <button id="btn-close-sidebar" class="md:hidden p-1.5 rounded-lg text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors focus:outline-none" aria-label="Close Navigation">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
             </div>
 
             <div class="eyebrow px-2 text-[11px] mb-2">Manajemen</div>

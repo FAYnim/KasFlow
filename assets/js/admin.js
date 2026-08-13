@@ -6,11 +6,11 @@ $(function () {
     // Theme Switcher Management for Admin
     function updateThemeUI(theme) {
         if (theme === 'dark') {
-            $('#theme-toggle-icon').attr('class', 'fa-solid fa-moon text-indigo-400 text-sm');
-            $('#theme-toggle-btn').attr('title', 'Switch to Light Theme');
+            $('#theme-toggle-icon, #theme-toggle-icon-mobile').attr('class', 'fa-solid fa-moon text-indigo-400 text-sm');
+            $('#theme-toggle-btn, #theme-toggle-btn-mobile').attr('title', 'Switch to Light Theme');
         } else {
-            $('#theme-toggle-icon').attr('class', 'fa-solid fa-sun text-amber-500 text-sm');
-            $('#theme-toggle-btn').attr('title', 'Switch to Dark Theme');
+            $('#theme-toggle-icon, #theme-toggle-icon-mobile').attr('class', 'fa-solid fa-sun text-amber-500 text-sm');
+            $('#theme-toggle-btn, #theme-toggle-btn-mobile').attr('title', 'Switch to Dark Theme');
         }
     }
 
@@ -18,7 +18,7 @@ $(function () {
     $('html').attr('data-theme', currentTheme);
     updateThemeUI(currentTheme);
 
-    $('#theme-toggle-btn').on('click', function () {
+    $('#theme-toggle-btn, #theme-toggle-btn-mobile').on('click', function () {
         const newTheme = $('html').attr('data-theme') === 'dark' ? 'light' : 'dark';
         $('html').attr('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
@@ -29,6 +29,22 @@ $(function () {
             alokasiDonut.update();
         }
     });
+
+    // Mobile Sidebar Management for Admin
+    function openSidebar() {
+        $('#sidebar').removeClass('-translate-x-full');
+        $('#sidebar-overlay').removeClass('hidden');
+        $('body').addClass('overflow-hidden md:overflow-auto');
+    }
+
+    function closeSidebar() {
+        $('#sidebar').addClass('-translate-x-full');
+        $('#sidebar-overlay').addClass('hidden');
+        $('body').removeClass('overflow-hidden md:overflow-auto');
+    }
+
+    $('#btn-hamburger').on('click', openSidebar);
+    $('#btn-close-sidebar, #sidebar-overlay').on('click', closeSidebar);
 
     const activate = (n) => { 
         $tabs.addClass('hidden'); 
@@ -54,6 +70,9 @@ $(function () {
 
     $('[data-tab]').on('click', function () {
         activate($(this).data('tab'));
+        if ($(window).width() < 768) {
+            closeSidebar();
+        }
     });
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
