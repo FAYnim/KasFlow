@@ -205,11 +205,13 @@ try {
         case 'get_allocations': {
             $page  = max(1, (int)($_GET['page']  ?? 1));
             $limit = max(5, min(100, (int)($_GET['limit'] ?? 15)));
-            $dari   = $_GET['dari']   ?? '';
-            $sampai = $_GET['sampai'] ?? '';
+            $dari       = $_GET['dari']       ?? '';
+            $sampai     = $_GET['sampai']     ?? '';
+            $keterangan = trim($_GET['keterangan'] ?? '');
             $where = []; $args = [];
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 'a.tanggal >= ?'; $args[] = $dari; }
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 'a.tanggal <= ?'; $args[] = $sampai; }
+            if ($keterangan !== '')                             { $where[] = 'a.keterangan LIKE ?'; $args[] = '%' . $keterangan . '%'; }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM storage_allocations a $sqlWhere");
             $stmtCount->execute($args);

@@ -945,10 +945,12 @@ $(function () {
     function loadAlokasiHistory(page) {
         if (page !== undefined) alokasiPage = page;
         const params = new URLSearchParams({ action: 'get_allocations', page: alokasiPage, limit: 15 });
-        const dari = $('#alokasi-dari').val();
-        const sampai = $('#alokasi-sampai').val();
-        if (dari) params.set('dari', dari);
-        if (sampai) params.set('sampai', sampai);
+        const dari        = $('#alokasi-dari').val();
+        const sampai      = $('#alokasi-sampai').val();
+        const keterangan  = $('#alokasi-keterangan-search').val().trim();
+        if (dari)        params.set('dari', dari);
+        if (sampai)      params.set('sampai', sampai);
+        if (keterangan)  params.set('keterangan', keterangan);
         $('#alokasi-allocations-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Memuat…</div>');
         $('#alokasi-allocations-pagination').empty();
         $.getJSON('src/api/public.php?' + params.toString(), function (res) {
@@ -1054,9 +1056,13 @@ $(function () {
     $('#alokasi-reset').on('click', function () {
         $('#alokasi-dari').val('');
         $('#alokasi-sampai').val('');
+        $('#alokasi-keterangan-search').val('');
         alokasiPage = 1;
         transferPage = 1;
         loadAlokasiAdmin();
+    });
+    $('#alokasi-keterangan-search').on('keyup', function (e) {
+        if (e.key === 'Enter') { alokasiPage = 1; loadAlokasiHistory(); }
     });
 
     // ── Riwayat helpers & loader (admin) ────────────────────────────

@@ -250,6 +250,10 @@
                         <span class="eyebrow block mb-1">Sampai</span>
                         <input type="date" id="alokasi-sampai" class="input-linear">
                     </div>
+                    <div class="flex-1 min-w-[160px]">
+                        <span class="eyebrow block mb-1">Keterangan</span>
+                        <input type="text" id="alokasi-keterangan-search" placeholder="Cari keterangan…" class="input-linear w-full">
+                    </div>
                     <button id="alokasi-apply" class="btn-primary text-xs gap-2">
                         <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
                     </button>
