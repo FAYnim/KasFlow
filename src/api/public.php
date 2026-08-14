@@ -8,7 +8,9 @@ $pdo = db();
 try {
     switch ($action) {
         case 'get_summary': {
-            $totalKas = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
+            $totalKasMingguan = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
+            $kasbonLunas = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='lunas'")->fetchColumn();
+            $totalKas = $totalKasMingguan - $kasbonLunas;
             $sumSetor = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='setor'")->fetchColumn();
             $sumTarik = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='tarik'")->fetchColumn();
             $saldoBms = $sumSetor - $sumTarik;
