@@ -250,6 +250,49 @@ try {
             ]);
             break;
         }
+        case 'get_alokasi_filtered_kpi': {
+            // Kembalikan total nominal per-akun dari alokasi yang cocok filter
+            $dari       = $_GET['dari']       ?? '';
+            $sampai     = $_GET['sampai']     ?? '';
+            $keterangan = trim($_GET['keterangan'] ?? '');
+            $where = []; $args = [];
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 'a.tanggal >= ?'; $args[] = $dari; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 'a.tanggal <= ?'; $args[] = $sampai; }
+            if ($keterangan !== '')                             { $where[] = 'a.keterangan LIKE ?'; $args[] = '%' . $keterangan . '%'; }
+            $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+            // Ambil semua akun aktif dulu
+            $accs = $pdo->query("
+                SELECT id, name, type, parent_type, icon FROM storage_accounts WHERE is_active=1 ORDER BY sort_order, id
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            // Hitung total per-akun dari storage_transactions yang ref_type=allocation dan ref_id cocok filter
+            $stmt = $pdo->prepare("
+                SELECT t.account_id, SUM(t.nominal) AS total
+                FROM storage_transactions t
+                JOIN storage_allocations a ON a.id = t.ref_id AND t.ref_type = 'allocation'
+                $sqlWhere
+                GROUP BY t.account_id
+            ");
+            $stmt->execute($args);
+            $totalsRaw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $totals = [];
+            foreach ($totalsRaw as $row) $totals[(int)$row['account_id']] = (float)$row['total'];
+            $grandTotal = 0.0;
+            $accounts = array_map(function($a) use ($totals, &$grandTotal) {
+                $saldo = $totals[(int)$a['id']] ?? 0.0;
+                $grandTotal += $saldo;
+                $a['saldo'] = $saldo;
+                return $a;
+            }, $accs);
+            echo json_encode([
+                'accounts' => $accounts,
+                'total'    => $grandTotal,
+                'donut'    => [
+                    'labels' => array_map(fn($a) => $a['name'], $accounts),
+                    'data'   => array_map(fn($a) => $a['saldo'], $accounts),
+                ],
+            ]);
+            break;
+        }
         case 'get_transfers': {
             $page   = max(1, (int)($_GET['page']   ?? 1));
             $limit  = max(5, min(100, (int)($_GET['limit'] ?? 15)));

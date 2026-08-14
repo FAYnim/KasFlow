@@ -888,40 +888,7 @@ $(function () {
             $.getJSON('src/api/public.php?action=get_storage_breakdown', function (s) {
                 alokasiSaldos = {};
                 (s.accounts || []).forEach(a => { alokasiSaldos[a.id] = a.saldo; });
-                // Render cards with actual saldo
-                const PT_COLORS_ADMIN = { cash: 'text-[var(--primary)]', ewallet: 'text-violet-400', bank: 'text-emerald-400', other: 'text-amber-400' };
-                $('#alokasi-accounts').html(accs.map(a => {
-                    const colorClass = PT_COLORS_ADMIN[a.parent_type] || PT_COLORS_ADMIN[a.type] || 'text-[var(--primary)]';
-                    const icon = a.icon || 'fa-solid fa-vault';
-                    const saldo = alokasiSaldos[a.id] || 0;
-                    return `<div class="card-linear">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="eyebrow">${escapeHtml(a.name)}</span>
-                            <span class="text-[var(--ink-muted)]"><i class="${icon} text-sm"></i></span>
-                        </div>
-                        <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(saldo)}</div>
-                    </div>`;
-                }).join(''));
-
-                // Donut
-                const ctx = document.getElementById('alokasi-donut');
-                if (ctx) {
-                    if (alokasiDonut) alokasiDonut.destroy();
-                    const data = s.donut && s.donut.data.length ? s.donut.data : [1];
-                    const labels = s.donut && s.donut.labels.length ? s.donut.labels : ['Belum ada data'];
-                    const colors = data.map((_, idx) => alokasiColors[idx % alokasiColors.length]);
-                    alokasiDonut = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-                        options: {
-                            responsive: true, maintainAspectRatio: false, cutout: '65%',
-                            plugins: {
-                                legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#fff' } },
-                                tooltip: { callbacks: { label: (c) => `${c.label}: ${fmt(c.parsed)}` } },
-                            },
-                        },
-                    });
-                }
+                renderAlokasiKpiCards(s.accounts || [], s.donut, false);
 
                 // Recent transfers
                 const trs = s.recent_transfers || [];
@@ -942,6 +909,43 @@ $(function () {
         });
     }
 
+    // Render KPI cards & donut dari data accounts (format sama: [{name, saldo, type, parent_type, icon}])
+    function renderAlokasiKpiCards(accounts, donut, isFiltered) {
+        const PT_COLORS_ADMIN = { cash: 'text-[var(--primary)]', ewallet: 'text-violet-400', bank: 'text-emerald-400', other: 'text-amber-400' };
+        $('#alokasi-accounts').html(accounts.map(a => {
+            const colorClass = PT_COLORS_ADMIN[a.parent_type] || PT_COLORS_ADMIN[a.type] || 'text-[var(--primary)]';
+            const icon = a.icon || 'fa-solid fa-vault';
+            const saldo = isFiltered ? (a.saldo || 0) : (alokasiSaldos[a.id] || a.saldo || 0);
+            const badge = isFiltered ? '<span class="ml-1 text-[9px] font-semibold tracking-wide uppercase text-amber-400">filter</span>' : '';
+            return `<div class="card-linear">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="eyebrow">${escapeHtml(a.name)}${badge}</span>
+                    <span class="text-[var(--ink-muted)]"><i class="${icon} text-sm"></i></span>
+                </div>
+                <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(saldo)}</div>
+            </div>`;
+        }).join(''));
+
+        const ctx = document.getElementById('alokasi-donut');
+        if (ctx && donut) {
+            if (alokasiDonut) alokasiDonut.destroy();
+            const data   = donut.data   && donut.data.length   ? donut.data   : [1];
+            const labels = donut.labels && donut.labels.length ? donut.labels : ['Belum ada data'];
+            const colors = data.map((_, idx) => alokasiColors[idx % alokasiColors.length]);
+            alokasiDonut = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '65%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#fff' } },
+                        tooltip: { callbacks: { label: (c) => `${c.label}: ${fmt(c.parsed)}` } },
+                    },
+                },
+            });
+        }
+    }
+
     function loadAlokasiHistory(page) {
         if (page !== undefined) alokasiPage = page;
         const params = new URLSearchParams({ action: 'get_allocations', page: alokasiPage, limit: 15 });
@@ -951,6 +955,19 @@ $(function () {
         if (dari)        params.set('dari', dari);
         if (sampai)      params.set('sampai', sampai);
         if (keterangan)  params.set('keterangan', keterangan);
+
+        // Jika ada filter aktif, perbarui KPI cards dengan data filtered
+        const hasFilter = dari || sampai || keterangan;
+        if (hasFilter) {
+            const kpiParams = new URLSearchParams({ action: 'get_alokasi_filtered_kpi' });
+            if (dari)        kpiParams.set('dari', dari);
+            if (sampai)      kpiParams.set('sampai', sampai);
+            if (keterangan)  kpiParams.set('keterangan', keterangan);
+            $.getJSON('src/api/public.php?' + kpiParams.toString(), function (kpi) {
+                renderAlokasiKpiCards(kpi.accounts || [], kpi.donut, true);
+            });
+        }
+
         $('#alokasi-allocations-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Memuat…</div>');
         $('#alokasi-allocations-pagination').empty();
         $.getJSON('src/api/public.php?' + params.toString(), function (res) {
