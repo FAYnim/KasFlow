@@ -221,25 +221,6 @@
 
             <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6"></div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                <div class="card-linear p-5">
-                    <div class="eyebrow mb-3 flex items-center gap-2">
-                        <i class="fa-solid fa-chart-pie"></i>
-                        <span>Komposisi Saldo</span>
-                    </div>
-                    <div class="h-[220px] flex items-center justify-center">
-                        <canvas id="alokasi-donut"></canvas>
-                    </div>
-                </div>
-                <div class="card-linear p-5">
-                    <div class="eyebrow mb-3 flex items-center gap-2">
-                        <i class="fa-solid fa-arrow-right-arrow-left"></i>
-                        <span>Transfer Terbaru</span>
-                    </div>
-                    <div id="alokasi-transfers-recent" class="space-y-2 text-sm"></div>
-                </div>
-            </div>
-
             <div class="card-linear p-4 mb-3">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div>

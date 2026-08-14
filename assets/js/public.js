@@ -417,42 +417,11 @@
                 <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(a.saldo)}</div>
             </div>`;
         }).join('') || '<div class="text-subtle text-sm">Belum ada akun aktif.</div>');
-
-        const ctx = document.getElementById('alokasi-donut');
-        if (ctx && donut) {
-            if (alokasiDonut) alokasiDonut.destroy();
-            const data   = donut.data   && donut.data.length   ? donut.data   : [1];
-            const labels = donut.labels && donut.labels.length ? donut.labels : ['Belum ada data'];
-            alokasiDonut = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels, datasets: [{ data, backgroundColor: alokasiColors.slice(0, data.length), borderWidth: 0 }] },
-                options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '65%',
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#fff' } },
-                        tooltip: { callbacks: { label: (c) => `${c.label}: ${fmt(c.parsed)}` } },
-                    },
-                },
-            });
-        }
     }
 
     function loadAlokasi() {
         $.getJSON('src/api/public.php?action=get_storage_breakdown', function (s) {
             renderAlokasiKpiCards(s.accounts || [], s.donut, false);
-
-            // Recent transfers
-            const trs = s.recent_transfers || [];
-            $('#alokasi-transfers-recent').html(trs.length ? trs.map(t => `
-                <div class="flex items-center justify-between border-b border-[var(--hairline)] last:border-0 py-2">
-                    <div>
-                        <div class="text-ink">${escapeHtml(t.from_name)} <i class="fa-solid fa-arrow-right text-[10px] text-subtle mx-1"></i> ${escapeHtml(t.to_name)}</div>
-                        <div class="text-xs text-subtle font-mono">${t.tanggal}</div>
-                    </div>
-                    <div class="font-mono-num font-medium text-ink">${fmt(t.nominal)}</div>
-                </div>
-            `).join('') : '<div class="text-subtle text-sm py-2">Belum ada transfer.</div>');
-
             loadAlokasiHistory();
         }).fail(function () {
             $('#alokasi-accounts').html('<div class="text-subtle text-sm">Gagal memuat data alokasi.</div>');
