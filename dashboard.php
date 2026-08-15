@@ -93,7 +93,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </a>
                 <a data-tab="kasbon" class="sidebar-nav-item">
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
-                    <span>Kasbon</span>
+                    <span>Dana Talangan</span>
                 </a>
                 <a data-tab="riwayat" class="sidebar-nav-item">
                     <i class="fa-solid fa-clock-rotate-left w-4 text-center"></i>
@@ -241,8 +241,8 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
         <section data-tab-content="kasbon" class="tab-content hidden">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h2 class="display-md">Kelola Kasbon</h2>
-                    <p class="text-sm text-[var(--ink-muted)]">Catat dan kelola kasbon (piutang) siswa.</p>
+                    <h2 class="display-md">Kelola Dana Talangan</h2>
+                    <p class="text-sm text-[var(--ink-muted)]">Catat dan kelola dana talangan (reimbursement) siswa.</p>
                 </div>
             </div>
 
@@ -268,8 +268,8 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <div>
                         <label class="eyebrow block mb-1">Status</label>
                         <select id="kasbon-status" class="input-linear">
-                            <option value="belum_lunas">Belum Lunas</option>
-                            <option value="lunas">Lunas</option>
+                            <option value="belum_lunas">Belum Diganti</option>
+                            <option value="lunas">Sudah Diganti</option>
                         </select>
                     </div>
                     <div class="sm:col-span-2 lg:col-span-5 flex gap-2">

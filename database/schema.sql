@@ -79,10 +79,12 @@ CREATE TABLE kasbon (
     jumlah DECIMAL(12,2) NOT NULL,
     status ENUM('belum_lunas','lunas') DEFAULT 'belum_lunas',
     tanggal_lunas DATE NULL,
+    jurnal_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_kasbon_tanggal (tanggal),
-    INDEX idx_kasbon_status (status)
+    INDEX idx_kasbon_status (status),
+    FOREIGN KEY (jurnal_id) REFERENCES jurnal_kas(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE activity_log (
