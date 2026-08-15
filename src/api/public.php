@@ -8,15 +8,16 @@ $pdo = db();
 try {
     switch ($action) {
         case 'get_summary': {
-            $totalKasMingguan = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
-            $jurnalMasuk      = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk'")->fetchColumn();
-            $jurnalKeluar     = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar'")->fetchColumn();
-            $totalKas         = ($totalKasMingguan + $jurnalMasuk) - $jurnalKeluar;
+            $totalKasMingguan    = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
+            $jurnalMasuk         = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk'")->fetchColumn();
+            $jurnalKeluar        = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar'")->fetchColumn();
+            $kasbonLunas         = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='lunas'")->fetchColumn();
+            $totalKasbonBelumLunas = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='belum_lunas'")->fetchColumn();
+            $totalKas             = ($totalKasMingguan + $jurnalMasuk + $kasbonLunas) - ($jurnalKeluar + $totalKasbonBelumLunas);
 
             $sumSetor = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='setor'")->fetchColumn();
             $sumTarik = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='tarik'")->fetchColumn();
             $saldoBms = $sumSetor - $sumTarik;
-            $totalKasbonBelumLunas = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='belum_lunas'")->fetchColumn();
             echo json_encode([
                 'total_kas_terkumpul' => $totalKas,
                 'saldo_bms'           => $saldoBms,

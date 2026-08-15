@@ -3,7 +3,7 @@
 
 **Tanggal Evaluasi:** 16 Agustus 2026  
 **Status Kesiapan Rilis:** 🔴 **BELUM LAYAK DIPUBLISH (NOT READY FOR PRODUCTION)**  
-**Skor Kesiapan:** 55 / 100  
+**Skor Kesiapan:** 60 / 100  
 
 ---
 
@@ -61,8 +61,9 @@ Untuk membawa aplikasi ini ke status **Siap Rilis (Production Ready)**, perbaika
 
 ### 🔴 FASE 1: Perbaikan Darurat & Kritis (Critical & High Priority)
 
-#### 1. Bug Logika Rumus Total Kas Dashboard (CRITICAL)
+#### 1. ✅ SELESAI — Bug Logika Rumus Total Kas Dashboard (CRITICAL)
 * **Kategori:** Logical Bug / Financial Calculation Error
+* **Selesai:** 16 Agustus 2026 — commit `fix: correct get_summary formula to include kasbon lunas/belum_lunas + jurnal`
 * **Lokasi File:** [`src/api/public.php:L11-L23`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/src/api/public.php#L11-L23)
 * **Deskripsi:** Rumus yang digunakan saat ini adalah `$totalKas = $totalKasMingguan - $kasbonLunas;`. Mengurangi `kasbonLunas` dari kas mingguan menyebabkan saldo kas kelas di dashboard **makin berkurang ketika kasbon dilunasi**. Selain itu, pengeluaran di Jurnal Kas sama sekali tidak mengurangi Total Kas.
 * **Dampak:** Informasi saldo kelas di halaman utama 100% salah dan menyesatkan pengguna.
