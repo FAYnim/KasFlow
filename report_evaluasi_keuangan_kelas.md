@@ -71,17 +71,18 @@ Untuk membawa aplikasi ini ke status **Siap Rilis (Production Ready)**, perbaika
   Ubah rumus menjadi:
   $$\text{Total Kas} = (\text{Total Kas Mingguan} + \text{Pemasukan Jurnal Kas} + \text{Kasbon Lunas}) - (\text{Pengeluaran Jurnal Kas} + \text{Kasbon Belum Lunas})$$
 
-#### 2. Celah Keamanan XSS (Cross-Site Scripting) pada Tampilan HTML (CRITICAL)
+#### 2. ~~Celah Keamanan XSS (Cross-Site Scripting) pada Tampilan HTML~~ ✅ SELESAI DIPERBAIKI
 * **Kategori:** Security Vulnerability
-* **Lokasi File:** 
-  - [`assets/js/public.js:L199`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/assets/js/public.js#L199) (`renderKas`)
-  - [`assets/js/public.js:L295`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/assets/js/public.js#L295) (`loadJurnal`)
-  - [`assets/js/public.js:L328`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/assets/js/public.js#L328) (`loadKasbon`)
-  - [`assets/js/admin.js:L283`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/assets/js/admin.js#L283) (`lSiswa`)
-  - [`assets/js/admin.js:L549`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/assets/js/admin.js#L549) (`lJurnal`)
-* **Deskripsi:** String dari database seperti nama siswa dan keterangan transaksi langsung di-interpolate ke DOM HTML tanpa melewati fungsi sanitasi `escapeHtml()`.
-* **Dampak:** Pengguna/admin dapat menginput teks mengandung script (`<script>...`) yang akan dieksekusi di browser pengunjung lain.
-* **Rekomendasi Perbaikan:** Bungkus semua variabel string yang di-render ke HTML menggunakan `escapeHtml(str)`.
+* **Status:** ✅ **Diselesaikan** — Perbaikan diimplementasikan pada semua titik render DOM dinamis.
+* **Lokasi File yang Diperbaiki:**
+  - [`assets/js/public.js`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/assets/js/public.js) — fungsi `renderKas`, `loadJurnal`, `loadKasbon`, `loadBms`, `renderAlokasiKpiCards`, `loadAlokasiHistory`, `loadRiwayat`
+  - [`assets/js/admin.js`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/assets/js/admin.js) — fungsi `lSiswa`, `lKas`, `lJurnal`, `lKasbon`, `lBms`, `lEkspor`, `alokasiRenderLine`, `transferOpenModal`, `loadAlokasiHistory`, `loadTransferList`, `saLoadList`, `loadRiwayatAdmin`
+* **Perbaikan yang Dilakukan:**
+  1. **Sentralisasi `escapeHtml()`** — Fungsi dipindahkan ke atas scope utama (`public.js:L87`, `admin.js:L79`) agar tersedia untuk seluruh fungsi dalam file. Duplikasi deklarasi di tengah file dihapus.
+  2. **Sanitasi Menyeluruh DOM Interpolation** — Semua variabel string dari database (`nama`, `absen`, `keterangan`, `tanggal`, `ref_type`, `from_name`, `to_name`, dll.) sekarang dibungkus dengan `escapeHtml()` sebelum diinjeksikan ke HTML.
+  3. **Sanitasi Icon CSS Class** — Field `a.icon` yang digunakan sebagai CSS class pada elemen `<i>` juga disanitasi untuk mencegah class injection.
+  4. **Perbaikan CSV Injection** — Fungsi ekspor CSV sekarang menggunakan `csvEscape()` yang meng-escape tanda kutip ganda (`"` → `""`) sesuai standar RFC 4180.
+
 
 #### 3. Hardcoded Kredensial Database & Absence of `.env` (HIGH)
 * **Kategori:** Architecture & Deployment Readiness

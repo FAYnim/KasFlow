@@ -76,6 +76,10 @@ $(function () {
     });
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
     const bulanList = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     const now = new Date();
     
@@ -633,7 +637,9 @@ $(function () {
     $('#btn-csv').on('click', function (e) {
         e.preventDefault();
         const rows = $('#ekspor-preview').data('rows') || [];
-        const csv = 'Tanggal,Keterangan,Jenis,Nominal\n' + rows.map(t => `${t.tanggal},"${t.keterangan}",${t.jenis},${t.nominal}`).join('\n');
+        // Sanitasi keterangan untuk CSV: escape tanda kutip ganda agar tidak merusak format
+        const csvEscape = s => String(s || '').replace(/"/g, '""');
+        const csv = 'Tanggal,Keterangan,Jenis,Nominal\n' + rows.map(t => `${t.tanggal},"${csvEscape(t.keterangan)}",${t.jenis},${t.nominal}`).join('\n');
         const blob = new Blob([csv], { type:'text/csv' });
         const a = document.createElement('a'); 
         a.href = URL.createObjectURL(blob); 
@@ -952,8 +958,8 @@ $(function () {
                     const lines = (r.lines || []).map(l => `${escapeHtml(l.account)} (${fmt(l.nominal)})`).join(', ');
                     h += '<tr>' +
                         `<td class="font-mono text-xs text-[var(--ink-muted)]">${(alokasiPage - 1) * 15 + i + 1}</td>` +
-                        `<td class="font-mono text-xs text-[var(--ink-muted)]">${r.tanggal}</td>` +
-                        `<td><span class="badge-neutral">${refLabel[r.ref_type] || r.ref_type}</span></td>` +
+                        `<td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(r.tanggal)}</td>` +
+                        `<td><span class="badge-neutral">${escapeHtml(refLabel[r.ref_type] || r.ref_type)}</span></td>` +
                         `<td class="text-[var(--ink)]">${escapeHtml(r.keterangan || '-')}</td>` +
                         `<td class="text-xs text-[var(--ink-muted)]">${lines || '-'}</td>` +
                         `<td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.total_nominal)}</td>` +
@@ -1009,7 +1015,7 @@ $(function () {
                 rows.forEach((r, i) => {
                     h += '<tr>' +
                         `<td class="font-mono text-xs text-[var(--ink-muted)]">${(transferPage - 1) * 15 + i + 1}</td>` +
-                        `<td class="font-mono text-xs text-[var(--ink-muted)]">${r.tanggal}</td>` +
+                        `<td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(r.tanggal)}</td>` +
                         `<td class="text-[var(--ink)]">${escapeHtml(r.from_name)}</td>` +
                         `<td class="text-[var(--ink)]">${escapeHtml(r.to_name)}</td>` +
                         `<td class="text-xs text-[var(--ink-muted)]">${escapeHtml(r.keterangan || '-')}</td>` +
@@ -1053,11 +1059,7 @@ $(function () {
         if (e.key === 'Enter') { alokasiPage = 1; loadAlokasiHistory(); }
     });
 
-    // ── Riwayat helpers & loader (admin) ────────────────────────────
-    function escapeHtml(s) {
-        if (s == null) return '';
-        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
+    // ── Riwayat helpers & loader (admin) ────────────────
     function truncate(s, n) {
         s = String(s ?? '');
         return s.length > n ? s.slice(0, n) + '\u2026' : s;

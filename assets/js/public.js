@@ -417,7 +417,7 @@
             return `<div class="card-linear">
                 <div class="flex items-center justify-between mb-2">
                     <span class="eyebrow">${escapeHtml(a.name)}${badge}</span>
-                    <span class="text-subtle"><i class="${icon} text-sm"></i></span>
+                    <span class="text-subtle"><i class="${escapeHtml(icon)} text-sm"></i></span>
                 </div>
                 <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(a.saldo)}</div>
             </div>`;
@@ -467,8 +467,8 @@
                 rows.forEach(r => {
                     const lines = (r.lines || []).map(l => `${escapeHtml(l.account)} (${fmt(l.nominal)})`).join(', ');
                     html += `<tr>
-                        <td class="font-mono text-xs text-subtle">${r.tanggal}</td>
-                        <td><span class="badge-neutral">${refLabel[r.ref_type] || r.ref_type}</span></td>
+                        <td class="font-mono text-xs text-subtle">${escapeHtml(r.tanggal)}</td>
+                        <td><span class="badge-neutral">${escapeHtml(refLabel[r.ref_type] || r.ref_type)}</span></td>
                         <td class="text-ink">${escapeHtml(r.keterangan || '-')}</td>
                         <td class="text-subtle text-xs">${lines || '-'}</td>
                         <td class="text-right font-mono-num font-medium text-ink">${fmt(r.total_nominal)}</td>
@@ -495,10 +495,6 @@
     });
 
     // ── Riwayat helpers & loader ──────────────────────────────────────────
-    function escapeHtml(s) {
-        if (s == null) return '';
-        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
     function truncate(s, n) {
         s = String(s ?? '');
         return s.length > n ? s.slice(0, n) + '\u2026' : s;
