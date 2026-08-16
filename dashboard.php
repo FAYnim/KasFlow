@@ -250,8 +250,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 <form id="form-kasbon" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                     <input type="hidden" id="kasbon-edit-id" value="">
                     <div>
-                        <label class="eyebrow block mb-1">Nama *</label>
-                        <input type="text" id="kasbon-nama" required class="input-linear">
+                        <label class="eyebrow block mb-1">Peminjam (Siswa) *</label>
+                        <select id="kasbon-siswa-id" required class="input-linear">
+                            <option value="">— Pilih Siswa —</option>
+                        </select>
                     </div>
                     <div>
                         <label class="eyebrow block mb-1">Tanggal *</label>

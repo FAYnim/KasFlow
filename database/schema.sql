@@ -77,7 +77,8 @@ INSERT INTO pengurus (username, password, nama) VALUES
 
 CREATE TABLE kasbon (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nama VARCHAR(100) NOT NULL,
+    siswa_id INT NULL DEFAULT NULL,
+    nama VARCHAR(100) NULL DEFAULT NULL,
     tanggal DATE NOT NULL,
     keterangan TEXT NOT NULL,
     jumlah DECIMAL(12,2) NOT NULL,
@@ -88,6 +89,8 @@ CREATE TABLE kasbon (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_kasbon_tanggal (tanggal),
     INDEX idx_kasbon_status (status),
+    INDEX idx_kasbon_siswa (siswa_id),
+    FOREIGN KEY (siswa_id) REFERENCES siswa(id) ON DELETE SET NULL,
     FOREIGN KEY (jurnal_id) REFERENCES jurnal_kas(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

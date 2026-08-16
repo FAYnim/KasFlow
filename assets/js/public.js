@@ -327,10 +327,14 @@
                 const badge = r.status === 'lunas'
                     ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i><span>Sudah Diganti</span></span>'
                     : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i><span>Belum Diganti</span></span>';
+                // Tampilkan nomor absen jika tersedia (siswa terhubung ke master data)
+                const namaTampil = r.absen
+                    ? `${escapeHtml(r.nama)} <span class="text-[10px] font-mono text-subtle bg-[var(--surface-2)] px-1.5 py-0.5 rounded ml-1">Absen ${escapeHtml(r.absen)}</span>`
+                    : escapeHtml(r.nama);
                 return `<tr>
                     <td class="text-center text-subtle">${i + 1}</td>
                     <td class="font-mono text-xs text-subtle">${escapeHtml(r.tanggal)}</td>
-                    <td class="text-ink">${escapeHtml(r.nama)}</td>
+                    <td class="text-ink">${namaTampil}</td>
                     <td class="text-subtle">${escapeHtml(r.keterangan)}</td>
                     <td class="text-right font-mono-num font-medium text-ink">${fmt(r.jumlah)}</td>
                     <td>${badge}</td>

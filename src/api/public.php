@@ -109,22 +109,35 @@ try {
             $tahun    = (int)($_GET['tahun'] ?? date('Y'));
             $where = []; $args = [];
             if (isset($bulanMap[$bulanIdx])) {
-                $where[] = 'MONTH(tanggal) = ?';
+                $where[] = 'MONTH(k.tanggal) = ?';
                 $args[]  = $bulanMap[$bulanIdx];
             } else {
                 http_response_code(400);
                 echo json_encode(['error' => 'bulan tidak valid']);
                 break;
             }
-            $where[] = 'YEAR(tanggal) = ?';
+            $where[] = 'YEAR(k.tanggal) = ?';
             $args[]  = $tahun;
             $sqlWhere = 'WHERE ' . implode(' AND ', $where);
-            $stmt = $pdo->prepare("SELECT id, nama, tanggal, keterangan, jumlah, status, tanggal_lunas FROM kasbon $sqlWhere ORDER BY tanggal DESC, id DESC");
+            $stmt = $pdo->prepare("
+                SELECT k.id, k.siswa_id, k.tanggal, k.keterangan, k.jumlah, k.status, k.tanggal_lunas,
+                       COALESCE(s.nama, k.nama) AS nama,
+                       s.absen AS absen
+                FROM kasbon k
+                LEFT JOIN siswa s ON s.id = k.siswa_id
+                $sqlWhere
+                ORDER BY k.tanggal DESC, k.id DESC
+            ");
             $stmt->execute($args);
-            $rows = array_map(function($r) { $r['jumlah'] = (float)$r['jumlah']; return $r; }, $stmt->fetchAll());
+            $rows = array_map(function($r) {
+                $r['jumlah']    = (float)$r['jumlah'];
+                $r['siswa_id']  = $r['siswa_id'] ? (int)$r['siswa_id'] : null;
+                return $r;
+            }, $stmt->fetchAll());
             echo json_encode($rows);
             break;
         }
+
         case 'get_bms': {
             $dari   = $_GET['dari'] ?? null;
             $sampai = $_GET['sampai'] ?? null;

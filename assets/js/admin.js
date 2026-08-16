@@ -102,6 +102,25 @@ $(function () {
     $('#admin-kasbon-tahun').html([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option ${y===now.getFullYear()?'selected':''}>${y}</option>`).join(''));
     $('#admin-kasbon-bulan, #admin-kasbon-tahun').on('change', lKasbon);
 
+    // Load daftar siswa ke dropdown kasbon form
+    function loadKasbonSiswaOptions(selectedSiswaId) {
+        $.getJSON('src/api/admin.php?action=list_siswa', function(rows) {
+            const bulanList2 = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+            const sorted = rows.slice().sort(function(a, b) {
+                const an = parseInt(a.absen), bn = parseInt(b.absen);
+                if (!isNaN(an) && !isNaN(bn)) return an - bn;
+                return String(a.absen||'').localeCompare(String(b.absen||''), 'id');
+            });
+            const opts = sorted.map(function(s) {
+                const label = s.absen ? `[Absen ${s.absen}] ${escapeHtml(s.nama)}` : escapeHtml(s.nama);
+                const sel = (selectedSiswaId && parseInt(selectedSiswaId) === parseInt(s.id)) ? 'selected' : '';
+                return `<option value="${s.id}" ${sel}>${label}</option>`;
+            });
+            $('#kasbon-siswa-id').html('<option value="">— Pilih Siswa —</option>' + opts.join(''));
+        });
+    }
+    loadKasbonSiswaOptions();
+
     activate('dashboard');
 
     function lKasbon() {
@@ -113,7 +132,7 @@ $(function () {
                     <tr>
                         <th class="w-16">#</th>
                         <th class="w-32">Tanggal</th>
-                        <th>Nama</th>
+                        <th>Peminjam</th>
                         <th>Keterangan</th>
                         <th class="text-right w-36">Jumlah</th>
                         <th class="w-28">Status</th>
@@ -131,15 +150,19 @@ $(function () {
                     const toggleBtn = r.status === 'lunas'
                         ? '<button class="text-yellow-400 hover:text-yellow-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="belum_lunas" title="Batalkan Penggantian"><i class="fa-solid fa-rotate-left"></i></button>'
                         : '<button class="text-green-400 hover:text-green-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="lunas" title="Tandai Sudah Diganti"><i class="fa-solid fa-circle-check"></i></button>';
+                    // Tampilkan nomor absen di samping nama jika tersedia
+                    const namaTampil = r.absen
+                        ? `<span class="font-medium text-[var(--ink)]">${escapeHtml(r.nama)}</span><span class="ml-1.5 text-[10px] font-mono text-[var(--ink-muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded">Absen ${escapeHtml(r.absen)}</span>`
+                        : `<span class="font-medium text-[var(--ink)]">${escapeHtml(r.nama)}</span>`;
                     return '<tr>' +
                         '<td class="font-mono text-xs text-[var(--ink-muted)]">' + (i + 1) + '</td>' +
                         '<td class="font-mono text-xs text-[var(--ink-muted)]">' + escapeHtml(r.tanggal) + '</td>' +
-                        '<td class="font-medium text-[var(--ink)]">' + escapeHtml(r.nama) + '</td>' +
+                        '<td>' + namaTampil + ' ' + toggleBtn + '</td>' +
                         '<td class="text-[var(--ink-muted)]">' + escapeHtml(r.keterangan) + '</td>' +
                         '<td class="text-right font-mono-num font-medium text-[var(--ink)]">' + fmt(r.jumlah) + '</td>' +
                         '<td>' + badge + '</td>' +
                         '<td class="text-right space-x-1">' +
-                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-kasbon gap-1" data-id="' + r.id + '" data-nama="' + escapeHtml(r.nama) + '" data-tanggal="' + escapeHtml(r.tanggal) + '" data-keterangan="' + escapeHtml(r.keterangan) + '" data-jumlah="' + r.jumlah + '" data-status="' + r.status + '">' +
+                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-kasbon gap-1" data-id="' + r.id + '" data-siswa-id="' + (r.siswa_id || '') + '" data-tanggal="' + escapeHtml(r.tanggal) + '" data-keterangan="' + escapeHtml(r.keterangan) + '" data-jumlah="' + r.jumlah + '" data-status="' + r.status + '">' +
                                 '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
                             '</button>' +
                             '<button class="btn-danger text-xs px-2.5 py-1 del-kasbon gap-1" data-id="' + r.id + '">' +
@@ -158,14 +181,18 @@ $(function () {
 
     $(document).on('click', '.edit-kasbon', function () {
         const $btn = $(this);
+        const siswaId = $btn.data('siswa-id');
         $('#kasbon-edit-id').val($btn.data('id'));
-        $('#kasbon-nama').val($btn.data('nama'));
         $('#kasbon-tanggal').val($btn.data('tanggal'));
         $('#kasbon-keterangan').val($btn.data('keterangan'));
         $('#kasbon-jumlah').val($btn.data('jumlah'));
         $('#kasbon-status').val($btn.data('status'));
+        // Isi dropdown siswa dengan nilai terkini, lalu set selected
+        loadKasbonSiswaOptions(siswaId);
         $('#kasbon-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Update</span>');
         $('#kasbon-cancel-btn').removeClass('hidden');
+        // Scroll ke form
+        document.getElementById('form-kasbon').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     $(document).on('click', '.toggle-kasbon', function () {
@@ -192,15 +219,15 @@ $(function () {
 
     $('#form-kasbon').on('submit', function (e) {
         e.preventDefault();
-        const nama = $('#kasbon-nama').val().trim();
+        const siswaId = $('#kasbon-siswa-id').val();
         const jumlah = parseFloat($('#kasbon-jumlah').val());
-        if (!nama) { alert('Nama harus diisi.'); return; }
+        if (!siswaId) { alert('Pilih siswa peminjam terlebih dahulu.'); return; }
         if (!jumlah || jumlah <= 0) { alert('Jumlah harus lebih dari 0.'); return; }
         const editId = $('#kasbon-edit-id').val();
         const payload = {
             action: editId ? 'update_kasbon' : 'add_kasbon',
             id: editId || undefined,
-            nama: nama,
+            siswa_id: siswaId,
             tanggal: $('#kasbon-tanggal').val(),
             keterangan: $('#kasbon-keterangan').val().trim(),
             jumlah: jumlah,
@@ -210,6 +237,7 @@ $(function () {
             if (res.ok) {
                 $('#form-kasbon')[0].reset();
                 $('#kasbon-edit-id').val('');
+                loadKasbonSiswaOptions();
                 $('#kasbon-submit-btn').html('<i class="fa-solid fa-plus text-xs"></i> <span>Tambah</span>');
                 $('#kasbon-cancel-btn').addClass('hidden');
                 lKasbon();
@@ -225,6 +253,7 @@ $(function () {
     $('#kasbon-cancel-btn').on('click', function () {
         $('#form-kasbon')[0].reset();
         $('#kasbon-edit-id').val('');
+        loadKasbonSiswaOptions();
         $('#kasbon-submit-btn').html('<i class="fa-solid fa-plus text-xs"></i> <span>Tambah</span>');
         $(this).addClass('hidden');
     });
@@ -309,13 +338,16 @@ $(function () {
 
     $(document).on('click', '.del-s', function () {
         if (!confirm('Hapus siswa ini beserta seluruh data kas terkait?')) return;
-        $.post('src/api/admin.php?action=delete_siswa', { id: $(this).data('id') }, r => lSiswa(), 'json');
+        $.post('src/api/admin.php?action=delete_siswa', { id: $(this).data('id') }, r => {
+            lSiswa();
+            loadKasbonSiswaOptions();
+        }, 'json');
     });
 
     $('#form-siswa').on('submit', function (e) {
         e.preventDefault();
         $.post('src/api/admin.php?action=add_siswa', $(this).serialize(), r => {
-            if (r.ok) { this.reset(); lSiswa(); } else alert(r.error);
+            if (r.ok) { this.reset(); lSiswa(); loadKasbonSiswaOptions(); } else alert(r.error);
         }, 'json');
     });
 
