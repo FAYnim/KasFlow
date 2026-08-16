@@ -84,12 +84,16 @@ Untuk membawa aplikasi ini ke status **Siap Rilis (Production Ready)**, perbaika
   4. **Perbaikan CSV Injection** — Fungsi ekspor CSV sekarang menggunakan `csvEscape()` yang meng-escape tanda kutip ganda (`"` → `""`) sesuai standar RFC 4180.
 
 
-#### 3. Hardcoded Kredensial Database & Absence of `.env` (HIGH)
+#### 3. ~~Hardcoded Kredensial Database & Absence of `.env`~~ ✅ SELESAI DIPERBAIKI
 * **Kategori:** Architecture & Deployment Readiness
-* **Lokasi File:** [`config/database.php:L5-L8`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/config/database.php#L5-L8)
-* **Deskripsi:** Kredensial DB di-hardcode ke `127.0.0.1`, `user=root`, `pass=""`.
-* **Dampak:** Aplikasi gagal terkoneksi saat di-upload ke server hosting/VPS tanpa mengedit file secara manual.
-* **Rekomendasi Perbaikan:** Buat mekanisme pembacaan file `.env` atau konfigurasi berbasis environment variable (`getenv()`).
+* **Status:** ✅ **Diselesaikan** — Mekanisme pembacaan `.env` diimplementasikan pada [`config/database.php`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/config/database.php).
+* **Perbaikan yang Dilakukan:**
+  1. **Enhanced `.env` Parser** — Parser `.env` diperkuat: mendukung stripping kutip tunggal/ganda pada nilai (`DB_PASS="secret"` → `secret`), melewati baris komentar (`#`), dan melewati baris tanpa karakter `=`.
+  2. **Populasi Lengkap** — Nilai dari `.env` kini di-set ke tiga sumber: `putenv()`, `$_ENV`, dan `$_SERVER` agar kompatibel di berbagai konfigurasi server (cPanel, VPS, Docker).
+  3. **Dukungan `DB_PORT`** — Variabel `DB_PORT` ditambahkan ke DSN (`port=$port`), memungkinkan koneksi ke server MySQL di port non-standar (selain 3306).
+  4. **`.env.example` Diperbarui** — Template `.env.example` ditambahkan komentar panduan deployment dan variabel `DB_PORT=3306`.
+  5. **`.gitignore` Diverifikasi** — File `.env` terkonfirmasi sudah diabaikan oleh git, sehingga kredensial tidak pernah ter-commit.
+
 
 ---
 
