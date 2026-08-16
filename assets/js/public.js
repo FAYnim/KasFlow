@@ -84,6 +84,11 @@
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
 
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
     let lastChartData = null;
     let lineChart, donutChart;
     function loadDashboard() {
@@ -91,7 +96,7 @@
             const cards = [
                 ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Saldo BMS', fmt(s.saldo_bms), 'text-[var(--semantic-info)]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Total Kasbon', fmt(s.total_kasbon), 'text-amber-400', '<i class="fa-solid fa-handshake text-sm"></i>'],
+                ['Talangan Belum Diganti', fmt(s.total_kasbon), 'text-amber-400', '<i class="fa-solid fa-handshake text-sm"></i>'],
             ];
             $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -179,7 +184,7 @@
 
     function renderKas() {
         const q = ($('#kas-search').val() || '').toLowerCase();
-        const rows = kasData.filter(r => r.nama.toLowerCase().includes(q));
+        const rows = kasData.filter(r => (r.nama || '').toLowerCase().includes(q));
         let html = `<thead>
             <tr>
                 <th class="w-24">Absen</th>
@@ -195,8 +200,8 @@
         } else {
             html += rows.map(r =>
                 `<tr>
-                    <td class="font-mono text-xs text-subtle">${r.absen||'-'}</td>
-                    <td class="font-medium text-ink">${r.nama}</td>
+                    <td class="font-mono text-xs text-subtle">${escapeHtml(r.absen||'-')}</td>
+                    <td class="font-medium text-ink">${escapeHtml(r.nama)}</td>
                     ${[r.m1,r.m2,r.m3,r.m4,r.m5].map(v => 
                         `<td class="text-center">${v ? '<i class="fa-solid fa-circle-check text-[var(--semantic-success)] text-xs"></i>' : '<i class="fa-solid fa-circle-xmark text-[var(--hairline-strong)] text-xs"></i>'}</td>`
                     ).join('')}
@@ -291,8 +296,8 @@
             } else {
                 h += r.transaksi.map(t =>
                     `<tr>
-                        <td class="font-mono text-xs text-subtle">${t.tanggal}</td>
-                        <td class="text-ink">${t.keterangan}</td>
+                        <td class="font-mono text-xs text-subtle">${escapeHtml(t.tanggal)}</td>
+                        <td class="text-ink">${escapeHtml(t.keterangan)}</td>
                         <td>
                             <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
@@ -315,18 +320,18 @@
         $.getJSON('src/api/public.php', { action: 'get_kasbon', bulan, tahun }, function (data) {
             const tbody = $('#kasbon-table-body');
             if (!data.length) {
-                tbody.html('<tr><td colspan="6" class="text-center py-6 text-subtle">Tidak ada data kasbon.</td></tr>');
+                tbody.html('<tr><td colspan="6" class="text-center py-6 text-subtle">Tidak ada data dana talangan.</td></tr>');
                 return;
             }
             tbody.html(data.map((r, i) => {
                 const badge = r.status === 'lunas'
-                    ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i><span>Lunas</span></span>'
-                    : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i><span>Belum Lunas</span></span>';
+                    ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i><span>Sudah Diganti</span></span>'
+                    : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i><span>Belum Diganti</span></span>';
                 return `<tr>
                     <td class="text-center text-subtle">${i + 1}</td>
-                    <td class="font-mono text-xs text-subtle">${r.tanggal}</td>
-                    <td class="text-ink">${r.nama}</td>
-                    <td class="text-subtle">${r.keterangan}</td>
+                    <td class="font-mono text-xs text-subtle">${escapeHtml(r.tanggal)}</td>
+                    <td class="text-ink">${escapeHtml(r.nama)}</td>
+                    <td class="text-subtle">${escapeHtml(r.keterangan)}</td>
                     <td class="text-right font-mono-num font-medium text-ink">${fmt(r.jumlah)}</td>
                     <td>${badge}</td>
                 </tr>`;
@@ -376,8 +381,8 @@
             } else {
                 h += rows.map(b =>
                     `<tr>
-                        <td class="font-mono text-xs text-subtle">${b.tanggal}</td>
-                        <td class="text-ink">${b.keterangan}</td>
+                        <td class="font-mono text-xs text-subtle">${escapeHtml(b.tanggal)}</td>
+                        <td class="text-ink">${escapeHtml(b.keterangan)}</td>
                         <td>
                             <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">
                                 <i class="fa-solid ${b.jenis==='setor' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket'} text-[10px]"></i>

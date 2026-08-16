@@ -118,24 +118,24 @@ $(function () {
                 </thead>
                 <tbody>`;
             if (!data || data.length === 0) {
-                h += `<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data kasbon.</td></tr>`;
+                h += `<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data dana talangan.</td></tr>`;
             } else {
                 h += data.map(function(r, i) {
                     const badge = r.status === 'lunas'
-                        ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i> <span>Lunas</span></span>'
-                        : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i> <span>Belum Lunas</span></span>';
+                        ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i> <span>Sudah Diganti</span></span>'
+                        : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i> <span>Belum Diganti</span></span>';
                     const toggleBtn = r.status === 'lunas'
-                        ? '<button class="text-yellow-400 hover:text-yellow-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="belum_lunas" title="Tandai Belum Lunas"><i class="fa-solid fa-rotate-left"></i></button>'
-                        : '<button class="text-green-400 hover:text-green-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="lunas" title="Tandai Lunas"><i class="fa-solid fa-circle-check"></i></button>';
+                        ? '<button class="text-yellow-400 hover:text-yellow-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="belum_lunas" title="Batalkan Penggantian"><i class="fa-solid fa-rotate-left"></i></button>'
+                        : '<button class="text-green-400 hover:text-green-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="lunas" title="Tandai Sudah Diganti"><i class="fa-solid fa-circle-check"></i></button>';
                     return '<tr>' +
                         '<td class="font-mono text-xs text-[var(--ink-muted)]">' + (i + 1) + '</td>' +
-                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + r.tanggal + '</td>' +
-                        '<td class="font-medium text-[var(--ink)]">' + r.nama + '</td>' +
-                        '<td class="text-[var(--ink-muted)]">' + r.keterangan + '</td>' +
+                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + escapeHtml(r.tanggal) + '</td>' +
+                        '<td class="font-medium text-[var(--ink)]">' + escapeHtml(r.nama) + '</td>' +
+                        '<td class="text-[var(--ink-muted)]">' + escapeHtml(r.keterangan) + '</td>' +
                         '<td class="text-right font-mono-num font-medium text-[var(--ink)]">' + fmt(r.jumlah) + '</td>' +
                         '<td>' + badge + '</td>' +
                         '<td class="text-right space-x-1">' +
-                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-kasbon gap-1" data-id="' + r.id + '" data-nama="' + r.nama + '" data-tanggal="' + r.tanggal + '" data-keterangan="' + r.keterangan + '" data-jumlah="' + r.jumlah + '" data-status="' + r.status + '">' +
+                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-kasbon gap-1" data-id="' + r.id + '" data-nama="' + escapeHtml(r.nama) + '" data-tanggal="' + escapeHtml(r.tanggal) + '" data-keterangan="' + escapeHtml(r.keterangan) + '" data-jumlah="' + r.jumlah + '" data-status="' + r.status + '">' +
                                 '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
                             '</button>' +
                             '<button class="btn-danger text-xs px-2.5 py-1 del-kasbon gap-1" data-id="' + r.id + '">' +
@@ -148,7 +148,7 @@ $(function () {
             h += '</tbody></table>';
             $('#kasbon-wrap').html(h);
         }).fail(function() {
-            $('#kasbon-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data kasbon.</div>');
+            $('#kasbon-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data dana talangan.</div>');
         });
     }
 
@@ -170,17 +170,19 @@ $(function () {
         const action = newStatus === 'lunas' ? 'mark_lunas_kasbon' : 'mark_belum_lunas_kasbon';
         $.post('src/api/admin.php?action=' + action, { id: id }, function() {
             lKasbon();
+            lDash();
         }, 'json').fail(function() {
-            alert('Gagal mengubah status kasbon.');
+            alert('Gagal mengubah status dana talangan.');
         });
     });
 
     $(document).on('click', '.del-kasbon', function () {
-        if (!confirm('Hapus kasbon ini?')) return;
+        if (!confirm('Hapus data talangan ini?')) return;
         $.post('src/api/admin.php?action=delete_kasbon', { id: $(this).data('id') }, function() {
             lKasbon();
+            lDash();
         }, 'json').fail(function() {
-            alert('Gagal menghapus kasbon.');
+            alert('Gagal menghapus dana talangan.');
         });
     });
 
@@ -207,11 +209,12 @@ $(function () {
                 $('#kasbon-submit-btn').html('<i class="fa-solid fa-plus text-xs"></i> <span>Tambah</span>');
                 $('#kasbon-cancel-btn').addClass('hidden');
                 lKasbon();
+                lDash();
             } else {
-                alert(res.error || 'Gagal menyimpan kasbon.');
+                alert(res.error || 'Gagal menyimpan dana talangan.');
             }
         }, 'json').fail(function() {
-            alert('Gagal menyimpan kasbon.');
+            alert('Gagal menyimpan dana talangan.');
         });
     });
 
@@ -227,7 +230,7 @@ $(function () {
             const cards = [
                 ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
                 ['Saldo BMS', fmt(s.saldo_bms), 'text-[var(--accent-sky)]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Total Kasbon', fmt(s.total_kasbon), 'text-[var(--accent-orange)]', '<i class="fa-solid fa-handshake text-sm"></i>'],
+                ['Talangan Belum Diganti', fmt(s.total_kasbon), 'text-[var(--accent-orange)]', '<i class="fa-solid fa-handshake text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -279,8 +282,8 @@ $(function () {
             } else {
                 h += sorted.map(s =>
                     `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)]">${s.absen||'-'}</td>
-                        <td class="font-medium text-[var(--ink)]">${s.nama}</td>
+                        <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(s.absen||'-')}</td>
+                        <td class="font-medium text-[var(--ink)]">${escapeHtml(s.nama)}</td>
                         <td class="text-right">
                             <button class="btn-danger del-s text-xs gap-1" data-id="${s.id}">
                                 <i class="fa-solid fa-trash-can text-[10px]"></i>
@@ -545,8 +548,8 @@ $(function () {
             } else {
                 h += r.transaksi.map(t =>
                     `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)]">${t.tanggal}</td>
-                        <td class="text-[var(--ink)]">${t.keterangan}</td>
+                        <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
+                        <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}</td>
                         <td>
                             <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
@@ -607,8 +610,8 @@ $(function () {
             } else {
                 h += rows.map(t => 
                     `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)]">${t.tanggal}</td>
-                        <td class="text-[var(--ink)]">${t.keterangan}</td>
+                        <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
+                        <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}</td>
                         <td>
                             <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
@@ -665,12 +668,12 @@ $(function () {
                         : '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i> <span>Tarik</span></span>';
                     return '<tr>' +
                         '<td class="font-mono text-xs text-[var(--ink-muted)]">' + (i + 1) + '</td>' +
-                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + r.tanggal + '</td>' +
-                        '<td class="text-[var(--ink)]">' + r.keterangan + '</td>' +
+                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + escapeHtml(r.tanggal) + '</td>' +
+                        '<td class="text-[var(--ink)]">' + escapeHtml(r.keterangan) + '</td>' +
                         '<td>' + badge + '</td>' +
                         '<td class="text-right font-mono-num font-medium text-[var(--ink)]">' + fmt(r.jumlah) + '</td>' +
                         '<td class="text-right space-x-1">' +
-                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-bms gap-1" data-id="' + r.id + '" data-tanggal="' + r.tanggal + '" data-keterangan="' + r.keterangan + '" data-jenis="' + r.jenis + '" data-jumlah="' + r.jumlah + '">' +
+                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-bms gap-1" data-id="' + r.id + '" data-tanggal="' + escapeHtml(r.tanggal) + '" data-keterangan="' + escapeHtml(r.keterangan) + '" data-jenis="' + escapeHtml(r.jenis) + '" data-jumlah="' + r.jumlah + '">' +
                                 '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
                             '</button>' +
                             '<button class="btn-danger text-xs px-2.5 py-1 del-bms gap-1" data-id="' + r.id + '">' +

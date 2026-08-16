@@ -246,11 +246,19 @@ try {
                 http_response_code(400); echo json_encode(['error' => 'invalid']); break;
             }
             $tLunas = ($stat === 'lunas') ? date('Y-m-d') : null;
-            $pdo->prepare("INSERT INTO kasbon (nama, tanggal, keterangan, jumlah, status, tanggal_lunas) VALUES (?,?,?,?,?,?)")
-                ->execute([$nama, $tgl, $ket, $jml, $stat, $tLunas]);
+            $jurnalId = null;
+            if ($stat === 'lunas') {
+                $jKet = "Penggantian talangan " . $nama . ": " . $ket;
+                $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal) VALUES (?,?,'keluar',?)")
+                    ->execute([$tgl, $jKet, $jml]);
+                $jurnalId = (int)$pdo->lastInsertId();
+                log_activity($pdo, 'jurnal_kas', 'tambah', $jurnalId, "Tambah pengeluaran (Talangan #$jurnalId): $jKet (Rp " . number_format($jml, 0, ',', '.') . ")", ['tanggal'=>$tgl, 'keterangan'=>$jKet, 'jenis'=>'Pengeluaran', 'nominal'=>$jml]);
+            }
+            $pdo->prepare("INSERT INTO kasbon (nama, tanggal, keterangan, jumlah, status, tanggal_lunas, jurnal_id) VALUES (?,?,?,?,?,?,?)")
+                ->execute([$nama, $tgl, $ket, $jml, $stat, $tLunas, $jurnalId]);
             $newId = (int)$pdo->lastInsertId();
-            $statusLabel = $stat === 'lunas' ? 'Lunas' : 'Belum Lunas';
-            $ringkasan = "Tambah kasbon #$newId: $nama (Rp " . number_format($jml, 0, ',', '.') . " - $statusLabel)";
+            $statusLabel = $stat === 'lunas' ? 'Sudah Diganti' : 'Belum Diganti';
+            $ringkasan = "Tambah talangan #$newId: $nama (Rp " . number_format($jml, 0, ',', '.') . " - $statusLabel)";
             $detail = ['nama' => $nama, 'tanggal' => $tgl, 'keterangan' => $ket, 'jumlah' => $jml, 'status' => $statusLabel];
             log_activity($pdo, 'kasbon', 'tambah', $newId, $ringkasan, $detail);
             echo json_encode(['ok' => true, 'id' => $newId]);
@@ -266,17 +274,38 @@ try {
             if ($id <= 0 || $nama === '' || $jml <= 0 || !in_array($stat, ['belum_lunas','lunas'], true)) {
                 http_response_code(400); echo json_encode(['error' => 'invalid']); break;
             }
+            $curStmt = $pdo->prepare("SELECT status, tanggal_lunas, jurnal_id FROM kasbon WHERE id=?");
+            $curStmt->execute([$id]);
+            $curRow = $curStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$curRow) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            $jurnalId = $curRow['jurnal_id'] ? (int)$curRow['jurnal_id'] : null;
+            $tLunas = $curRow['tanggal_lunas'];
+
             if ($stat === 'lunas') {
-                $cur = $pdo->prepare("SELECT tanggal_lunas FROM kasbon WHERE id=?");
-                $cur->execute([$id]);
-                $tLunas = $cur->fetchColumn() ?: date('Y-m-d');
+                $tLunas = $tLunas ?: date('Y-m-d');
+                $jKet = "Penggantian talangan " . $nama . ": " . $ket;
+                if ($jurnalId) {
+                    $pdo->prepare("UPDATE jurnal_kas SET tanggal=?, keterangan=?, nominal=? WHERE id=?")
+                        ->execute([$tgl, $jKet, $jml, $jurnalId]);
+                } else {
+                    $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal) VALUES (?,?,'keluar',?)")
+                        ->execute([$tgl, $jKet, $jml]);
+                    $jurnalId = (int)$pdo->lastInsertId();
+                    log_activity($pdo, 'jurnal_kas', 'tambah', $jurnalId, "Tambah pengeluaran (Talangan #$jurnalId): $jKet (Rp " . number_format($jml, 0, ',', '.') . ")", ['tanggal'=>$tgl, 'keterangan'=>$jKet, 'jenis'=>'Pengeluaran', 'nominal'=>$jml]);
+                }
             } else {
                 $tLunas = null;
+                if ($jurnalId) {
+                    $pdo->prepare("DELETE FROM jurnal_kas WHERE id=?")->execute([$jurnalId]);
+                    log_activity($pdo, 'jurnal_kas', 'hapus', $jurnalId, "Batal penggantian talangan: Hapus jurnal #$jurnalId");
+                    $jurnalId = null;
+                }
             }
-            $pdo->prepare("UPDATE kasbon SET nama=?, tanggal=?, keterangan=?, jumlah=?, status=?, tanggal_lunas=? WHERE id=?")
-                ->execute([$nama, $tgl, $ket, $jml, $stat, $tLunas, $id]);
-            $statusLabel = $stat === 'lunas' ? 'Lunas' : 'Belum Lunas';
-            $ringkasan = "Edit kasbon #$id: $nama (Rp " . number_format($jml, 0, ',', '.') . " - $statusLabel)";
+
+            $pdo->prepare("UPDATE kasbon SET nama=?, tanggal=?, keterangan=?, jumlah=?, status=?, tanggal_lunas=?, jurnal_id=? WHERE id=?")
+                ->execute([$nama, $tgl, $ket, $jml, $stat, $tLunas, $jurnalId, $id]);
+            $statusLabel = $stat === 'lunas' ? 'Sudah Diganti' : 'Belum Diganti';
+            $ringkasan = "Edit talangan #$id: $nama (Rp " . number_format($jml, 0, ',', '.') . " - $statusLabel)";
             $detail = ['id' => $id, 'nama' => $nama, 'tanggal' => $tgl, 'keterangan' => $ket, 'jumlah' => $jml, 'status' => $statusLabel];
             log_activity($pdo, 'kasbon', 'edit', $id, $ringkasan, $detail);
             echo json_encode(['ok' => true]);
@@ -285,16 +314,28 @@ try {
         case 'mark_lunas_kasbon': {
             $id = (int)($_POST['id'] ?? 0);
             if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
-            $kasbonStmt = $pdo->prepare("SELECT nama, jumlah, keterangan FROM kasbon WHERE id=?");
+            $kasbonStmt = $pdo->prepare("SELECT nama, jumlah, keterangan, status, jurnal_id FROM kasbon WHERE id=?");
             $kasbonStmt->execute([$id]);
             $rowKasbon = $kasbonStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$rowKasbon) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
             $nama = $rowKasbon['nama'] ?? '';
-            $jml = (float)($rowKasbon['jumlah'] ?? 0);
-            $ket = $rowKasbon['keterangan'] ?? '';
-            $pdo->prepare("UPDATE kasbon SET status='lunas', tanggal_lunas=? WHERE id=?")
-                ->execute([date('Y-m-d'), $id]);
-            $ringkasan = "Tandai lunas kasbon #$id ($nama: Rp " . number_format($jml, 0, ',', '.') . ")";
-            $detail = ['id' => $id, 'nama' => $nama, 'jumlah' => $jml, 'keterangan' => $ket, 'status' => 'Lunas'];
+            $jml  = (float)($rowKasbon['jumlah'] ?? 0);
+            $ket  = $rowKasbon['keterangan'] ?? '';
+            $tgl  = date('Y-m-d');
+            $jurnalId = $rowKasbon['jurnal_id'] ? (int)$rowKasbon['jurnal_id'] : null;
+
+            if (!$jurnalId) {
+                $jKet = "Penggantian talangan " . $nama . ": " . $ket;
+                $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal) VALUES (?,?,'keluar',?)")
+                    ->execute([$tgl, $jKet, $jml]);
+                $jurnalId = (int)$pdo->lastInsertId();
+                log_activity($pdo, 'jurnal_kas', 'tambah', $jurnalId, "Tambah pengeluaran (Talangan #$jurnalId): $jKet (Rp " . number_format($jml, 0, ',', '.') . ")", ['tanggal'=>$tgl, 'keterangan'=>$jKet, 'jenis'=>'Pengeluaran', 'nominal'=>$jml]);
+            }
+
+            $pdo->prepare("UPDATE kasbon SET status='lunas', tanggal_lunas=?, jurnal_id=? WHERE id=?")
+                ->execute([$tgl, $jurnalId, $id]);
+            $ringkasan = "Tandai sudah diganti talangan #$id ($nama: Rp " . number_format($jml, 0, ',', '.') . ")";
+            $detail = ['id' => $id, 'nama' => $nama, 'jumlah' => $jml, 'keterangan' => $ket, 'status' => 'Sudah Diganti', 'jurnal_id' => $jurnalId];
             log_activity($pdo, 'kasbon', 'update_status', $id, $ringkasan, $detail);
             echo json_encode(['ok' => true]);
             break;
@@ -302,16 +343,24 @@ try {
         case 'mark_belum_lunas_kasbon': {
             $id = (int)($_POST['id'] ?? 0);
             if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
-            $kasbonStmt = $pdo->prepare("SELECT nama, jumlah, keterangan FROM kasbon WHERE id=?");
+            $kasbonStmt = $pdo->prepare("SELECT nama, jumlah, keterangan, jurnal_id FROM kasbon WHERE id=?");
             $kasbonStmt->execute([$id]);
             $rowKasbon = $kasbonStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$rowKasbon) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
             $nama = $rowKasbon['nama'] ?? '';
-            $jml = (float)($rowKasbon['jumlah'] ?? 0);
-            $ket = $rowKasbon['keterangan'] ?? '';
-            $pdo->prepare("UPDATE kasbon SET status='belum_lunas', tanggal_lunas=NULL WHERE id=?")
+            $jml  = (float)($rowKasbon['jumlah'] ?? 0);
+            $ket  = $rowKasbon['keterangan'] ?? '';
+            $jurnalId = $rowKasbon['jurnal_id'] ? (int)$rowKasbon['jurnal_id'] : null;
+
+            if ($jurnalId) {
+                $pdo->prepare("DELETE FROM jurnal_kas WHERE id=?")->execute([$jurnalId]);
+                log_activity($pdo, 'jurnal_kas', 'hapus', $jurnalId, "Batal penggantian talangan: Hapus jurnal #$jurnalId");
+            }
+
+            $pdo->prepare("UPDATE kasbon SET status='belum_lunas', tanggal_lunas=NULL, jurnal_id=NULL WHERE id=?")
                 ->execute([$id]);
-            $ringkasan = "Tandai belum lunas kasbon #$id ($nama: Rp " . number_format($jml, 0, ',', '.') . ")";
-            $detail = ['id' => $id, 'nama' => $nama, 'jumlah' => $jml, 'keterangan' => $ket, 'status' => 'Belum Lunas'];
+            $ringkasan = "Batalkan penggantian talangan #$id ($nama: Rp " . number_format($jml, 0, ',', '.') . ")";
+            $detail = ['id' => $id, 'nama' => $nama, 'jumlah' => $jml, 'keterangan' => $ket, 'status' => 'Belum Diganti'];
             log_activity($pdo, 'kasbon', 'update_status', $id, $ringkasan, $detail);
             echo json_encode(['ok' => true]);
             break;
@@ -319,13 +368,21 @@ try {
         case 'delete_kasbon': {
             $id = (int)($_REQUEST['id'] ?? 0);
             if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
-            $kasbonStmt = $pdo->prepare("SELECT nama, jumlah, keterangan FROM kasbon WHERE id=?");
+            $kasbonStmt = $pdo->prepare("SELECT nama, jumlah, keterangan, jurnal_id FROM kasbon WHERE id=?");
             $kasbonStmt->execute([$id]);
             $rowKasbon = $kasbonStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$rowKasbon) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
             $nama = $rowKasbon['nama'] ?? '';
-            $jml = (float)($rowKasbon['jumlah'] ?? 0);
-            $ket = $rowKasbon['keterangan'] ?? '';
-            $ringkasan = "Hapus kasbon #$id: $nama (Rp " . number_format($jml, 0, ',', '.') . ")";
+            $jml  = (float)($rowKasbon['jumlah'] ?? 0);
+            $ket  = $rowKasbon['keterangan'] ?? '';
+            $jurnalId = $rowKasbon['jurnal_id'] ? (int)$rowKasbon['jurnal_id'] : null;
+
+            if ($jurnalId) {
+                $pdo->prepare("DELETE FROM jurnal_kas WHERE id=?")->execute([$jurnalId]);
+                log_activity($pdo, 'jurnal_kas', 'hapus', $jurnalId, "Hapus talangan: Hapus jurnal pengeluaran #$jurnalId");
+            }
+
+            $ringkasan = "Hapus talangan #$id: $nama (Rp " . number_format($jml, 0, ',', '.') . ")";
             $detail = ['id' => $id, 'nama' => $nama, 'jumlah' => $jml, 'keterangan' => $ket];
             $pdo->prepare("DELETE FROM kasbon WHERE id=?")->execute([$id]);
             log_activity($pdo, 'kasbon', 'hapus', $id, $ringkasan, $detail);

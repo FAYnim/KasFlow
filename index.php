@@ -56,7 +56,7 @@
                 </a>
                 <a data-tab="kasbon" class="sidebar-nav-item">
                     <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
-                    <span>Kasbon</span>
+                    <span>Dana Talangan</span>
                 </a>
                 <a data-tab="jurnal" class="sidebar-nav-item">
                     <i class="fa-solid fa-receipt w-4 text-center"></i>
@@ -158,7 +158,7 @@
         <section data-tab-content="kasbon" class="tab-content hidden">
             <div class="flex items-center justify-between mb-6">
                 <div>
-                    <h2 class="display-md mb-1">Kasbon</h2>
+                    <h2 class="display-md mb-1">Dana Talangan / Reimbursement</h2>
                 </div>
                 <div class="flex items-center gap-2">
                     <select id="kasbon-bulan" class="input-linear"></select>
