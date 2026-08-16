@@ -102,6 +102,25 @@ $(function () {
     $('#admin-kasbon-tahun').html([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option ${y===now.getFullYear()?'selected':''}>${y}</option>`).join(''));
     $('#admin-kasbon-bulan, #admin-kasbon-tahun').on('change', lKasbon);
 
+    // Load daftar siswa ke dropdown kasbon form
+    function loadKasbonSiswaOptions(selectedSiswaId) {
+        $.getJSON('src/api/admin.php?action=list_siswa', function(rows) {
+            const bulanList2 = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+            const sorted = rows.slice().sort(function(a, b) {
+                const an = parseInt(a.absen), bn = parseInt(b.absen);
+                if (!isNaN(an) && !isNaN(bn)) return an - bn;
+                return String(a.absen||'').localeCompare(String(b.absen||''), 'id');
+            });
+            const opts = sorted.map(function(s) {
+                const label = s.absen ? `[Absen ${s.absen}] ${escapeHtml(s.nama)}` : escapeHtml(s.nama);
+                const sel = (selectedSiswaId && parseInt(selectedSiswaId) === parseInt(s.id)) ? 'selected' : '';
+                return `<option value="${s.id}" ${sel}>${label}</option>`;
+            });
+            $('#kasbon-siswa-id').html('<option value="">— Pilih Siswa —</option>' + opts.join(''));
+        });
+    }
+    loadKasbonSiswaOptions();
+
     activate('dashboard');
 
     function lKasbon() {
@@ -113,7 +132,7 @@ $(function () {
                     <tr>
                         <th class="w-16">#</th>
                         <th class="w-32">Tanggal</th>
-                        <th>Nama</th>
+                        <th>Peminjam</th>
                         <th>Keterangan</th>
                         <th class="text-right w-36">Jumlah</th>
                         <th class="w-28">Status</th>
@@ -131,15 +150,19 @@ $(function () {
                     const toggleBtn = r.status === 'lunas'
                         ? '<button class="text-yellow-400 hover:text-yellow-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="belum_lunas" title="Batalkan Penggantian"><i class="fa-solid fa-rotate-left"></i></button>'
                         : '<button class="text-green-400 hover:text-green-300 text-xs toggle-kasbon" data-id="' + r.id + '" data-status="lunas" title="Tandai Sudah Diganti"><i class="fa-solid fa-circle-check"></i></button>';
+                    // Tampilkan nomor absen di samping nama jika tersedia
+                    const namaTampil = r.absen
+                        ? `<span class="font-medium text-[var(--ink)]">${escapeHtml(r.nama)}</span><span class="ml-1.5 text-[10px] font-mono text-[var(--ink-muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded">Absen ${escapeHtml(r.absen)}</span>`
+                        : `<span class="font-medium text-[var(--ink)]">${escapeHtml(r.nama)}</span>`;
                     return '<tr>' +
                         '<td class="font-mono text-xs text-[var(--ink-muted)]">' + (i + 1) + '</td>' +
                         '<td class="font-mono text-xs text-[var(--ink-muted)]">' + escapeHtml(r.tanggal) + '</td>' +
-                        '<td class="font-medium text-[var(--ink)]">' + escapeHtml(r.nama) + '</td>' +
+                        '<td>' + namaTampil + ' ' + toggleBtn + '</td>' +
                         '<td class="text-[var(--ink-muted)]">' + escapeHtml(r.keterangan) + '</td>' +
                         '<td class="text-right font-mono-num font-medium text-[var(--ink)]">' + fmt(r.jumlah) + '</td>' +
                         '<td>' + badge + '</td>' +
                         '<td class="text-right space-x-1">' +
-                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-kasbon gap-1" data-id="' + r.id + '" data-nama="' + escapeHtml(r.nama) + '" data-tanggal="' + escapeHtml(r.tanggal) + '" data-keterangan="' + escapeHtml(r.keterangan) + '" data-jumlah="' + r.jumlah + '" data-status="' + r.status + '">' +
+                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-kasbon gap-1" data-id="' + r.id + '" data-siswa-id="' + (r.siswa_id || '') + '" data-tanggal="' + escapeHtml(r.tanggal) + '" data-keterangan="' + escapeHtml(r.keterangan) + '" data-jumlah="' + r.jumlah + '" data-status="' + r.status + '">' +
                                 '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
                             '</button>' +
                             '<button class="btn-danger text-xs px-2.5 py-1 del-kasbon gap-1" data-id="' + r.id + '">' +
@@ -158,14 +181,18 @@ $(function () {
 
     $(document).on('click', '.edit-kasbon', function () {
         const $btn = $(this);
+        const siswaId = $btn.data('siswa-id');
         $('#kasbon-edit-id').val($btn.data('id'));
-        $('#kasbon-nama').val($btn.data('nama'));
         $('#kasbon-tanggal').val($btn.data('tanggal'));
         $('#kasbon-keterangan').val($btn.data('keterangan'));
         $('#kasbon-jumlah').val($btn.data('jumlah'));
         $('#kasbon-status').val($btn.data('status'));
+        // Isi dropdown siswa dengan nilai terkini, lalu set selected
+        loadKasbonSiswaOptions(siswaId);
         $('#kasbon-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Update</span>');
         $('#kasbon-cancel-btn').removeClass('hidden');
+        // Scroll ke form
+        document.getElementById('form-kasbon').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     $(document).on('click', '.toggle-kasbon', function () {
@@ -192,15 +219,15 @@ $(function () {
 
     $('#form-kasbon').on('submit', function (e) {
         e.preventDefault();
-        const nama = $('#kasbon-nama').val().trim();
+        const siswaId = $('#kasbon-siswa-id').val();
         const jumlah = parseFloat($('#kasbon-jumlah').val());
-        if (!nama) { alert('Nama harus diisi.'); return; }
+        if (!siswaId) { alert('Pilih siswa peminjam terlebih dahulu.'); return; }
         if (!jumlah || jumlah <= 0) { alert('Jumlah harus lebih dari 0.'); return; }
         const editId = $('#kasbon-edit-id').val();
         const payload = {
             action: editId ? 'update_kasbon' : 'add_kasbon',
             id: editId || undefined,
-            nama: nama,
+            siswa_id: siswaId,
             tanggal: $('#kasbon-tanggal').val(),
             keterangan: $('#kasbon-keterangan').val().trim(),
             jumlah: jumlah,
@@ -210,6 +237,7 @@ $(function () {
             if (res.ok) {
                 $('#form-kasbon')[0].reset();
                 $('#kasbon-edit-id').val('');
+                loadKasbonSiswaOptions();
                 $('#kasbon-submit-btn').html('<i class="fa-solid fa-plus text-xs"></i> <span>Tambah</span>');
                 $('#kasbon-cancel-btn').addClass('hidden');
                 lKasbon();
@@ -225,6 +253,7 @@ $(function () {
     $('#kasbon-cancel-btn').on('click', function () {
         $('#form-kasbon')[0].reset();
         $('#kasbon-edit-id').val('');
+        loadKasbonSiswaOptions();
         $('#kasbon-submit-btn').html('<i class="fa-solid fa-plus text-xs"></i> <span>Tambah</span>');
         $(this).addClass('hidden');
     });
@@ -309,13 +338,16 @@ $(function () {
 
     $(document).on('click', '.del-s', function () {
         if (!confirm('Hapus siswa ini beserta seluruh data kas terkait?')) return;
-        $.post('src/api/admin.php?action=delete_siswa', { id: $(this).data('id') }, r => lSiswa(), 'json');
+        $.post('src/api/admin.php?action=delete_siswa', { id: $(this).data('id') }, r => {
+            lSiswa();
+            loadKasbonSiswaOptions();
+        }, 'json');
     });
 
     $('#form-siswa').on('submit', function (e) {
         e.preventDefault();
         $.post('src/api/admin.php?action=add_siswa', $(this).serialize(), r => {
-            if (r.ok) { this.reset(); lSiswa(); } else alert(r.error);
+            if (r.ok) { this.reset(); lSiswa(); loadKasbonSiswaOptions(); } else alert(r.error);
         }, 'json');
     });
 
@@ -408,6 +440,34 @@ $(function () {
         updateKasToolbar();
     });
 
+    // ── Kas Mingguan: Save dengan Modal Konfirmasi Integrasi ────────────
+    // State sementara untuk ditransfer ke modal konfirmasi
+    let _kasConfirmChanges = null;
+
+    function doSaveKas(changes, extraData, $btn) {
+        const data = Object.assign({ bulan: kasState.bulan, tahun: kasState.tahun, changes: JSON.stringify(changes) }, extraData);
+        $.ajax({
+            url: 'src/api/admin.php?action=bulk_update_kas',
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            success: r => {
+                if (r.ok) {
+                    Object.keys(kasState.pending).forEach(sid => { kasState.saved[sid] = { ...kasState.saved[sid], ...kasState.pending[sid] }; });
+                    kasState.pending = {};
+                    lKas();
+                    if (r.jurnal_kas_id) lJurnal();
+                } else {
+                    alert(r.error || 'Gagal menyimpan.');
+                }
+            },
+            error: () => alert('Gagal terhubung server.'),
+            complete: () => {
+                if ($btn) $btn.prop('disabled', false).html('<i class="fa-solid fa-floppy-disk text-[10px]"></i> <span>Simpan</span>');
+            }
+        });
+    }
+
     $('#kas-save-btn').on('click', function () {
         const changes = [];
         Object.keys(kasState.pending).forEach(sid => {
@@ -416,26 +476,72 @@ $(function () {
             });
         });
         if (changes.length === 0) return;
-        const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Menyimpan...</span>');
-        $.ajax({
-            url: 'src/api/admin.php?action=bulk_update_kas',
-            method: 'POST',
-            data: { bulan: kasState.bulan, tahun: kasState.tahun, changes: JSON.stringify(changes) },
-            dataType: 'json',
-            success: r => {
-                if (r.ok) {
-                    Object.keys(r.totals || {}).forEach(sid => { kasState.saved[sid] = { ...(kasState.pending[sid] || kasState.saved[sid] || {}) }; });
-                    Object.keys(kasState.pending).forEach(sid => { kasState.saved[sid] = { ...kasState.saved[sid], ...kasState.pending[sid] }; });
-                    kasState.pending = {};
-                    lKas();
-                } else {
-                    alert(r.error || 'Gagal menyimpan.');
-                }
-            },
-            error: () => alert('Gagal terhubung server.'),
-            complete: () => { $btn.prop('disabled', false).html('<i class="fa-solid fa-floppy-disk text-[10px]"></i> <span>Simpan</span>'); }
-        });
+
+        // Hitung nominal baru (hanya yang dicentang)
+        const tarif = kasState.tarif || 0;
+        let newCount = 0;
+        changes.forEach(c => { if (c.checked === 1 && (kasState.saved[c.siswa_id] || {})[c.minggu] !== 1) newCount++; });
+        const nominalBaru = newCount * tarif;
+
+        if (nominalBaru > 0) {
+            // Tampilkan modal konfirmasi integrasi
+            _kasConfirmChanges = changes;
+            const bulanTahun = `${kasState.bulan} ${kasState.tahun}`;
+            $('#kas-confirm-nominal').text(fmt(nominalBaru));
+            $('#kas-confirm-detail').text(`${newCount} pembayaran baru (${newCount} × ${fmt(tarif)})`);
+            $('#kas-confirm-ket').val(`Penerimaan Kas Mingguan ${bulanTahun}`);
+            $('#kas-confirm-tgl').val(new Date().toISOString().slice(0, 10));
+            // Populate storage dropdown
+            $.getJSON('src/api/admin.php?action=list_accounts', function (accs) {
+                const opts = '<option value="">— Tidak dicatat ke dompet —</option>' +
+                    accs.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+                $('#kas-confirm-storage').html(opts);
+            });
+            $('#modal-kas-save-confirm').removeClass('hidden');
+        } else {
+            // Tidak ada pembayaran baru — simpan langsung
+            const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Menyimpan...</span>');
+            doSaveKas(changes, { catat_jurnal: 0 }, $btn);
+        }
     });
+
+    // Toggle jurnal opts visibility
+    $('#kas-confirm-catat').on('change', function () {
+        $('#kas-confirm-jurnal-opts').toggleClass('hidden', !this.checked);
+        $('#kas-confirm-save').prop('disabled', false);
+    });
+
+    // Tutup modal konfirmasi
+    $('#kas-confirm-close').on('click', () => {
+        $('#modal-kas-save-confirm').addClass('hidden');
+        _kasConfirmChanges = null;
+    });
+
+    // Simpan tanpa jurnal
+    $('#kas-confirm-skip').on('click', function () {
+        if (!_kasConfirmChanges) return;
+        $('#modal-kas-save-confirm').addClass('hidden');
+        doSaveKas(_kasConfirmChanges, { catat_jurnal: 0 }, null);
+        _kasConfirmChanges = null;
+    });
+
+    // Simpan + catat jurnal
+    $('#kas-confirm-save').on('click', function () {
+        if (!_kasConfirmChanges) return;
+        const $btn = $(this).prop('disabled', true);
+        const catatJurnal = $('#kas-confirm-catat').is(':checked') ? 1 : 0;
+        const extra = {
+            catat_jurnal: catatJurnal,
+            storage_account_id: catatJurnal ? $('#kas-confirm-storage').val() : '',
+            jurnal_keterangan: $('#kas-confirm-ket').val(),
+            jurnal_tanggal: $('#kas-confirm-tgl').val(),
+        };
+        $('#modal-kas-save-confirm').addClass('hidden');
+        doSaveKas(_kasConfirmChanges, extra, null);
+        _kasConfirmChanges = null;
+        $btn.prop('disabled', false);
+    });
+
 
     $('#kas-reset-btn').on('click', function () {
         if (Object.keys(kasState.pending).length === 0) return;
@@ -501,16 +607,26 @@ $(function () {
     $('#btn-add-jurnal').on('click', () => openJurnalModal());
     $('#modal-close, #modal-close-btn').on('click', () => $('#modal-jurnal').addClass('hidden'));
 
+    // Populate storage dropdown di form Jurnal saat modal dibuka
+    function populateJurnalStorageDropdown(selectedId) {
+        $.getJSON('src/api/admin.php?action=list_accounts', function (accs) {
+            const opts = '<option value="">— Tidak dicatat ke dompet —</option>' +
+                accs.map(a => `<option value="${a.id}"${a.id == selectedId ? ' selected' : ''}>${escapeHtml(a.name)}</option>`).join('');
+            $('#jurnal-storage-select').html(opts);
+        });
+    }
+
     function openJurnalModal(t) {
         $('#modal-jurnal').removeClass('hidden');
         const f = $('#form-jurnal')[0];
         f.reset();
-        if (t) { 
-            f.id.value = t.id; 
-            f.tanggal.value = t.tanggal; 
-            f.keterangan.value = t.keterangan; 
-            f.jenis.value = t.jenis; 
-            f.nominal.value = t.nominal; 
+        populateJurnalStorageDropdown(t ? t.storage_account_id : null);
+        if (t) {
+            f.id.value = t.id;
+            f.tanggal.value = t.tanggal;
+            f.keterangan.value = t.keterangan;
+            f.jenis.value = t.jenis;
+            f.nominal.value = t.nominal;
         }
     }
 
@@ -536,33 +652,45 @@ $(function () {
         if (b) params.bulan = b;
         if (t) params.tahun = t;
         $.getJSON('src/api/public.php', params, r => {
+            const SOURCE_LABELS = { manual: null, kas_mingguan: 'Kas Mingguan', kasbon: 'Dana Talangan' };
+            const SOURCE_COLORS = { kas_mingguan: 'text-emerald-400', kasbon: 'text-amber-400' };
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
                         <th class="w-32">Tanggal</th>
                         <th>Keterangan</th>
                         <th class="w-28">Jenis</th>
+                        <th class="w-36">Dompet / Sumber</th>
                         <th class="text-right w-36">Nominal</th>
                         <th class="w-36 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>`;
             if (!r.transaksi || r.transaksi.length === 0) {
-                h += `<tr><td colspan="5" class="text-center py-6 text-[var(--ink-muted)]">Belum ada jurnal transaksi.</td></tr>`;
+                h += `<tr><td colspan="6" class="text-center py-6 text-[var(--ink-muted)]">Belum ada jurnal transaksi.</td></tr>`;
             } else {
-                h += r.transaksi.map(t =>
-                    `<tr>
+                h += r.transaksi.map(t => {
+                    const srcLabel = SOURCE_LABELS[t.source];
+                    const srcColor = SOURCE_COLORS[t.source] || '';
+                    const srcBadge = srcLabel
+                        ? `<span class="ml-1 text-[9px] font-semibold tracking-wide uppercase ${srcColor}">${escapeHtml(srcLabel)}</span>`
+                        : '';
+                    const dompetBadge = t.storage_account_name
+                        ? `<div class="flex items-center gap-1 text-[11px] text-[var(--ink-muted)] mt-0.5"><i class="fa-solid fa-vault text-[9px]"></i>${escapeHtml(t.storage_account_name)}</div>`
+                        : '<div class="text-[11px] text-[var(--ink-muted)] mt-0.5">—</div>';
+                    return `<tr>
                         <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
-                        <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}</td>
+                        <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}${srcBadge}</td>
                         <td>
                             <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
                                 <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
                             </span>
                         </td>
+                        <td>${dompetBadge}</td>
                         <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(t.nominal)}</td>
                         <td class="text-right space-x-1">
-                            <button class="btn-secondary text-xs px-2.5 py-1 edit-j gap-1" data-id="${t.id}">
+                            <button class="btn-secondary text-xs px-2.5 py-1 edit-j gap-1" data-id="${t.id}" data-t='${JSON.stringify({id:t.id,tanggal:t.tanggal,keterangan:t.keterangan,jenis:t.jenis,nominal:t.nominal,storage_account_id:t.storage_account_id||''})}' >
                                 <i class="fa-solid fa-pen text-[10px]"></i>
                                 <span>Edit</span>
                             </button>
@@ -571,8 +699,8 @@ $(function () {
                                 <span>Hapus</span>
                             </button>
                         </td>
-                    </tr>`
-                ).join('');
+                    </tr>`;
+                }).join('');
             }
             h += '</tbody></table>';
             $('#jurnal-wrap').html(h);
@@ -581,11 +709,16 @@ $(function () {
     }
 
     $(document).on('click', '.edit-j', function () {
-        const id = $(this).data('id');
-        $.getJSON('src/api/public.php?action=get_jurnal', r => {
-            const t = r.transaksi.find(x => x.id == id);
-            if (t) openJurnalModal(t);
-        });
+        const t = $(this).data('t');
+        if (t) {
+            openJurnalModal(typeof t === 'string' ? JSON.parse(t) : t);
+        } else {
+            const id = $(this).data('id');
+            $.getJSON('src/api/public.php?action=get_jurnal', r => {
+                const found = (r.transaksi || []).find(x => x.id == id);
+                if (found) openJurnalModal(found);
+            });
+        }
     });
 
     $(document).on('click', '.del-j', function () {

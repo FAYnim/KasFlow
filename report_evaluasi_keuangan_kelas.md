@@ -2,8 +2,8 @@
 ## Aplikasi Pencatatan Keuangan Kelas (Cashflow Kelas)
 
 **Tanggal Evaluasi:** 16 Agustus 2026  
-**Status Kesiapan Rilis:** 🟡 **SEBAGIAN SIAP — BETA RELEASE (PARTIALLY READY)**  
-**Skor Kesiapan:** 80 / 100  
+**Status Kesiapan Rilis:** 🟡 **HAMPIR SIAP (RELEASE CANDIDATE)**  
+**Skor Kesiapan:** 85 / 100  
 
 ---
 
@@ -32,9 +32,9 @@ Untuk membawa aplikasi ini ke status **Siap Rilis (Production Ready)**, perbaika
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  🟠 FASE 2: RESTRUKTURISASI LOGIKA KEUANGAN & MODUL (HIGH)  │
-│  [ ] 4.  Integrasi Kas Mingguan, Kasbon, & Jurnal Kas       │
+│  [x] 4.  Integrasi Kas Mingguan, Kasbon, & Jurnal Kas       │
 │  [ ] 5.  Integrasi Jurnal Kas ⟷ Alokasi Dana               │
-│  [ ] 6.  Ganti Kasbon Nama Bebas ke Master Siswa           │
+│  [x] 6.  Ganti Kasbon Nama Bebas ke Master Siswa           │
 │  [ ] 7.  Penanganan Tarif Kas Dinamis & Historic Records    │
 └──────────────────────────────┬──────────────────────────────┘
                                │
@@ -75,21 +75,30 @@ Semua item Fase 1 telah diselesaikan pada 16 Agustus 2026.
 
 ### 🟠 FASE 2: Restrukturisasi Logika Keuangan & Integrasi Modul (High Priority)
 
-- [ ] **4.** Terisolasinya Modul-Modul Keuangan (Data Silos) (HIGH)
+- [x] **4.** Terisolasinya Modul-Modul Keuangan (Data Silos) (HIGH)
 * **Kategori:** Integration & Business Flow
-* **Status Paruh:** ✅ Kasbon ↔ Jurnal Kas sudah terhubung (commit `8e155f3`). Kasbon create/update/payment otomatis generate/modify entry di `jurnal_kas`.
-* **Belum Selesai:** Kas Mingguan masih manual — tidak otomatis masuk ke Jurnal Kas.
-* **Dampak:** Pengguna harus menginput data berulang kali di tempat terpisah (misal centang kas mingguan, lalu membuat jurnal masuk, lalu menambah alokasi dompet).
-* **Rekomendasi Perbaikan:**
-  - Tambahkan opsi otomatis: Saat Kas Mingguan dicentang / Kasbon dilunasi, sistem menawarkan/otomatis mencatat transaksi ke Jurnal Kas.
-  - Pada form Jurnal Kas, tambahkan dropdown "Simpan ke Tempat Penyimpanan" (Cash/DANA/BCA) agar saldo Alokasi Dana ter-update otomatis.
+* **Status:** ✅ SELESAI — 16 Agustus 2026 (commit `feat/fase2-integrasi-kas-jurnal-alokasi`)
+* **Yang Dilakukan:**
+  - Tambah kolom `storage_account_id`, `source`, `source_id` pada tabel `jurnal_kas` via migration.
+  - Form Jurnal Kas kini memiliki dropdown **Tempat Penyimpanan** — saldo dompet otomatis terbarui.
+  - Saat menyimpan centang Kas Mingguan dengan pembayaran baru, muncul **modal konfirmasi integrasi** yang memungkinkan pencatatan ke Jurnal Kas + pemilihan dompet tujuan dalam satu langkah.
+  - Formula `get_summary` diperbarui agar tidak terjadi double-counting untuk transaksi yang bersumber dari `kas_mingguan`.
+  - Tabel Jurnal Kas admin kini menampilkan badge **Sumber** (Kas Mingguan / Dana Talangan / Manual) dan nama **dompet tujuan**.
 
-- [ ] **5.** Kasbon Tidak Terhubung ke Master Data Siswa (HIGH)
+- [x] **5.** Kasbon Tidak Terhubung ke Master Data Siswa (HIGH)
 * **Kategori:** Data Integrity
-* **Lokasi File:** [`database/schema.sql:L76`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/database/schema.sql#L76) (`kasbon.nama VARCHAR(100)`)
-* **Deskripsi:** Nama peminjam kasbon diinput secara teks bebas, tidak memilih dari tabel `siswa`.
-* **Dampak:** Berisiko salah ketik nama, tidak bisa direkap per siswa.
-* **Rekomendasi Perbaikan:** Tambahkan `siswa_id INT NULL` pada tabel `kasbon` dan gunakan `<select>` dropdown siswa pada form Kasbon.
+* **Lokasi File:** [`database/schema.sql`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/database/schema.sql) (`kasbon.siswa_id INT NULL`)
+* **Status:** ✅ SELESAI — 16 Agustus 2026 (migration `2026_08_16_000003_add_siswa_id_to_kasbon`)
+* **Yang Dilakukan:**
+  - Tambah kolom `siswa_id INT NULL` dan FK `fk_kasbon_siswa → siswa(id) ON DELETE SET NULL` via migration.
+  - Kolom `nama` diubah jadi `NULLABLE` untuk backward-compat data historis tanpa relasi.
+  - Auto-patch: baris kasbon lama yang nama-nya cocok dengan `siswa.nama` otomatis dihubungkan.
+  - Form Dana Talangan di `dashboard.php` kini menggunakan `<select>` dropdown siswa terurut berdasarkan nomor absen, menggantikan input teks bebas.
+  - API `get_kasbon` (`public.php`) menggunakan `LEFT JOIN siswa` dan mengembalikan field `siswa_id` dan `absen`.
+  - API `add_kasbon` & `update_kasbon` (`admin.php`) menerima `siswa_id`, otomatis resolve nama dari tabel `siswa`.
+  - `mark_lunas`, `mark_belum_lunas`, `delete_kasbon` semua pakai `COALESCE(s.nama, k.nama)` untuk konsistensi log.
+  - Tabel kasbon (admin & publik) menampilkan badge **Absen XX** di samping nama peminjam.
+  - Dropdown siswa di form kasbon otomatis ter-refresh saat siswa ditambah/dihapus.
 
 - [ ] **6.** Perubahan Tarif Kas Mempengaruhi Rekam Historis (HIGH)
 * **Kategori:** Financial Logic / Data Integrity

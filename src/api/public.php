@@ -9,8 +9,10 @@ try {
     switch ($action) {
         case 'get_summary': {
             $totalKasMingguan    = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
-            $jurnalMasuk         = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk'")->fetchColumn();
-            $jurnalKeluar        = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar'")->fetchColumn();
+            // Hanya hitung jurnal masuk yang BUKAN berasal dari kas_mingguan atau kasbon
+            // (sumber kas_mingguan sudah dihitung via total_bayar; sumber kasbon sudah via kasbonLunas)
+            $jurnalMasuk         = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk' AND source='manual'")->fetchColumn();
+            $jurnalKeluar        = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar' AND source='manual'")->fetchColumn();
             $kasbonLunas         = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='lunas'")->fetchColumn();
             $totalKasbonBelumLunas = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='belum_lunas'")->fetchColumn();
             $totalKas             = ($totalKasMingguan + $jurnalMasuk + $kasbonLunas) - ($jurnalKeluar + $totalKasbonBelumLunas);
@@ -52,17 +54,24 @@ try {
             $where = []; $args = [];
             if ($bulanIdx !== '') {
                 $bulanMap = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
-                if (isset($bulanMap[$bulanIdx])) { $where[] = 'MONTH(tanggal) = ?'; $args[] = $bulanMap[$bulanIdx]; }
+                if (isset($bulanMap[$bulanIdx])) { $where[] = 'MONTH(jk.tanggal) = ?'; $args[] = $bulanMap[$bulanIdx]; }
             }
-            if ($tahun !== '') { $where[] = 'YEAR(tanggal) = ?'; $args[] = (int)$tahun; }
+            if ($tahun !== '') { $where[] = 'YEAR(jk.tanggal) = ?'; $args[] = (int)$tahun; }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             // Total records for pagination meta
-            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM jurnal_kas $sqlWhere");
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM jurnal_kas jk $sqlWhere");
             $stmtCount->execute($args);
             $totalRecords = (int)$stmtCount->fetchColumn();
             $totalPages   = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
-            // Paginated rows
-            $stmt = $pdo->prepare("SELECT id, tanggal, keterangan, jenis, nominal FROM jurnal_kas $sqlWhere ORDER BY tanggal DESC, id DESC LIMIT $limit OFFSET $offset");
+            // Paginated rows — include storage account info & source
+            $stmt = $pdo->prepare("
+                SELECT jk.id, jk.tanggal, jk.keterangan, jk.jenis, jk.nominal,
+                       jk.source, jk.storage_account_id, sa.name AS storage_account_name
+                FROM jurnal_kas jk
+                LEFT JOIN storage_accounts sa ON sa.id = jk.storage_account_id
+                $sqlWhere
+                ORDER BY jk.tanggal DESC, jk.id DESC LIMIT $limit OFFSET $offset
+            ");
             $stmt->execute($args);
             $rows = $stmt->fetchAll();
             // Line chart & donut use full (unpaged) dataset
@@ -74,7 +83,7 @@ try {
                 $line[] = ['tanggal' => $r['tanggal'], 'saldo' => $saldo];
             }
             // Donut totals based on current filter (all pages)
-            $stmtAll = $pdo->prepare("SELECT jenis, SUM(nominal) AS total FROM jurnal_kas $sqlWhere GROUP BY jenis");
+            $stmtAll = $pdo->prepare("SELECT jk.jenis, SUM(jk.nominal) AS total FROM jurnal_kas jk $sqlWhere GROUP BY jk.jenis");
             $stmtAll->execute($args);
             $totMasuk = 0; $totKeluar = 0;
             foreach ($stmtAll->fetchAll() as $r) {
@@ -100,22 +109,35 @@ try {
             $tahun    = (int)($_GET['tahun'] ?? date('Y'));
             $where = []; $args = [];
             if (isset($bulanMap[$bulanIdx])) {
-                $where[] = 'MONTH(tanggal) = ?';
+                $where[] = 'MONTH(k.tanggal) = ?';
                 $args[]  = $bulanMap[$bulanIdx];
             } else {
                 http_response_code(400);
                 echo json_encode(['error' => 'bulan tidak valid']);
                 break;
             }
-            $where[] = 'YEAR(tanggal) = ?';
+            $where[] = 'YEAR(k.tanggal) = ?';
             $args[]  = $tahun;
             $sqlWhere = 'WHERE ' . implode(' AND ', $where);
-            $stmt = $pdo->prepare("SELECT id, nama, tanggal, keterangan, jumlah, status, tanggal_lunas FROM kasbon $sqlWhere ORDER BY tanggal DESC, id DESC");
+            $stmt = $pdo->prepare("
+                SELECT k.id, k.siswa_id, k.tanggal, k.keterangan, k.jumlah, k.status, k.tanggal_lunas,
+                       COALESCE(s.nama, k.nama) AS nama,
+                       s.absen AS absen
+                FROM kasbon k
+                LEFT JOIN siswa s ON s.id = k.siswa_id
+                $sqlWhere
+                ORDER BY k.tanggal DESC, k.id DESC
+            ");
             $stmt->execute($args);
-            $rows = array_map(function($r) { $r['jumlah'] = (float)$r['jumlah']; return $r; }, $stmt->fetchAll());
+            $rows = array_map(function($r) {
+                $r['jumlah']    = (float)$r['jumlah'];
+                $r['siswa_id']  = $r['siswa_id'] ? (int)$r['siswa_id'] : null;
+                return $r;
+            }, $stmt->fetchAll());
             echo json_encode($rows);
             break;
         }
+
         case 'get_bms': {
             $dari   = $_GET['dari'] ?? null;
             $sampai = $_GET['sampai'] ?? null;
