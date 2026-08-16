@@ -2,8 +2,8 @@
 ## Aplikasi Pencatatan Keuangan Kelas (Cashflow Kelas)
 
 **Tanggal Evaluasi:** 16 Agustus 2026  
-**Status Kesiapan Rilis:** 🟡 **SEBAGIAN SIAP — BETA RELEASE (PARTIALLY READY)**  
-**Skor Kesiapan:** 80 / 100  
+**Status Kesiapan Rilis:** 🟡 **HAMPIR SIAP (RELEASE CANDIDATE)**  
+**Skor Kesiapan:** 85 / 100  
 
 ---
 
@@ -32,7 +32,7 @@ Untuk membawa aplikasi ini ke status **Siap Rilis (Production Ready)**, perbaika
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  🟠 FASE 2: RESTRUKTURISASI LOGIKA KEUANGAN & MODUL (HIGH)  │
-│  [ ] 4.  Integrasi Kas Mingguan, Kasbon, & Jurnal Kas       │
+│  [x] 4.  Integrasi Kas Mingguan, Kasbon, & Jurnal Kas       │
 │  [ ] 5.  Integrasi Jurnal Kas ⟷ Alokasi Dana               │
 │  [ ] 6.  Ganti Kasbon Nama Bebas ke Master Siswa           │
 │  [ ] 7.  Penanganan Tarif Kas Dinamis & Historic Records    │
@@ -75,14 +75,15 @@ Semua item Fase 1 telah diselesaikan pada 16 Agustus 2026.
 
 ### 🟠 FASE 2: Restrukturisasi Logika Keuangan & Integrasi Modul (High Priority)
 
-- [ ] **4.** Terisolasinya Modul-Modul Keuangan (Data Silos) (HIGH)
+- [x] **4.** Terisolasinya Modul-Modul Keuangan (Data Silos) (HIGH)
 * **Kategori:** Integration & Business Flow
-* **Status Paruh:** ✅ Kasbon ↔ Jurnal Kas sudah terhubung (commit `8e155f3`). Kasbon create/update/payment otomatis generate/modify entry di `jurnal_kas`.
-* **Belum Selesai:** Kas Mingguan masih manual — tidak otomatis masuk ke Jurnal Kas.
-* **Dampak:** Pengguna harus menginput data berulang kali di tempat terpisah (misal centang kas mingguan, lalu membuat jurnal masuk, lalu menambah alokasi dompet).
-* **Rekomendasi Perbaikan:**
-  - Tambahkan opsi otomatis: Saat Kas Mingguan dicentang / Kasbon dilunasi, sistem menawarkan/otomatis mencatat transaksi ke Jurnal Kas.
-  - Pada form Jurnal Kas, tambahkan dropdown "Simpan ke Tempat Penyimpanan" (Cash/DANA/BCA) agar saldo Alokasi Dana ter-update otomatis.
+* **Status:** ✅ SELESAI — 16 Agustus 2026 (commit `feat/fase2-integrasi-kas-jurnal-alokasi`)
+* **Yang Dilakukan:**
+  - Tambah kolom `storage_account_id`, `source`, `source_id` pada tabel `jurnal_kas` via migration.
+  - Form Jurnal Kas kini memiliki dropdown **Tempat Penyimpanan** — saldo dompet otomatis terbarui.
+  - Saat menyimpan centang Kas Mingguan dengan pembayaran baru, muncul **modal konfirmasi integrasi** yang memungkinkan pencatatan ke Jurnal Kas + pemilihan dompet tujuan dalam satu langkah.
+  - Formula `get_summary` diperbarui agar tidak terjadi double-counting untuk transaksi yang bersumber dari `kas_mingguan`.
+  - Tabel Jurnal Kas admin kini menampilkan badge **Sumber** (Kas Mingguan / Dana Talangan / Manual) dan nama **dompet tujuan**.
 
 - [ ] **5.** Kasbon Tidak Terhubung ke Master Data Siswa (HIGH)
 * **Kategori:** Data Integrity

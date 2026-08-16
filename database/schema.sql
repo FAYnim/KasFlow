@@ -45,7 +45,11 @@ CREATE TABLE jurnal_kas (
     tanggal DATE NOT NULL,
     keterangan TEXT NOT NULL,
     jenis ENUM('masuk','keluar') NOT NULL,
-    nominal DECIMAL(12,2) NOT NULL
+    nominal DECIMAL(12,2) NOT NULL,
+    storage_account_id INT NULL DEFAULT NULL,
+    source ENUM('manual','kas_mingguan','kasbon') NOT NULL DEFAULT 'manual',
+    source_id INT NULL DEFAULT NULL,
+    FOREIGN KEY (storage_account_id) REFERENCES storage_accounts(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE kas_bms (
@@ -118,7 +122,7 @@ CREATE TABLE storage_transactions (
     tanggal DATE NOT NULL,
     jenis ENUM('masuk','keluar') NOT NULL,
     nominal DECIMAL(12,2) NOT NULL,
-    ref_type ENUM('allocation','transfer_in','transfer_out','manual') NOT NULL,
+    ref_type ENUM('allocation','transfer_in','transfer_out','manual','jurnal') NOT NULL,
     ref_id INT NULL,
     transfer_pair_id INT NULL,
     keterangan TEXT NULL,

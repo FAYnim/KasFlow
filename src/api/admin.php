@@ -76,8 +76,36 @@ try {
             $changesJson = $_POST['changes'] ?? '[]';
             $changes = json_decode($changesJson, true);
             if (!is_array($changes)) { http_response_code(400); echo json_encode(['error'=>'invalid changes']); break; }
+            // Integrasi parameter (opsional)
+            $catatJurnal  = (int)($_POST['catat_jurnal'] ?? 0);
+            $storAccId    = ($_POST['storage_account_id'] ?? '') !== '' ? (int)$_POST['storage_account_id'] : null;
+            $jurKet       = trim($_POST['jurnal_keterangan'] ?? "Penerimaan Kas Mingguan $bulan $tahun");
+            $jurTgl       = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['jurnal_tanggal'] ?? '') ? $_POST['jurnal_tanggal'] : date('Y-m-d');
             $tarif = (int)$pdo->query("SELECT key_value FROM config WHERE key_name='tarif_kas_mingguan'")->fetchColumn();
             $totals = [];
+            // Ambil state sebelumnya untuk hitung delta (centang baru = 1, sebelumnya = 0)
+            $prevStates = [];
+            $allSids = array_unique(array_filter(array_map(fn($c) => (int)($c['siswa_id'] ?? 0), $changes)));
+            if (!empty($allSids)) {
+                $inC = implode(',', array_fill(0, count($allSids), '?'));
+                $prevStmt = $pdo->prepare("SELECT siswa_id, minggu_1, minggu_2, minggu_3, minggu_4, minggu_5 FROM kas_mingguan WHERE siswa_id IN ($inC) AND bulan=? AND tahun=?");
+                $prevStmt->execute([...array_values($allSids), $bulan, $tahun]);
+                foreach ($prevStmt->fetchAll() as $r) {
+                    $prevStates[(int)$r['siswa_id']] = [
+                        1 => (int)$r['minggu_1'], 2 => (int)$r['minggu_2'],
+                        3 => (int)$r['minggu_3'], 4 => (int)$r['minggu_4'], 5 => (int)$r['minggu_5'],
+                    ];
+                }
+            }
+            // Hitung berapa unit baru yang baru dicentang (untuk nominal jurnal)
+            $newCheckedCount = 0;
+            foreach ($changes as $c) {
+                $sid = (int)($c['siswa_id'] ?? 0); $m = (int)($c['minggu'] ?? 0); $chk = (int)($c['checked'] ?? 0);
+                if ($sid <= 0 || !in_array($m, [1,2,3,4,5], true)) continue;
+                $prev = $prevStates[$sid][$m] ?? 0;
+                if ($chk === 1 && $prev === 0) $newCheckedCount++;
+            }
+            $nominalBaru = $newCheckedCount * $tarif;
             $pdo->beginTransaction();
             try {
                 foreach ($changes as $c) {
@@ -96,6 +124,20 @@ try {
                         SET total_bayar = (minggu_1+minggu_2+minggu_3+minggu_4+minggu_5) * ?
                         WHERE siswa_id=? AND bulan=? AND tahun=?
                     ")->execute([$tarif, $sid, $bulan, $tahun]);
+                }
+                // Otomatis catat ke Jurnal Kas & Tempat Penyimpanan jika dipilih
+                $jurnalKasId = null;
+                if ($catatJurnal && $nominalBaru > 0) {
+                    $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal, storage_account_id, source) VALUES (?,?,'masuk',?,?,?)")
+                        ->execute([$jurTgl, $jurKet, $nominalBaru, $storAccId ?: null, 'kas_mingguan']);
+                    $jurnalKasId = (int)$pdo->lastInsertId();
+                    if ($storAccId) {
+                        $pdo->prepare("INSERT INTO storage_transactions (account_id, tanggal, jenis, nominal, ref_type, ref_id, keterangan) VALUES (?,?,'masuk',?,'jurnal',?,?)")
+                            ->execute([$storAccId, $jurTgl, $nominalBaru, $jurnalKasId, $jurKet]);
+                    }
+                    log_activity($pdo, 'jurnal_kas', 'tambah', $jurnalKasId, "Auto-catat Kas Mingguan #$jurnalKasId: $jurKet (Rp " . number_format($nominalBaru, 0, ',', '.') . ")", [
+                        'source' => 'kas_mingguan', 'tanggal' => $jurTgl, 'nominal' => $nominalBaru, 'storage_account_id' => $storAccId
+                    ]);
                 }
                 $pdo->commit();
             } catch (Throwable $e) {
@@ -150,10 +192,13 @@ try {
                 'bulan' => $bulan,
                 'tahun' => $tahun,
                 'total_perubahan' => $totalPerubahan,
-                'perubahan' => $perubahan
+                'perubahan' => $perubahan,
+                'catat_jurnal' => $catatJurnal,
+                'nominal_baru' => $nominalBaru,
+                'jurnal_kas_id' => $jurnalKasId,
             ];
             log_activity($pdo, 'kas_mingguan', 'update_status', null, $ringkasan, $detail);
-            echo json_encode(['ok' => true, 'totals' => $totals, 'saved' => count($changes)]);
+            echo json_encode(['ok' => true, 'totals' => $totals, 'saved' => count($changes), 'nominal_baru' => $nominalBaru, 'jurnal_kas_id' => $jurnalKasId]);
             break;
         }
         case 'add_jurnal': {
@@ -161,15 +206,41 @@ try {
             $ket   = trim($_POST['keterangan'] ?? '');
             $jenis = $_POST['jenis'] ?? '';
             $nom   = (float)($_POST['nominal'] ?? 0);
+            $storAccId = ($_POST['storage_account_id'] ?? '') !== '' ? (int)$_POST['storage_account_id'] : null;
+            $src   = 'manual'; // default source
             if ($ket === '' || !in_array($jenis, ['masuk','keluar'], true) || $nom <= 0) {
                 http_response_code(400); echo json_encode(['error'=>'invalid']); break;
             }
-            $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal) VALUES (?,?,?,?)")
-                ->execute([$tgl, $ket, $jenis, $nom]);
-            $newId = (int)$pdo->lastInsertId();
+            // Validate storage account if provided
+            if ($storAccId !== null) {
+                $chkAcc = $pdo->prepare("SELECT id FROM storage_accounts WHERE id=? AND is_active=1");
+                $chkAcc->execute([$storAccId]);
+                if (!$chkAcc->fetchColumn()) { http_response_code(400); echo json_encode(['error'=>'invalid storage account']); break; }
+            }
+            $pdo->beginTransaction();
+            try {
+                $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal, storage_account_id, source) VALUES (?,?,?,?,?,?)")
+                    ->execute([$tgl, $ket, $jenis, $nom, $storAccId, $src]);
+                $newId = (int)$pdo->lastInsertId();
+                // Auto-create storage_transaction jika tempat penyimpanan dipilih
+                if ($storAccId !== null) {
+                    $pdo->prepare("INSERT INTO storage_transactions (account_id, tanggal, jenis, nominal, ref_type, ref_id, keterangan) VALUES (?,?,?,?,'jurnal',?,?)")
+                        ->execute([$storAccId, $tgl, $jenis, $nom, $newId, $ket]);
+                }
+                $pdo->commit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                http_response_code(500); echo json_encode(['error'=>'save failed']); break;
+            }
             $labelJenis = $jenis === 'masuk' ? 'Pemasukan' : 'Pengeluaran';
-            $ringkasan = "Tambah jurnal $labelJenis #$newId: $ket (Rp " . number_format($nom, 0, ',', '.') . ")";
-            $detail = ['tanggal' => $tgl, 'keterangan' => $ket, 'jenis' => $labelJenis, 'nominal' => $nom];
+            $storName = '';
+            if ($storAccId !== null) {
+                $storName = $pdo->prepare("SELECT name FROM storage_accounts WHERE id=?");
+                $storName->execute([$storAccId]);
+                $storName = ' → ' . ($storName->fetchColumn() ?: 'Akun #'.$storAccId);
+            }
+            $ringkasan = "Tambah jurnal $labelJenis #$newId: $ket (Rp " . number_format($nom, 0, ',', '.') . ")$storName";
+            $detail = ['tanggal'=>$tgl, 'keterangan'=>$ket, 'jenis'=>$labelJenis, 'nominal'=>$nom, 'storage_account_id'=>$storAccId];
             log_activity($pdo, 'jurnal_kas', 'tambah', $newId, $ringkasan, $detail);
             echo json_encode(['ok' => true, 'id' => $newId]);
             break;
@@ -180,11 +251,31 @@ try {
             $ket  = trim($_POST['keterangan'] ?? '');
             $jenis= $_POST['jenis'];
             $nom  = (float)$_POST['nominal'];
-            $pdo->prepare("UPDATE jurnal_kas SET tanggal=?, keterangan=?, jenis=?, nominal=? WHERE id=?")
-                ->execute([$tgl,$ket,$jenis,$nom,$id]);
+            $storAccId = ($_POST['storage_account_id'] ?? '') !== '' ? (int)$_POST['storage_account_id'] : null;
+            // Validate storage account if provided
+            if ($storAccId !== null) {
+                $chkAcc = $pdo->prepare("SELECT id FROM storage_accounts WHERE id=? AND is_active=1");
+                $chkAcc->execute([$storAccId]);
+                if (!$chkAcc->fetchColumn()) { http_response_code(400); echo json_encode(['error'=>'invalid storage account']); break; }
+            }
+            $pdo->beginTransaction();
+            try {
+                $pdo->prepare("UPDATE jurnal_kas SET tanggal=?, keterangan=?, jenis=?, nominal=?, storage_account_id=? WHERE id=?")
+                    ->execute([$tgl, $ket, $jenis, $nom, $storAccId, $id]);
+                // Hapus storage_transaction lama (ref_type='jurnal') & buat baru jika ada akun
+                $pdo->prepare("DELETE FROM storage_transactions WHERE ref_type='jurnal' AND ref_id=?")->execute([$id]);
+                if ($storAccId !== null) {
+                    $pdo->prepare("INSERT INTO storage_transactions (account_id, tanggal, jenis, nominal, ref_type, ref_id, keterangan) VALUES (?,?,?,?,'jurnal',?,?)")
+                        ->execute([$storAccId, $tgl, $jenis, $nom, $id, $ket]);
+                }
+                $pdo->commit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                http_response_code(500); echo json_encode(['error'=>'save failed']); break;
+            }
             $labelJenis = $jenis === 'masuk' ? 'Pemasukan' : 'Pengeluaran';
             $ringkasan = "Edit jurnal #$id ($labelJenis): $ket (Rp " . number_format($nom, 0, ',', '.') . ")";
-            $detail = ['id' => $id, 'tanggal' => $tgl, 'keterangan' => $ket, 'jenis' => $labelJenis, 'nominal' => $nom];
+            $detail = ['id'=>$id, 'tanggal'=>$tgl, 'keterangan'=>$ket, 'jenis'=>$labelJenis, 'nominal'=>$nom, 'storage_account_id'=>$storAccId];
             log_activity($pdo, 'jurnal_kas', 'edit', $id, $ringkasan, $detail);
             echo json_encode(['ok' => true]);
             break;
@@ -200,8 +291,17 @@ try {
             $nom = (float)($rowJurnal['nominal'] ?? 0);
             $labelJenis = $jenis === 'masuk' ? 'Pemasukan' : ($jenis === 'keluar' ? 'Pengeluaran' : $jenis);
             $ringkasan = "Hapus jurnal #$id ($labelJenis): $ket (Rp " . number_format($nom, 0, ',', '.') . ")";
-            $detail = ['id' => $id, 'tanggal' => $tgl, 'keterangan' => $ket, 'jenis' => $labelJenis, 'nominal' => $nom];
-            $pdo->prepare("DELETE FROM jurnal_kas WHERE id=?")->execute([$id]);
+            $detail = ['id'=>$id, 'tanggal'=>$tgl, 'keterangan'=>$ket, 'jenis'=>$labelJenis, 'nominal'=>$nom];
+            $pdo->beginTransaction();
+            try {
+                // Hapus storage_transaction terkait
+                $pdo->prepare("DELETE FROM storage_transactions WHERE ref_type='jurnal' AND ref_id=?")->execute([$id]);
+                $pdo->prepare("DELETE FROM jurnal_kas WHERE id=?")->execute([$id]);
+                $pdo->commit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                http_response_code(500); echo json_encode(['error'=>'delete failed']); break;
+            }
             log_activity($pdo, 'jurnal_kas', 'hapus', $id, $ringkasan, $detail);
             echo json_encode(['ok' => true]);
             break;

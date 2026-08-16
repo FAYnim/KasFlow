@@ -445,6 +445,16 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <label class="eyebrow block mb-1">Nominal (Rp)</label>
                     <input type="number" name="nominal" required min="1" placeholder="0" class="input-linear">
                 </div>
+                <div>
+                    <label class="eyebrow block mb-1">
+                        Tempat Penyimpanan
+                        <span class="text-[var(--ink-muted)] font-normal normal-case ml-1">(opsional)</span>
+                    </label>
+                    <select name="storage_account_id" id="jurnal-storage-select" class="input-linear">
+                        <option value="">— Tidak dicatat ke dompet —</option>
+                    </select>
+                    <p class="text-[11px] text-[var(--ink-muted)] mt-1">Jika dipilih, saldo dompet akan otomatis diperbarui.</p>
+                </div>
             </div>
             <div class="flex justify-end gap-2">
                 <button type="button" id="modal-close-btn" class="btn-secondary">Batal</button>
@@ -454,6 +464,61 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </button>
             </div>
         </form>
+    </div>
+
+    <!-- Modal Konfirmasi Simpan Kas Mingguan -->
+    <div id="modal-kas-save-confirm" class="modal-overlay hidden">
+        <div class="modal-card max-w-md">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
+                <h3 class="headline text-base flex items-center gap-2">
+                    <i class="fa-solid fa-money-bill-wave text-sm text-[var(--primary)]"></i>
+                    <span>Simpan Kas Mingguan</span>
+                </h3>
+                <button type="button" id="kas-confirm-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <div class="rounded-lg bg-[var(--surface-2)] border border-[var(--hairline)] px-4 py-3 mb-4 text-sm">
+                    <div class="eyebrow mb-1">Pembayaran Baru Terdeteksi</div>
+                    <div class="text-2xl font-bold font-mono-num text-[var(--primary)]" id="kas-confirm-nominal">Rp 0</div>
+                    <div class="text-[11px] text-[var(--ink-muted)] mt-1" id="kas-confirm-detail">—</div>
+                </div>
+                <label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-[var(--hairline)] hover:bg-[var(--surface-2)] transition-colors mb-3" id="kas-confirm-toggle-label">
+                    <input type="checkbox" id="kas-confirm-catat" class="mt-0.5 accent-[var(--primary)]" checked>
+                    <div>
+                        <div class="text-sm font-medium text-[var(--ink)]">Catat otomatis ke Jurnal Kas</div>
+                        <div class="text-[11px] text-[var(--ink-muted)]">Transaksi pemasukan akan ditambahkan ke Jurnal Kas secara otomatis.</div>
+                    </div>
+                </label>
+                <div id="kas-confirm-jurnal-opts" class="space-y-2 pl-2">
+                    <div>
+                        <label class="eyebrow block mb-1">Tanggal Jurnal</label>
+                        <input type="date" id="kas-confirm-tgl" class="input-linear" value="<?= date('Y-m-d') ?>">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Keterangan Jurnal</label>
+                        <input type="text" id="kas-confirm-ket" class="input-linear" placeholder="Penerimaan Kas Mingguan ...">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">
+                            Simpan ke Tempat Penyimpanan
+                            <span class="text-[var(--ink-muted)] font-normal normal-case ml-1">(opsional)</span>
+                        </label>
+                        <select id="kas-confirm-storage" class="input-linear">
+                            <option value="">— Tidak dicatat ke dompet —</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" id="kas-confirm-skip" class="btn-secondary">Simpan Saja (Tanpa Jurnal)</button>
+                <button type="button" id="kas-confirm-save" class="btn-primary gap-2">
+                    <i class="fa-solid fa-floppy-disk text-xs"></i>
+                    <span>Simpan &amp; Catat</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal Form Kas BMS -->
