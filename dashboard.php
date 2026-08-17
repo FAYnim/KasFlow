@@ -8,6 +8,13 @@ if ($reqPath !== '/' && substr($reqPath, -1) === '/') {
 }
 if (empty($_SESSION['admin_logged'])) { header('Location: login'); exit; }
 $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
+require_once __DIR__ . '/config/database.php';
+try {
+    $cfgRows   = db()->query("SELECT key_name, key_value FROM config")->fetchAll(PDO::FETCH_KEY_PAIR);
+    $namaKelas = htmlspecialchars($cfgRows['nama_kelas'] ?? 'RPL 1', ENT_QUOTES);
+} catch (Throwable $e) {
+    $namaKelas = 'RPL 1';
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -61,7 +68,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     </div>
                     <div class="flex flex-col">
                         <span class="text-sm font-semibold">Admin Bendahara</span>
-                        <span class="text-[11px] text-[var(--ink-muted)] font-normal">Cashflow RPL 1</span>
+                        <span id="brand-nama-kelas" class="text-[11px] text-[var(--ink-muted)] font-normal">Cashflow <?= $namaKelas ?></span>
                     </div>
                 </div>
                 <button id="btn-close-sidebar" class="md:hidden p-1.5 rounded-lg text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors focus:outline-none" aria-label="Close Navigation">
@@ -107,6 +114,10 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                     <i class="fa-solid fa-file-export w-4 text-center"></i>
                     <span>Ekspor Laporan</span>
                 </a>
+                <a data-tab="pengaturan" class="sidebar-nav-item">
+                    <i class="fa-solid fa-gear w-4 text-center"></i>
+                    <span>Pengaturan</span>
+                </a>
             </nav>
         </div>
 
@@ -145,7 +156,7 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
         <!-- Section: Kelola Siswa -->
         <section data-tab-content="siswa" class="tab-content hidden">
             <h2 class="display-md mb-2">Kelola Siswa</h2>
-            <p class="text-sm text-[var(--ink-muted)] mb-4">Tambah dan hapus daftar siswa kelas RPL 1.</p>
+            <p class="text-sm text-[var(--ink-muted)] mb-4">Tambah dan hapus daftar siswa kelas <span class="kelola-nama-kelas font-medium text-[var(--ink)]"><?= $namaKelas ?></span>.</p>
             <form id="form-siswa" class="flex flex-col sm:flex-row gap-2 mb-6 card-linear p-4">
                 <input name="absen" placeholder="Absen (opsional)" class="input-linear w-full sm:w-44">
                 <input name="nama" placeholder="Nama lengkap siswa" required class="input-linear flex-1">
@@ -235,6 +246,107 @@ $nama = $_SESSION['admin_nama'] ?? 'Bendahara';
                 </button>
             </form>
             <div id="ekspor-preview" class="table-container overflow-x-auto"></div>
+        </section>
+
+        <!-- Section: Pengaturan Kelas -->
+        <section data-tab-content="pengaturan" class="tab-content hidden">
+            <h2 class="display-md mb-1">Pengaturan Kelas</h2>
+            <p class="text-sm text-[var(--ink-muted)] mb-6">Konfigurasi parameter kelas yang berlaku untuk seluruh tampilan dan perhitungan keuangan.</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Form Pengaturan -->
+                <div class="lg:col-span-2">
+                    <form id="form-pengaturan" class="card-linear p-6 space-y-5">
+                        <div>
+                            <label class="eyebrow block mb-1" for="config-nama-kelas">Nama Kelas</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-school absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[var(--ink-tertiary)]"></i>
+                                <input type="text" id="config-nama-kelas" name="nama_kelas"
+                                    placeholder="Contoh: XII RPL 1"
+                                    maxlength="50" required
+                                    class="input-linear pl-9">
+                            </div>
+                            <p class="text-xs text-[var(--ink-muted)] mt-1">Nama kelas ditampilkan di header, login, dan seluruh halaman publik.</p>
+                        </div>
+
+                        <div>
+                            <label class="eyebrow block mb-1" for="config-tarif-kas">Tarif Kas Mingguan per Siswa (Rp)</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-coins absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[var(--ink-tertiary)]"></i>
+                                <input type="number" id="config-tarif-kas" name="tarif_kas_mingguan"
+                                    placeholder="5000" min="0" step="500" required
+                                    class="input-linear pl-9">
+                            </div>
+                            <p class="text-xs text-[var(--ink-muted)] mt-1">Nominal iuran mingguan per-siswa. Berlaku untuk pencatatan kas mingguan ke depan.</p>
+                        </div>
+
+                        <div>
+                            <label class="eyebrow block mb-1" for="config-saldo-awal">Saldo Awal Kas (Rp)</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-vault absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[var(--ink-tertiary)]"></i>
+                                <input type="number" id="config-saldo-awal" name="saldo_awal"
+                                    placeholder="0" min="0" step="any"
+                                    class="input-linear pl-9">
+                            </div>
+                            <p class="text-xs text-[var(--ink-muted)] mt-1">Saldo pembukaan sebelum pencatatan dimulai. Dihitung ke dalam Total Kas dan grafik tren.</p>
+                        </div>
+
+                        <div class="flex items-center gap-3 pt-2">
+                            <button type="submit" id="pengaturan-submit-btn" class="btn-primary gap-2">
+                                <i class="fa-solid fa-floppy-disk text-xs"></i>
+                                <span>Simpan Pengaturan</span>
+                            </button>
+                            <span id="pengaturan-status" class="text-xs hidden"></span>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="space-y-4">
+                    <div class="card-linear p-5">
+                        <div class="eyebrow mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-circle-info text-[var(--primary)]"></i>
+                            <span>Parameter Aktif</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="text-xs text-[var(--ink-muted)] mb-0.5">Nama Kelas</div>
+                                <div id="info-nama-kelas" class="text-sm font-semibold text-[var(--ink)]">—</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-[var(--ink-muted)] mb-0.5">Tarif Kas Mingguan</div>
+                                <div id="info-tarif-kas" class="text-sm font-semibold text-[var(--ink)]">—</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-[var(--ink-muted)] mb-0.5">Saldo Awal</div>
+                                <div id="info-saldo-awal" class="text-sm font-semibold text-[var(--ink)]">—</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-linear p-5">
+                        <div class="eyebrow mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+                            <span>Catatan Penting</span>
+                        </div>
+                        <ul class="text-xs text-[var(--ink-muted)] space-y-2">
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-dot text-[8px] mt-1.5 text-[var(--ink-tertiary)]"></i>
+                                <span>Perubahan <b>Nama Kelas</b> langsung diterapkan ke header dan seluruh tampilan tanpa reload.</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-dot text-[8px] mt-1.5 text-[var(--ink-tertiary)]"></i>
+                                <span>Perubahan <b>Tarif Kas</b> hanya berlaku untuk input baru. Data historis kas yang sudah tercatat tidak terpengaruh.</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-dot text-[8px] mt-1.5 text-[var(--ink-tertiary)]"></i>
+                                <span><b>Saldo Awal</b> ditambahkan ke Total Kas di Dashboard dan menjadi titik awal grafik tren.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Section: Kelola Kasbon -->

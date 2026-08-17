@@ -868,6 +868,70 @@ try {
             echo json_encode(['ok'=>true]);
             break;
         }
+        case 'get_config': {
+            $rows = $pdo->query("SELECT key_name, key_value FROM config")->fetchAll(PDO::FETCH_KEY_PAIR);
+            echo json_encode([
+                'ok'     => true,
+                'config' => [
+                    'nama_kelas'           => $rows['nama_kelas'] ?? 'RPL 1',
+                    'tarif_kas_mingguan'   => (int)($rows['tarif_kas_mingguan'] ?? 5000),
+                    'saldo_awal'           => (float)($rows['saldo_awal'] ?? 0),
+                ],
+            ]);
+            break;
+        }
+        case 'update_config': {
+            $namaKelas  = trim($_POST['nama_kelas'] ?? '');
+            $tarif      = (int)($_POST['tarif_kas_mingguan'] ?? -1);
+            $saldoAwal  = (float)($_POST['saldo_awal'] ?? -1);
+
+            $errors = [];
+            if ($namaKelas === '') $errors[] = 'Nama kelas tidak boleh kosong.';
+            if (strlen($namaKelas) > 50) $errors[] = 'Nama kelas maksimal 50 karakter.';
+            if ($tarif < 0) $errors[] = 'Tarif kas tidak boleh negatif.';
+            if ($saldoAwal < 0) $errors[] = 'Saldo awal tidak boleh negatif.';
+
+            if ($errors) {
+                http_response_code(422);
+                echo json_encode(['error' => implode(' ', $errors)]);
+                break;
+            }
+
+            $upsert = $pdo->prepare(
+                "INSERT INTO config (key_name, key_value) VALUES (?, ?)
+                 ON DUPLICATE KEY UPDATE key_value = VALUES(key_value)"
+            );
+
+            // Baca nilai lama untuk log
+            $oldRows = $pdo->query("SELECT key_name, key_value FROM config")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+            $upsert->execute(['nama_kelas',         $namaKelas]);
+            $upsert->execute(['tarif_kas_mingguan',  (string)$tarif]);
+            $upsert->execute(['saldo_awal',           number_format($saldoAwal, 2, '.', '')]);
+
+            log_activity($pdo, 'config', 'update', null,
+                "Memperbarui konfigurasi kelas: nama=\"$namaKelas\", tarif={$tarif}, saldo_awal={$saldoAwal}",
+                [
+                    'sebelum' => [
+                        'nama_kelas'         => $oldRows['nama_kelas'] ?? null,
+                        'tarif_kas_mingguan' => $oldRows['tarif_kas_mingguan'] ?? null,
+                        'saldo_awal'         => $oldRows['saldo_awal'] ?? null,
+                    ],
+                    'sesudah' => [
+                        'nama_kelas'         => $namaKelas,
+                        'tarif_kas_mingguan' => $tarif,
+                        'saldo_awal'         => $saldoAwal,
+                    ],
+                ]
+            );
+
+            echo json_encode(['ok' => true, 'config' => [
+                'nama_kelas'         => $namaKelas,
+                'tarif_kas_mingguan' => $tarif,
+                'saldo_awal'         => $saldoAwal,
+            ]]);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);
