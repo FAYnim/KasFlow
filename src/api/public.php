@@ -9,13 +9,13 @@ try {
     switch ($action) {
         case 'get_summary': {
             $totalKasMingguan    = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
-            // Hanya hitung jurnal masuk yang BUKAN berasal dari kas_mingguan atau kasbon
-            // (sumber kas_mingguan sudah dihitung via total_bayar; sumber kasbon sudah via kasbonLunas)
+            // Hanya hitung jurnal masuk manual (sumber kas_mingguan sudah dihitung via total_bayar)
             $jurnalMasuk         = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk' AND source='manual'")->fetchColumn();
+            // Jurnal keluar (mencakup pengeluaran operasional & penggantian dana talangan yang sudah lunas/diganti)
             $jurnalKeluar        = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar' AND source='manual'")->fetchColumn();
-            $kasbonLunas         = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='lunas'")->fetchColumn();
+            // Total dana talangan yang belum diganti (kewajiban/tanggungan kas)
             $totalKasbonBelumLunas = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='belum_lunas'")->fetchColumn();
-            $totalKas             = ($totalKasMingguan + $jurnalMasuk + $kasbonLunas) - ($jurnalKeluar + $totalKasbonBelumLunas);
+            $totalKas             = ($totalKasMingguan + $jurnalMasuk) - $jurnalKeluar;
 
             $sumSetor = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='setor'")->fetchColumn();
             $sumTarik = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='tarik'")->fetchColumn();
