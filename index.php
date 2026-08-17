@@ -1,9 +1,18 @@
+<?php
+require_once __DIR__ . '/config/database.php';
+try {
+    $cfgRows    = db()->query("SELECT key_name, key_value FROM config")->fetchAll(PDO::FETCH_KEY_PAIR);
+    $namaKelas  = htmlspecialchars($cfgRows['nama_kelas'] ?? 'RPL 1', ENT_QUOTES);
+} catch (Throwable $e) {
+    $namaKelas = 'RPL 1';
+}
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keuangan Kelas RPL 1</title>
+    <title>Keuangan Kelas <?= $namaKelas ?></title>
     <script>
         (function() {
             const saved = localStorage.getItem('theme');
@@ -27,7 +36,7 @@
                 <div class="brand-icon">
                     <i class="fa-solid fa-money-bill-wave text-xs"></i>
                 </div>
-                <span>Cashflow RPL 1</span>
+                <span>Cashflow <?= $namaKelas ?></span>
             </div>
         </div>
         <div class="flex items-center gap-2">

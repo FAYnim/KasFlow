@@ -66,6 +66,7 @@ $(function () {
         bms: lBms,
         alokasi: loadAlokasiAdmin,
         riwayat: loadRiwayatAdmin,
+        pengaturan: loadPengaturanAdmin,
     };
 
     $('[data-tab]').on('click', function () {
@@ -1471,6 +1472,69 @@ $(function () {
         }, 'json').fail(function (xhr) {
             try { const r = JSON.parse(xhr.responseText); alert('Gagal: ' + (r.error || 'unknown')); }
             catch (_) { alert('Gagal (HTTP ' + xhr.status + ')'); }
+        });
+    });
+
+    // ── Pengaturan Kelas ──────────────────────────────────────────────────────
+    function loadPengaturanAdmin() {
+        $.getJSON('src/api/admin.php?action=get_config', function (res) {
+            if (!res || !res.ok) return;
+            const cfg = res.config;
+            $('#config-nama-kelas').val(cfg.nama_kelas);
+            $('#config-tarif-kas').val(cfg.tarif_kas_mingguan);
+            $('#config-saldo-awal').val(cfg.saldo_awal);
+
+            // Update info panel
+            $('#info-nama-kelas').text(cfg.nama_kelas);
+            $('#info-tarif-kas').text(fmt(cfg.tarif_kas_mingguan) + ' / siswa');
+            $('#info-saldo-awal').text(fmt(cfg.saldo_awal));
+        });
+    }
+
+    $('#form-pengaturan').on('submit', function (e) {
+        e.preventDefault();
+        const $btn = $('#pengaturan-submit-btn');
+        const $status = $('#pengaturan-status');
+        $btn.prop('disabled', true);
+        $status.removeClass('hidden text-[var(--semantic-success)] text-[var(--semantic-danger)]')
+               .addClass('hidden');
+
+        const payload = {
+            nama_kelas:           $('#config-nama-kelas').val().trim(),
+            tarif_kas_mingguan:   parseInt($('#config-tarif-kas').val()) || 0,
+            saldo_awal:           parseFloat($('#config-saldo-awal').val()) || 0,
+        };
+
+        $.post('src/api/admin.php?action=update_config', payload, function (res) {
+            $btn.prop('disabled', false);
+            if (res && res.ok) {
+                const cfg = res.config;
+                // Update info panel
+                $('#info-nama-kelas').text(cfg.nama_kelas);
+                $('#info-tarif-kas').text(fmt(cfg.tarif_kas_mingguan) + ' / siswa');
+                $('#info-saldo-awal').text(fmt(cfg.saldo_awal));
+
+                // Reaktif: update nama kelas di seluruh UI tanpa reload
+                $('#brand-nama-kelas').text('Cashflow ' + cfg.nama_kelas);
+                $('.kelola-nama-kelas').text(cfg.nama_kelas);
+                document.title = 'Dashboard Bendahara - Cashflow ' + cfg.nama_kelas;
+
+                // Update tarif di kasState agar pencatatan kas mingguan langsung menggunakan tarif baru
+                kasState.tarif = cfg.tarif_kas_mingguan;
+
+                $status.text('✓ Pengaturan berhasil disimpan.')
+                       .removeClass('hidden')
+                       .addClass('text-[var(--semantic-success)]');
+            } else {
+                $status.text('✗ Gagal: ' + ((res && res.error) ? res.error : 'unknown'))
+                       .removeClass('hidden')
+                       .addClass('text-[var(--semantic-danger)]');
+            }
+        }, 'json').fail(function (xhr) {
+            $btn.prop('disabled', false);
+            let msg = 'Gagal (HTTP ' + xhr.status + ')';
+            try { msg = JSON.parse(xhr.responseText).error || msg; } catch (_) {}
+            $status.text('✗ ' + msg).removeClass('hidden').addClass('text-[var(--semantic-danger)]');
         });
     });
 

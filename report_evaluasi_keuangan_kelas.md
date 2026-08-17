@@ -41,7 +41,7 @@ Untuk membawa aplikasi ini ke status **Siap Rilis (Production Ready)**, perbaika
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  🟡 FASE 3: PENGATURAN KELAS & FITUR UTAMA (MEDIUM)         │
-│  [ ] 8.  Halaman Pengaturan Kelas (Nama Kelas, Tarif, dll)  │
+│  [x] 8.  Halaman Pengaturan Kelas (Nama Kelas, Tarif, dll)  │
 │  [ ] 9.  Fitur Ganti Password Bendahara                    │
 │  [ ] 10. Laporan Ringkasan Tunggakan Kas Per Siswa          │
 │  [ ] 11. Soft Delete Data Siswa                             │
@@ -100,7 +100,7 @@ Semua item Fase 1 telah diselesaikan pada 16 Agustus 2026.
   - Tabel kasbon (admin & publik) menampilkan badge **Absen XX** di samping nama peminjam.
   - Dropdown siswa di form kasbon otomatis ter-refresh saat siswa ditambah/dihapus.
 
-- [ ] **6.** Perubahan Tarif Kas Mempengaruhi Rekam Historis (HIGH)
+- [ ] **6.** Perubahan Tarif Kas Mempengaruhi Rekam Historis (HIGH) (Ditandai developer tidak terlalu penting untuk sekarang)
 * **Kategori:** Financial Logic / Data Integrity
 * **Lokasi File:** [`src/api/admin.php:L46`](file:///c:/xampp/htdocs/faydev/cashflow-kelas/src/api/admin.php#L46)
 * **Deskripsi:** Total pembayaran kas mingguan dihitung ulang dari `tarif_kas_mingguan` terbaru.
@@ -111,11 +111,16 @@ Semua item Fase 1 telah diselesaikan pada 16 Agustus 2026.
 
 ### 🟡 FASE 3: Pengaturan Kelas & Fitur Utama Tambahan (Medium Priority)
 
-- [ ] **7.** Absennya Menu Pengaturan Kelas (Settings Page) (MEDIUM)
+- [x] **7.** Absennya Menu Pengaturan Kelas (Settings Page) (MEDIUM)
 * **Kategori:** Feature Gap / System Configuration
-* **Deskripsi:** Tidak ada antarmuka untuk mengedit **Nama Kelas**, **Tarif Kas**, atau **Saldo Awal**. Teks `"RPL 1"` di-hardcode di file HTML (`index.php`, `dashboard.php`, `login.php`).
-* **Dampak:** Kelas lain tidak bisa menggunakan aplikasi ini tanpa membongkar kode HTML.
-* **Rekomendasi Perbaikan:** Buat menu **Pengaturan Kelas** di admin untuk mengubah parameter di tabel `config` dan gunakan variabel `nama_kelas` secara dinamis di seluruh tampilan HTML.
+* **Status:** ✅ SELESAI — 17 Agustus 2026
+* **Yang Dilakukan:**
+  - Tambahkan endpoint `get_config` & `update_config` di `src/api/admin.php` dengan validasi input dan pencatatan ke `activity_log`.
+  - Tambahkan endpoint `get_config` di `src/api/public.php`.
+  - Integrasikan `saldo_awal` ke rumus `get_summary` dan titik awal grafik tren di `get_jurnal`.
+  - Ganti semua teks hardcoded `"RPL 1"` di `index.php`, `login.php`, dan `dashboard.php` dengan variabel `$namaKelas` dinamis dari tabel `config`.
+  - Tambahkan tab **Pengaturan** di sidebar admin `dashboard.php` dengan form 3 field (Nama Kelas, Tarif Kas, Saldo Awal) dan panel info parameter aktif.
+  - Fungsi `loadPengaturanAdmin()` & submit handler di `admin.js` memperbarui DOM secara reaktif (brand sidebar, title, deskripsi Kelola Siswa, `kasState.tarif`) tanpa reload penuh setelah simpan.
 
 - [ ] **8.** Absennya Fitur Ganti Password Bendahara (MEDIUM)
 * **Kategori:** Security & User Management

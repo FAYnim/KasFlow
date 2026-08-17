@@ -7,6 +7,12 @@ if ($reqPath !== '/' && substr($reqPath, -1) === '/') {
     exit;
 }
 require_once __DIR__ . '/config/database.php';
+try {
+    $cfgRows   = db()->query("SELECT key_name, key_value FROM config")->fetchAll(PDO::FETCH_KEY_PAIR);
+    $namaKelas = htmlspecialchars($cfgRows['nama_kelas'] ?? 'RPL 1', ENT_QUOTES);
+} catch (Throwable $e) {
+    $namaKelas = 'RPL 1';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -29,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Bendahara - Cashflow Kelas</title>
+    <title>Login Bendahara - Cashflow <?= $namaKelas ?></title>
     <script>
         (function() {
             const saved = localStorage.getItem('theme');
@@ -54,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="brand-icon w-8 h-8 text-sm">
                 <i class="fa-solid fa-money-bill-wave"></i>
             </div>
-            <span class="text-xl font-bold tracking-tight">Cashflow RPL 1</span>
+            <span class="text-xl font-bold tracking-tight">Cashflow <?= $namaKelas ?></span>
         </div>
 
         <form method="POST" class="card-linear p-8">

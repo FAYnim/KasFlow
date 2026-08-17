@@ -15,7 +15,9 @@ try {
             $jurnalKeluar        = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar' AND source='manual'")->fetchColumn();
             // Total dana talangan yang belum diganti (kewajiban/tanggungan kas)
             $totalKasbonBelumLunas = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='belum_lunas'")->fetchColumn();
-            $totalKas             = ($totalKasMingguan + $jurnalMasuk) - $jurnalKeluar;
+            // Saldo awal dari config
+            $saldoAwal            = (float)$pdo->query("SELECT key_value FROM config WHERE key_name='saldo_awal'")->fetchColumn();
+            $totalKas             = $saldoAwal + ($totalKasMingguan + $jurnalMasuk) - $jurnalKeluar;
 
             $sumSetor = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='setor'")->fetchColumn();
             $sumTarik = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='tarik'")->fetchColumn();
@@ -24,6 +26,7 @@ try {
                 'total_kas_terkumpul' => $totalKas,
                 'saldo_bms'           => $saldoBms,
                 'total_kasbon'        => $totalKasbonBelumLunas,
+                'saldo_awal'          => $saldoAwal,
             ]);
             break;
         }
@@ -75,7 +78,9 @@ try {
             $stmt->execute($args);
             $rows = $stmt->fetchAll();
             // Line chart & donut use full (unpaged) dataset
-            $saldo = 0;
+            // Inisialisasi saldo dari saldo_awal (konfigurasi) agar grafik tren merefleksikan saldo awal
+            $saldoAwalChart = (float)$pdo->query("SELECT key_value FROM config WHERE key_name='saldo_awal'")->fetchColumn();
+            $saldo = $saldoAwalChart;
             $line = [];
             $allAsc = $pdo->query("SELECT tanggal, jenis, nominal FROM jurnal_kas ORDER BY tanggal ASC, id ASC")->fetchAll();
             foreach ($allAsc as $r) {
@@ -397,6 +402,18 @@ try {
                     'limit'         => $limit,
                     'total_records' => $totalRecords,
                     'total_pages'   => $totalPages,
+                ],
+            ]);
+            break;
+        }
+        case 'get_config': {
+            $rows = $pdo->query("SELECT key_name, key_value FROM config")->fetchAll(PDO::FETCH_KEY_PAIR);
+            echo json_encode([
+                'ok'     => true,
+                'config' => [
+                    'nama_kelas'         => $rows['nama_kelas'] ?? 'RPL 1',
+                    'tarif_kas_mingguan' => (int)($rows['tarif_kas_mingguan'] ?? 5000),
+                    'saldo_awal'         => (float)($rows['saldo_awal'] ?? 0),
                 ],
             ]);
             break;
