@@ -731,25 +731,30 @@ $(function () {
     function lEkspor() {
         const dari = $('#form-ekspor [name=dari]').val();
         const sampai = $('#form-ekspor [name=sampai]').val();
-        $.getJSON('src/api/public.php?action=get_jurnal', r => {
-            const rows = r.transaksi.filter(t => (!dari || t.tanggal >= dari) && (!sampai || t.tanggal <= sampai));
+        const params = new URLSearchParams();
+        if (dari) params.set('dari', dari);
+        if (sampai) params.set('sampai', sampai);
+        $.getJSON('src/api/public.php?action=get_jurnal_all' + (params.toString() ? '?' + params : ''), r => {
+            const rows = (r.rows) || [];
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
                         <th class="w-32">Tanggal</th>
                         <th>Keterangan</th>
+                        <th class="w-32">Sumber</th>
                         <th class="w-28">Jenis</th>
                         <th class="text-right w-36">Nominal</th>
                     </tr>
                 </thead>
                 <tbody>`;
             if (rows.length === 0) {
-                h += `<tr><td colspan="4" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data jurnal untuk rentang tanggal ini.</td></tr>`;
+                h += `<tr><td colspan="5" class="text-center py-6 text-[var(--ink-muted)]">Tidak ada data jurnal untuk rentang tanggal ini.</td></tr>`;
             } else {
-                h += rows.map(t => 
+                h += rows.map(t =>
                     `<tr>
                         <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
                         <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}</td>
+                        <td class="text-xs text-[var(--ink-muted)]">${escapeHtml(t.source === 'kas_mingguan' ? 'Kas Mingguan' : (t.source === 'kasbon' ? 'Kasbon' : (t.storage_name || 'Manual')))}</td>
                         <td>
                             <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
                                 <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
@@ -781,7 +786,46 @@ $(function () {
         a.click();
     });
 
-    $('#btn-pdf').on('click', () => window.print());
+    $('#btn-pdf').on('click', function () {
+        const rows = $('#ekspor-preview').data('rows') || [];
+        if (rows.length === 0) { alert('Tidak ada data untuk diekspor.'); return; }
+        const dari = $('#form-ekspor [name=dari]').val();
+        const sampai = $('#form-ekspor [name=sampai]').val();
+        const periode = (dari && sampai) ? `${dari} — ${sampai}` : 'Semua Periode';
+        const totMasuk = rows.filter(t => t.jenis === 'masuk').reduce((s, t) => s + t.nominal, 0);
+        const totKeluar = rows.filter(t => t.jenis === 'keluar').reduce((s, t) => s + t.nominal, 0);
+        const tblHtml = rows.map(t => `
+            <tr>
+                <td class="m">${escapeHtml(t.tanggal)}</td>
+                <td class="m">${escapeHtml(t.keterangan)}</td>
+                <td class="c">${t.source === 'kas_mingguan' ? 'Kas Mingguan' : t.source === 'kasbon' ? 'Kasbon' : (t.storage_name ?? 'Manual')}</td>
+                <td class="j ${t.jenis==='masuk'?'in':'out'}">${t.jenis==='masuk'?'Masuk':'Keluar'}</td>
+                <td class="n">${fmt(t.nominal)}</td>
+            </tr>`).join('');
+        const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Kas — ${escapeHtml(periode)}</title>
+<style>
+body{font-family:Inter,sans-serif;margin:24px;color:#111;font-size:12px}
+h1{font-size:16px;margin:0 0 2px}
+.p{color:#555;font-size:11px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;background:#f4f4f4;padding:6px 10px;font-size:11px;border-bottom:1px solid #ccc}
+td{padding:5px 10px;border-bottom:1px solid #eee;font-size:12px}
+.in{color:green}.out{color:#b05000}
+.sum{margin-top:12px;font-weight:bold}
+.n{text-align:right;font-variant-numeric:tabular-nums}
+.c,.j{font-size:11px}
+@media print{body{margin:12px}}
+</style></head><body>
+<h1>Laporan Kas ${escapeHtml(window.namaKelas || '')}</h1>
+<div class="p">Periode: ${escapeHtml(periode)} &nbsp;|&nbsp; Dicetak: ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}</div>
+<table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Sumber</th><th>Jenis</th><th>Nominal</th></tr></thead>
+<tbody>${tblHtml}</tbody>
+</table>
+<div class="sum">Total Masuk: Rp ${totMasuk.toLocaleString('id-ID')} &nbsp;|&nbsp; Total Keluar: Rp ${totKeluar.toLocaleString('id-ID')} &nbsp;|&nbsp; Bersih: Rp ${(totMasuk-totKeluar).toLocaleString('id-ID')}</div>
+<script>window.onload=()=>window.print();</script></body></html>`;
+        const w = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
+        w.document.open(); w.document.write(html); w.document.close();
+    });
 
     // Kas BMS
     function lBms() {

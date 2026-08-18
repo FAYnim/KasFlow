@@ -108,6 +108,32 @@ try {
             ]);
             break;
         }
+        case 'get_jurnal_all': {
+            $dari     = $_GET['dari'] ?? '';
+            $sampai   = $_GET['sampai'] ?? '';
+            $where    = [];
+            $args     = [];
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 'jk.tanggal >= ?'; $args[] = $dari; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 'jk.tanggal <= ?'; $args[] = $sampai; }
+            $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+            $stmt = $pdo->prepare("
+                SELECT jk.id, jk.tanggal, jk.keterangan, jk.jenis, jk.nominal,
+                       COALESCE(jk.source,'manual') AS source, sa.name AS storage_name
+                FROM jurnal_kas jk
+                LEFT JOIN storage_accounts sa ON sa.id = jk.storage_account_id
+                $sqlWhere
+                ORDER BY jk.tanggal ASC, jk.id ASC
+            ");
+            $stmt->execute($args);
+            $rows = array_map(function($r) {
+                $r['nominal'] = (float)$r['nominal'];
+                return $r;
+            }, $stmt->fetchAll());
+            $totMasuk = array_sum(array_column(array_filter($rows, fn($r)=>$r['jenis']==='masuk'), 'nominal'));
+            $totKeluar = array_sum(array_column(array_filter($rows, fn($r)=>$r['jenis']==='keluar'), 'nominal'));
+            echo json_encode(['rows' => $rows, 'totals' => ['masuk'=>$totMasuk, 'keluar'=>$totKeluar]]);
+            break;
+        }
         case 'get_kasbon': {
             $bulanMap = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
             $bulanIdx = $_GET['bulan'] ?? array_search((int)date('n'), $bulanMap, true);
