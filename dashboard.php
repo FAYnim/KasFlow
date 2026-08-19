@@ -223,30 +223,38 @@ try {
             <div id="jurnal-pagination"></div>
         </section>
 
-        <!-- Section: Ekspor Laporan -->
-        <section data-tab-content="ekspor" class="tab-content hidden">
-            <h2 class="display-md mb-2">Ekspor Laporan Kas</h2>
-            <p class="text-sm text-[var(--ink-muted)] mb-4">Cetak atau simpan data jurnal kas ke format CSV / PDF.</p>
-            <form id="form-ekspor" class="flex flex-col sm:flex-row gap-3 items-end mb-6 card-linear p-4">
-                <div class="w-full sm:w-48">
-                    <label class="eyebrow block mb-1">Dari Tanggal</label>
-                    <input type="date" name="dari" class="input-linear">
+            <section data-tab-content="ekspor" class="tab-content hidden">
+                <h2 class="display-md mb-2">Ekspor Laporan</h2>
+                <p class="text-sm text-[var(--ink-muted)] mb-4">Pilih jenis laporan, atur filter, unduh CSV atau cetak PDF.</p>
+                <div class="card-linear p-4 mb-6 flex flex-col sm:flex-row gap-3 items-end">
+                    <div class="w-full sm:w-56">
+                        <label class="eyebrow block mb-1">Jenis Laporan</label>
+                        <select id="export-type" class="input-linear w-full">
+                            <option value="jurnal">Cashflow (Jurnal Kas)</option>
+                            <option value="kasminggu">Kas Mingguan per Siswa</option>
+                            <option value="kasbon">Dana Talangan (Kasbon)</option>
+                            <option value="bms">Kas BMS</option>
+                            <option value="alokasi">Alokasi Dana</option>
+                        </select>
+                    </div>
+                    <div id="export-filters" class="flex flex-wrap gap-3 items-end flex-1"></div>
+                    <button class="btn-secondary gap-2" id="btn-load-export">
+                        <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
+                        <span>Muat Data</span>
+                    </button>
                 </div>
-                <div class="w-full sm:w-48">
-                    <label class="eyebrow block mb-1">Sampai Tanggal</label>
-                    <input type="date" name="sampai" class="input-linear">
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button class="btn-secondary gap-2" id="btn-csv">
+                        <i class="fa-solid fa-file-csv text-xs text-[#60a5fa]"></i>
+                        <span>Unduh CSV</span>
+                    </button>
+                    <button class="btn-primary gap-2" id="btn-pdf">
+                        <i class="fa-solid fa-file-pdf text-xs"></i>
+                        <span>Cetak PDF</span>
+                    </button>
                 </div>
-                <button class="btn-secondary gap-2" id="btn-csv">
-                    <i class="fa-solid fa-file-csv text-xs text-[#60a5fa]"></i>
-                    <span>Unduh CSV</span>
-                </button>
-                <button type="button" class="btn-primary gap-2" id="btn-pdf">
-                    <i class="fa-solid fa-file-pdf text-xs"></i>
-                    <span>Cetak PDF</span>
-                </button>
-            </form>
-            <div id="ekspor-preview" class="table-container overflow-x-auto"></div>
-        </section>
+                <div id="ekspor-preview" class="table-container overflow-x-auto"></div>
+            </section>
 
         <!-- Section: Pengaturan Kelas -->
         <section data-tab-content="pengaturan" class="tab-content hidden">
@@ -855,6 +863,8 @@ try {
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script>window.namaKelas = <?= json_encode($namaKelas) ?>;</script>
     <script src="assets/js/admin.js"></script>
 </body>

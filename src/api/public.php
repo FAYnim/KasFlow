@@ -444,6 +444,101 @@ try {
             ]);
             break;
         }
+        case 'export_kasminggu': {
+            $bulanMap  = [1=>'Januari',2=>'Februari',3=>'Maret',4=>'April',5=>'Mei',6=>'Juni',7=>'Juli',8=>'Agustus',9=>'September',10=>'Oktober',11=>'November',12=>'Desember'];
+            $bulanInput = $_GET['bulan'] ?? $bulanMap[(int)date('n')];
+            if (is_numeric($bulanInput) && isset($bulanMap[(int)$bulanInput])) {
+                $bulan = $bulanMap[(int)$bulanInput];
+            } else {
+                $bulan = (string)$bulanInput;
+            }
+            $tahun = (int)($_GET['tahun'] ?? date('Y'));
+            $tarif = (int)$pdo->query("SELECT key_value FROM config WHERE key_name='tarif_kas_mingguan'")->fetchColumn();
+            $rows  = $pdo->prepare("
+                SELECT s.absen, s.nama,
+                       COALESCE(k.minggu_1,0) m1, COALESCE(k.minggu_2,0) m2,
+                       COALESCE(k.minggu_3,0) m3, COALESCE(k.minggu_4,0) m4,
+                       COALESCE(k.minggu_5,0) m5, COALESCE(k.total_bayar,0) total_bayar
+                FROM siswa s
+                LEFT JOIN kas_mingguan k ON k.siswa_id = s.id AND k.bulan = ? AND k.tahun = ?
+                ORDER BY CAST(s.absen AS UNSIGNED) ASC, s.nama ASC
+            ");
+            $rows->execute([$bulan, $tahun]);
+            $data = $rows->fetchAll(PDO::FETCH_ASSOC);
+            $sumTotal = array_sum(array_map(fn($r) => (float)$r['total_bayar'], $data));
+            echo json_encode([
+                'bulan' => $bulan, 'tahun' => $tahun, 'tarif' => $tarif,
+                'rows'  => $data, 'totals' => ['sum' => $sumTotal, 'count' => count($data)],
+            ]);
+            break;
+        }
+        case 'export_kasbon': {
+            $bulanMap  = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
+            $bulanName = $_GET['bulan'] ?? array_search((int)date('n'), $bulanMap, true);
+            $bulanInt  = is_numeric($bulanName) ? (int)$bulanName : ($bulanMap[$bulanName] ?? (int)date('n'));
+            $tahun     = (int)($_GET['tahun'] ?? date('Y'));
+            $rows = $pdo->prepare("
+                SELECT k.tanggal, COALESCE(s.nama, k.nama) AS nama, s.absen AS absen, k.keterangan, k.jumlah, k.status
+                FROM kasbon k LEFT JOIN siswa s ON s.id = k.siswa_id
+                WHERE MONTH(k.tanggal) = ? AND YEAR(k.tanggal) = ?
+                ORDER BY k.tanggal DESC
+            ");
+            $rows->execute([$bulanInt, $tahun]);
+            $data = $rows->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['bulan' => $bulanName, 'tahun' => $tahun, 'rows' => $data]);
+            break;
+        }
+        case 'export_bms': {
+            $dari   = $_GET['dari'] ?? null;
+            $sampai = $_GET['sampai'] ?? null;
+            $where  = []; $args = [];
+            if ($dari)   { $where[] = 'tanggal >= ?'; $args[] = $dari; }
+            if ($sampai) { $where[] = 'tanggal <= ?'; $args[] = $sampai; }
+            $sql = 'SELECT id, tanggal, keterangan, jenis, jumlah FROM kas_bms'
+                 . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+                 . ' ORDER BY tanggal DESC';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($args);
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $setor = $tarik = 0.0;
+            foreach ($data as $r) { if ($r['jenis'] === 'setor') $setor += (float)$r['jumlah']; else $tarik += (float)$r['jumlah']; }
+            echo json_encode(['rows' => $data, 'totals' => ['setor' => $setor, 'tarik' => $tarik, 'saldo' => $setor - $tarik]]);
+            break;
+        }
+        case 'export_alokasi': {
+            $dari       = $_GET['dari'] ?? '';
+            $sampai     = $_GET['sampai'] ?? '';
+            $keterangan = trim($_GET['keterangan'] ?? '');
+            $where      = []; $args = [];
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 'a.tanggal >= ?'; $args[] = $dari; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 'a.tanggal <= ?'; $args[] = $sampai; }
+            if ($keterangan !== '')                             { $where[] = 'a.keterangan LIKE ?'; $args[] = '%' . $keterangan . '%'; }
+            $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+            $stmt = $pdo->prepare("
+                SELECT a.id, a.tanggal, a.ref_type, a.total_nominal, a.keterangan,
+                       GROUP_CONCAT(CONCAT(sa.name, ':', t.nominal) SEPARATOR '|') AS line_info
+                FROM storage_allocations a
+                LEFT JOIN storage_transactions t ON t.ref_type='allocation' AND t.ref_id = a.id
+                LEFT JOIN storage_accounts sa ON sa.id = t.account_id
+                $sqlWhere
+                GROUP BY a.id
+                ORDER BY a.tanggal DESC, a.id DESC
+            ");
+            $stmt->execute($args);
+            $raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = array_map(function($a) {
+                $lines = [];
+                if (!empty($a['line_info'])) foreach (explode('|', $a['line_info']) as $p) {
+                    [$n, $v] = explode(':', $p, 2) + [null, null];
+                    if ($n !== null) $lines[] = $n . ' (' . number_format((float)$v, 0, ',', '.') . ')';
+                }
+                $a['lines_str'] = implode(', ', $lines);
+                $a['total_nominal'] = (float)$a['total_nominal'];
+                return $a;
+            }, $raw);
+            echo json_encode(['rows' => $rows]);
+            break;
+        }
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);
