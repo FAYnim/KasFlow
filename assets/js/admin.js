@@ -814,6 +814,7 @@ $(function () {
                 h += '<th class="w-12 text-center">#</th><th class="w-12 text-center">Absen</th><th>Nama Siswa</th>'
                     + '<th class="text-center w-14">M1</th><th class="text-center w-14">M2</th><th class="text-center w-14">M3</th><th class="text-center w-14">M4</th><th class="text-center w-14">M5</th>'
                     + '<th class="text-right w-36">Total Bayar</th><th class="text-right w-36">Selisih</th>';
+                const checkCell = v => `<td class="text-center text-xs">${v ? '<i class="fa-solid fa-circle-check text-green-500" title="Sudah bayar"></i>' : '<span class="text-[var(--ink-muted)]">-</span>'}</td>`;
                 body = rows.map((r, i) => {
                     const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
                     const totalTarif = vals.filter(Boolean).length * tarif;
@@ -823,7 +824,7 @@ $(function () {
                         <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
                         <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${escapeHtml(r.absen||'-')}</td>
                         <td class="text-[var(--ink)] font-medium">${escapeHtml(r.nama)}</td>
-                        ${vals.map(v => `<td class="text-center font-mono text-xs">${v ? fmt(v) : '-'}</td>`).join('')}
+                        ${vals.map(checkCell).join('')}
                         <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(paid)}</td>
                         <td class="text-right font-mono-num ${selisih>=0?'text-green-500':'text-red-500'}">${fmt(Math.abs(selisih))}${selisih<0?' ↓':''}</td>
                     </tr>`;
@@ -892,7 +893,7 @@ $(function () {
                 break;
             case 'kasminggu':
                 csv = ['No','Absen','Nama Siswa','Minggu 1','Minggu 2','Minggu 3','Minggu 4','Minggu 5','Total Bayar'].join(sep) + '\n'
-                    + rows.map((r,i) => [i+1, r.absen||'-', esc(r.nama), r.m1||0, r.m2||0, r.m3||0, r.m4||0, r.m5||0, r.total_bayar||0].join(sep)).join('\n');
+                    + rows.map((r,i) => [i+1, r.absen||'-', esc(r.nama), r.m1?'✓':'-', r.m2?'✓':'-', r.m3?'✓':'-', r.m4?'✓':'-', r.m5?'✓':'-', r.total_bayar||0].join(sep)).join('\n');
                 break;
             case 'kasbon':
                 csv = ['Tanggal','Peminjam','Absen','Keterangan','Jumlah','Status'].join(sep) + '\n'
@@ -957,28 +958,24 @@ $(function () {
             }
             case 'kasminggu': {
                 const tarif = Number(_lastApiRes?.tarif) || 0;
-                tableHeaders = [['No', 'Absen', 'Nama Siswa', 'M1', 'M2', 'M3', 'M4', 'M5', 'Total Bayar', 'Selisih']];
+                tableHeaders = [['Absen', 'Nama Siswa', 'M1', 'M2', 'M3', 'M4', 'M5', 'Total Bayar']];
                 tableBody = rows.map((r, i) => {
                     const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
-                    const totalTarif = vals.filter(Boolean).length * tarif;
-                    const paid = +r.total_bayar || 0;
-                    const selisih = paid - totalTarif;
+                    const cell = v => v ? fmt(tarif) : '-';
                     return [
-                        i + 1,
                         r.absen || '-',
                         r.nama || '',
-                        vals[0] ? fmt(vals[0]) : '-',
-                        vals[1] ? fmt(vals[1]) : '-',
-                        vals[2] ? fmt(vals[2]) : '-',
-                        vals[3] ? fmt(vals[3]) : '-',
-                        vals[4] ? fmt(vals[4]) : '-',
-                        fmt(paid),
-                        (selisih >= 0 ? '+' : '') + fmt(selisih)
+                        cell(vals[0]),
+                        cell(vals[1]),
+                        cell(vals[2]),
+                        cell(vals[3]),
+                        cell(vals[4]),
+                        fmt(+r.total_bayar || 0)
                     ];
                 });
                 const sumAll = _lastApiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
                 tableFoot = [[
-                    { content: `Total Kas Mingguan (${rows.length} Siswa): ${fmt(sumAll)}`, colSpan: 10, styles: { fontStyle: 'bold', halign: 'right' } }
+                    { content: `Total Kas Mingguan (${rows.length} Siswa): ${fmt(sumAll)}`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }
                 ]];
                 break;
             }
