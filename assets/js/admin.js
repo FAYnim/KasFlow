@@ -870,6 +870,14 @@ $(function () {
                     <td class="text-xs text-[var(--ink-muted)]">${escapeHtml(r.lines_str||'-')}</td>
                     <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.total_nominal)}</td>
                 </tr>`).join('');
+                const kpiAccounts = apiRes?.kpi?.accounts || [];
+                if (kpiAccounts.length) {
+                    h += '<thead><tr><th colspan="5" class="py-1 px-2 text-left font-semibold bg-[var(--surface-2)] text-[var(--ink)]">KPI Alokasi Dana</th></tr>';
+                    h += '<tr><th class="w-12">#</th><th>Nama Akun</th><th>Tipe</th><th></th><th class="text-right w-36">Total</th></tr></thead>';
+                    let totalKpi = 0;
+                    kpiAccounts.forEach((a, i) => { totalKpi += (a.saldo||0); h += `<tr><td class="font-mono text-xs text-[var(--ink-muted)]">${i+1}</td><td class="text-[var(--ink)]">${escapeHtml(a.name)}</td><td><span class="badge-neutral text-[10px]">${escapeHtml(a.type||'')}</span></td><td></td><td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(a.saldo)}</td></tr>`; });
+                    h += `<tr class="font-bold"><td colspan="4" class="text-right pr-2">Grand Total:</td><td class="text-right font-mono-num text-[var(--ink)]">${fmt(totalKpi)}</td></tr>`;
+                }
                 break;
         }
         h += '</thead><tbody>' + body + '</tbody></table>';
@@ -1023,6 +1031,30 @@ $(function () {
                 tableFoot = [[
                     { content: `Total Alokasi: ${fmt(tot)}`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }
                 ]];
+                const kpiAccounts = _lastApiRes?.kpi?.accounts || [];
+                if (kpiAccounts.length) {
+                    const yAfterTable = typeof doc.autoTable === 'function'
+                        ? (doc.lastAutoTable ? doc.lastAutoTable.final + 8 : 160)
+                        : 210;
+                    let yPos = yAfterTable;
+                    const sectionH = 5.5;
+                    if (yPos + sectionH > 190) { doc.addPage(); yPos = 15; }
+                    doc.setFontSize(9);
+                    doc.setTextColor(30, 30, 60);
+                    doc.text('KPI Alokasi Dana', 14, yPos);
+                    yPos += 1;
+                    doc.autoTable({
+                        startY: yPos,
+                        head: [['#', 'Nama Akun', 'Tipe', '', 'Total']],
+                        body: kpiAccounts.map((a, i) => [String(i+1), a.name||'', a.type||'', '', fmt(a.saldo)]),
+                        foot: [[{ content: `Grand Total: ${fmt(kpiAccounts.reduce((s,a)=>s+(a.saldo||0),0))}`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }]],
+                        theme: 'grid',
+                        headStyles: { fillColor: [40, 44, 52], textColor: [255,255,255], fontStyle: 'bold', fontSize: 8 },
+                        footStyles: { fillColor: [240,243,246], textColor: [30,30,60] },
+                        styles: { fontSize: 7.5, cellPadding: 2 },
+                        columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 16 }, 3: { cellWidth: 8 }, 4: { halign: 'right', cellWidth: 26 } },
+                    });
+                }
                 break;
             }
         }

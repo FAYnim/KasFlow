@@ -536,7 +536,36 @@ try {
                 $a['total_nominal'] = (float)$a['total_nominal'];
                 return $a;
             }, $raw);
-            echo json_encode(['rows' => $rows]);
+            // KPI alokasi: total nominal per-akun (dana) pada rentang/filter yang sama
+            $kpiAccs = $pdo->query("
+                SELECT id, name, type, parent_type, icon FROM storage_accounts WHERE is_active=1 ORDER BY sort_order, id
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            $kpiStmt = $pdo->prepare("
+                SELECT t.account_id, SUM(t.nominal) AS total
+                FROM storage_transactions t
+                JOIN storage_allocations a ON a.id = t.ref_id AND t.ref_type = 'allocation'
+                $sqlWhere
+                GROUP BY t.account_id
+            ");
+            $kpiStmt->execute($args);
+            $kpiTotals = [];
+            foreach ($kpiStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $kpiTotals[(int)$row['account_id']] = (float)$row['total'];
+            }
+            $kpiGrand = 0.0;
+            $kpiAccounts = array_map(function($a) use ($kpiTotals, &$kpiGrand) {
+                $saldo = $kpiTotals[(int)$a['id']] ?? 0.0;
+                $kpiGrand += $saldo;
+                $a['saldo'] = $saldo;
+                return $a;
+            }, $kpiAccs);
+            echo json_encode([
+                'rows' => $rows,
+                'kpi'  => [
+                    'accounts' => $kpiAccounts,
+                    'total'    => $kpiGrand,
+                ],
+            ]);
             break;
         }
         default:
