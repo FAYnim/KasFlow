@@ -265,8 +265,11 @@ try {
                         <input type="date" id="cf-filter-sampai" class="input-linear w-full">
                     </div>
                     <div class="flex gap-2">
-                        <button id="cf-filter-reset" type="button" class="btn-secondary text-xs w-full justify-center">
-                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        <button id="cf-filter-apply" type="button" class="btn-primary text-xs flex-1 justify-center gap-1.5">
+                            <i class="fa-solid fa-filter"></i> <span>Terapkan</span>
+                        </button>
+                        <button id="cf-filter-reset" type="button" class="btn-secondary text-xs flex-1 justify-center gap-1.5">
+                            <i class="fa-solid fa-rotate-left"></i> <span>Reset</span>
                         </button>
                     </div>
                 </div>

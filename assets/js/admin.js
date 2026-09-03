@@ -750,6 +750,11 @@ $(function () {
         }, 300);
     });
 
+    $('#cf-filter-apply').on('click', () => {
+        cfPage = 1;
+        loadTransactionsTable();
+    });
+
     $('#cf-filter-reset').on('click', () => {
         $('#cf-filter-type').val('');
         $('#cf-filter-account').val('');
