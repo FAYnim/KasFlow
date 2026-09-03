@@ -1858,9 +1858,11 @@ $(function () {
     function loadRiwayatAdmin(page) {
         if (page !== undefined) adminRiwayatPage = page;
         const params = new URLSearchParams({ action: 'get_riwayat', page: adminRiwayatPage, limit: 15 });
+        const modul  = $('#riwayat-modul').val();
         const aksi   = $('#riwayat-aksi').val();
         const dari   = $('#riwayat-dari').val();
         const sampai = $('#riwayat-sampai').val();
+        if (modul)  params.set('modul', modul);
         if (aksi)   params.set('aksi', aksi);
         if (dari)   params.set('dari', dari);
         if (sampai) params.set('sampai', sampai);
@@ -1893,12 +1895,14 @@ $(function () {
                                     const labels = {
                                         nama: 'Nama', absen: 'No. Absen', tanggal: 'Tanggal',
                                         keterangan: 'Keterangan', jenis: 'Jenis', nominal: 'Nominal',
-                                        jumlah: 'Jumlah', status: 'Status', id: 'ID Entitas'
+                                        amount: 'Nominal', jumlah: 'Jumlah', status: 'Status', id: 'ID Entitas',
+                                        akun: 'Dompet / Akun', kategori: 'Kategori', ke_akun: 'Tujuan Transfer',
+                                        account_id: 'ID Akun', to_account_id: 'ID Akun Tujuan', category_id: 'ID Kategori'
                                     };
                                     const list = keys.map(k => {
                                         let val = d[k];
-                                        if ((k === 'nominal' || k === 'jumlah') && typeof val === 'number') {
-                                            val = 'Rp ' + val.toLocaleString('id-ID');
+                                        if ((k === 'nominal' || k === 'jumlah' || k === 'amount') && (typeof val === 'number' || !isNaN(parseFloat(val)))) {
+                                            val = 'Rp ' + Math.round(parseFloat(val)).toLocaleString('id-ID');
                                         }
                                         const label = labels[k] || k;
                                         return `• <b>${escapeHtml(label)}:</b> ${escapeHtml(val)}`;
@@ -1909,10 +1913,27 @@ $(function () {
                         }
                     } catch(e) {}
                 }
+
+                let modulBadge = '<span class="badge-neutral">' + escapeHtml(r.modul) + '</span>';
+                if (r.modul === 'cashflow') {
+                    modulBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30"><i class="fa-solid fa-money-bill-transfer text-[10px] mr-1"></i>cashflow</span>';
+                } else if (r.modul === 'kas_mingguan') {
+                    modulBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"><i class="fa-solid fa-coins text-[10px] mr-1"></i>kas mingguan</span>';
+                } else if (r.modul === 'account') {
+                    modulBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30"><i class="fa-solid fa-wallet text-[10px] mr-1"></i>akun</span>';
+                } else if (r.modul === 'category') {
+                    modulBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30"><i class="fa-solid fa-tag text-[10px] mr-1"></i>kategori</span>';
+                }
+
+                let aksiBadge = '<span class="badge-' + escapeHtml(r.aksi) + '">' + escapeHtml(r.aksi) + '</span>';
+                if (r.aksi === 'claim_kas') {
+                    aksiBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-500/15 text-teal-400 border border-teal-500/30">klaim kas</span>';
+                }
+
                 html += '<tr>'
                     + '<td class="text-xs text-[var(--ink-muted)] whitespace-nowrap">' + formatDateTime(r.created_at) + '</td>'
-                    + '<td><span class="badge-neutral">' + escapeHtml(r.modul) + '</span></td>'
-                    + '<td><span class="badge-' + escapeHtml(r.aksi) + '">' + escapeHtml(r.aksi) + '</span></td>'
+                    + '<td>' + modulBadge + '</td>'
+                    + '<td>' + aksiBadge + '</td>'
                     + '<td>' + cellRingkasan + '</td>'
                     + '<td class="text-sm">' + escapeHtml(r.admin_nama || r.admin_username || '-') + '</td>'
                     + '</tr>';
@@ -1926,6 +1947,7 @@ $(function () {
     }
     $('#riwayat-apply').on('click', () => { adminRiwayatPage = 1; loadRiwayatAdmin(); });
     $('#riwayat-reset').on('click', function() {
+        $('#riwayat-modul').val('');
         $('#riwayat-aksi').val('');
         $('#riwayat-dari').val('');
         $('#riwayat-sampai').val('');

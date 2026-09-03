@@ -76,43 +76,50 @@ try {
             $where = []; $args = [];
             if ($bulanIdx !== '') {
                 $bulanMap = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
-                if (isset($bulanMap[$bulanIdx])) { $where[] = 'MONTH(jk.tanggal) = ?'; $args[] = $bulanMap[$bulanIdx]; }
+                if (isset($bulanMap[$bulanIdx])) { $where[] = 'MONTH(t.date) = ?'; $args[] = $bulanMap[$bulanIdx]; }
             }
-            if ($tahun !== '') { $where[] = 'YEAR(jk.tanggal) = ?'; $args[] = (int)$tahun; }
+            if ($tahun !== '') { $where[] = 'YEAR(t.date) = ?'; $args[] = (int)$tahun; }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             // Total records for pagination meta
-            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM jurnal_kas jk $sqlWhere");
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM transactions t $sqlWhere");
             $stmtCount->execute($args);
             $totalRecords = (int)$stmtCount->fetchColumn();
             $totalPages   = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
-            // Paginated rows — include storage account info & source
+            // Paginated rows — include storage account info & category
             $stmt = $pdo->prepare("
-                SELECT jk.id, jk.tanggal, jk.keterangan, jk.jenis, jk.nominal,
-                       jk.source, jk.storage_account_id, sa.name AS storage_account_name
-                FROM jurnal_kas jk
-                LEFT JOIN storage_accounts sa ON sa.id = jk.storage_account_id
+                SELECT t.id, t.date AS tanggal, t.description AS keterangan,
+                       CASE t.type WHEN 'income' THEN 'masuk' WHEN 'expense' THEN 'keluar' ELSE 'transfer' END AS jenis,
+                       t.amount AS nominal,
+                       t.ref_type AS source, t.account_id AS storage_account_id,
+                       a.name AS storage_account_name, c.name AS category_name
+                FROM transactions t
+                LEFT JOIN accounts a ON a.id = t.account_id
+                LEFT JOIN categories c ON c.id = t.category_id
                 $sqlWhere
-                ORDER BY jk.tanggal DESC, jk.id DESC LIMIT $limit OFFSET $offset
+                ORDER BY t.date DESC, t.id DESC LIMIT $limit OFFSET $offset
             ");
             $stmt->execute($args);
             $rows = $stmt->fetchAll();
             // Line chart & donut use full (unpaged) dataset
-            // Inisialisasi saldo dari saldo_awal (konfigurasi) agar grafik tren merefleksikan saldo awal
             $saldoAwalChart = (float)$pdo->query("SELECT key_value FROM config WHERE key_name='saldo_awal'")->fetchColumn();
             $saldo = $saldoAwalChart;
             $line = [];
-            $allAsc = $pdo->query("SELECT tanggal, jenis, nominal FROM jurnal_kas ORDER BY tanggal ASC, id ASC")->fetchAll();
+            $allAsc = $pdo->query("SELECT date, type, amount FROM transactions ORDER BY date ASC, id ASC")->fetchAll();
             foreach ($allAsc as $r) {
-                $saldo += $r['jenis'] === 'masuk' ? (float)$r['nominal'] : -(float)$r['nominal'];
-                $line[] = ['tanggal' => $r['tanggal'], 'saldo' => $saldo];
+                if ($r['type'] === 'income') {
+                    $saldo += (float)$r['amount'];
+                } elseif ($r['type'] === 'expense') {
+                    $saldo -= (float)$r['amount'];
+                }
+                $line[] = ['tanggal' => $r['date'], 'saldo' => $saldo];
             }
             // Donut totals based on current filter (all pages)
-            $stmtAll = $pdo->prepare("SELECT jk.jenis, SUM(jk.nominal) AS total FROM jurnal_kas jk $sqlWhere GROUP BY jk.jenis");
+            $stmtAll = $pdo->prepare("SELECT t.type, SUM(t.amount) AS total FROM transactions t $sqlWhere GROUP BY t.type");
             $stmtAll->execute($args);
             $totMasuk = 0; $totKeluar = 0;
             foreach ($stmtAll->fetchAll() as $r) {
-                if ($r['jenis'] === 'masuk') $totMasuk = (float)$r['total'];
-                else $totKeluar = (float)$r['total'];
+                if ($r['type'] === 'income') $totMasuk = (float)$r['total'];
+                elseif ($r['type'] === 'expense') $totKeluar = (float)$r['total'];
             }
             echo json_encode([
                 'transaksi'  => $rows,
@@ -132,16 +139,20 @@ try {
             $sampai   = $_GET['sampai'] ?? '';
             $where    = [];
             $args     = [];
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 'jk.tanggal >= ?'; $args[] = $dari; }
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 'jk.tanggal <= ?'; $args[] = $sampai; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 't.date >= ?'; $args[] = $dari; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 't.date <= ?'; $args[] = $sampai; }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             $stmt = $pdo->prepare("
-                SELECT jk.id, jk.tanggal, jk.keterangan, jk.jenis, jk.nominal,
-                       COALESCE(jk.source,'manual') AS source, sa.name AS storage_name
-                FROM jurnal_kas jk
-                LEFT JOIN storage_accounts sa ON sa.id = jk.storage_account_id
+                SELECT t.id, t.date AS tanggal, t.description AS keterangan,
+                       CASE t.type WHEN 'income' THEN 'masuk' WHEN 'expense' THEN 'keluar' ELSE 'transfer' END AS jenis,
+                       t.amount AS nominal,
+                       COALESCE(t.ref_type, 'manual') AS source, a.name AS storage_name,
+                       c.name AS category_name
+                FROM transactions t
+                LEFT JOIN accounts a ON a.id = t.account_id
+                LEFT JOIN categories c ON c.id = t.category_id
                 $sqlWhere
-                ORDER BY jk.tanggal ASC, jk.id ASC
+                ORDER BY t.date ASC, t.id ASC
             ");
             $stmt->execute($args);
             $rows = array_map(function($r) {
@@ -371,6 +382,7 @@ try {
             $dari    = $_GET['dari']   ?? '';
             $sampai  = $_GET['sampai'] ?? '';
             $aksi    = $_GET['aksi']   ?? '';
+            $modul   = trim($_GET['modul'] ?? '');
             $page    = max(1, (int)($_GET['page']  ?? 1));
             $limit   = max(5, min(100, (int)($_GET['limit'] ?? 15)));
             $offset  = ($page - 1) * $limit;
@@ -382,9 +394,17 @@ try {
                 $where[] = 'created_at <= ?';
                 $args[]  = $sampai . ' 23:59:59';
             }
-            if (in_array($aksi, ['tambah', 'edit', 'hapus', 'update_status'], true)) {
+            if (in_array($aksi, ['tambah', 'edit', 'hapus', 'update_status', 'claim_kas'], true)) {
                 $where[] = 'aksi = ?';
                 $args[]  = $aksi;
+            }
+            if ($modul !== '') {
+                if ($modul === 'legacy') {
+                    $where[] = "modul IN ('alokasi', 'jurnal_kas', 'kasbon', 'kas_bms', 'storage_transfer', 'storage_account')";
+                } elseif (in_array($modul, ['cashflow', 'kas_mingguan', 'account', 'category', 'siswa', 'config'], true)) {
+                    $where[] = 'modul = ?';
+                    $args[]  = $modul;
+                }
             }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             // Total records for pagination meta

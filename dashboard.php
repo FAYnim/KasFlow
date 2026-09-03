@@ -472,13 +472,27 @@ try {
             </div>
             <div class="flex flex-wrap gap-2 mb-4 items-end">
                 <label class="text-xs text-[var(--ink-muted)]">
+                    <span class="block mb-1">Modul</span>
+                    <select id="riwayat-modul" class="input-linear">
+                        <option value="">Semua Modul</option>
+                        <option value="cashflow">Cashflow (Transaksi)</option>
+                        <option value="kas_mingguan">Kas Mingguan</option>
+                        <option value="account">Dompet / Akun</option>
+                        <option value="category">Kategori</option>
+                        <option value="siswa">Data Siswa</option>
+                        <option value="config">Pengaturan</option>
+                        <option value="legacy">Riwayat Lama (Arsip)</option>
+                    </select>
+                </label>
+                <label class="text-xs text-[var(--ink-muted)]">
                     <span class="block mb-1">Aksi</span>
                     <select id="riwayat-aksi" class="input-linear">
-                        <option value="">Semua</option>
+                        <option value="">Semua Aksi</option>
                         <option value="tambah">Tambah</option>
                         <option value="edit">Edit</option>
                         <option value="hapus">Hapus</option>
                         <option value="update_status">Update Status</option>
+                        <option value="claim_kas">Klaim Kas</option>
                     </select>
                 </label>
                 <label class="text-xs text-[var(--ink-muted)]">
