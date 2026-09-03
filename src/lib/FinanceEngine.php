@@ -83,6 +83,20 @@ class FinanceEngine
     }
 
     /**
+     * Get real-time balance of a specific account.
+     */
+    public static function getAccountBalance(PDO $pdo, int $accountId): float
+    {
+        $accounts = self::getAccountsWithBalances($pdo, false);
+        foreach ($accounts as $a) {
+            if ((int)$a['id'] === $accountId) {
+                return (float)$a['balance'];
+            }
+        }
+        return 0.0;
+    }
+
+    /**
      * Get list of categories.
      */
     public static function getCategories(PDO $pdo, ?string $type = null, bool $onlyActive = false): array
