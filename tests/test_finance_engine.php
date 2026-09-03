@@ -19,6 +19,7 @@ try {
     // 2. Add income transaction
     $accId1 = (int)$accounts[0]['id'];
     $accId2 = (int)$accounts[1]['id'];
+    $acc2InitialBal = (float)$accounts[1]['balance'];
     
     $catIncome = $pdo->query("SELECT id FROM categories WHERE type IN ('income','both') LIMIT 1")->fetchColumn();
     $catExpense = $pdo->query("SELECT id FROM categories WHERE type IN ('expense','both') LIMIT 1")->fetchColumn();
@@ -73,7 +74,7 @@ try {
     $acc2AfterTransfer = current(array_filter($accsUpdated3, fn($a) => $a['id'] == $accId2));
 
     assert((float)$acc1AfterTransfer['balance'] == (float)$acc1Updated2['balance'] - 30000, "Account 1 should decrease by 30k after transfer");
-    assert((float)$acc2AfterTransfer['balance'] == 30000, "Account 2 should receive 30k from transfer");
+    assert((float)$acc2AfterTransfer['balance'] == $acc2InitialBal + 30000, "Account 2 should receive 30k from transfer");
 
     // 5. Test Kas Mingguan Queue & Claiming
     $stmtQ = $pdo->prepare("INSERT INTO kas_mingguan_queue (bulan, tahun, nominal, keterangan, status) VALUES (?, ?, ?, ?, 'pending')");
