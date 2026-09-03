@@ -234,7 +234,7 @@ try {
 
             <!-- Transactions Filter Bar -->
             <div class="card-linear p-4 mb-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 items-end">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                     <div>
                         <label class="eyebrow block mb-1">Tipe</label>
                         <select id="cf-filter-type" class="input-linear w-full">
@@ -264,17 +264,23 @@ try {
                         <label class="eyebrow block mb-1">Sampai Tanggal</label>
                         <input type="date" id="cf-filter-sampai" class="input-linear w-full">
                     </div>
-                    <div class="flex gap-2">
-                        <button id="cf-filter-apply" type="button" class="btn-primary text-xs flex-1 justify-center gap-1.5">
-                            <i class="fa-solid fa-filter"></i> <span>Terapkan</span>
-                        </button>
-                        <button id="cf-filter-reset" type="button" class="btn-secondary text-xs flex-1 justify-center gap-1.5">
-                            <i class="fa-solid fa-rotate-left"></i> <span>Reset</span>
-                        </button>
-                    </div>
                 </div>
                 <div class="mt-3">
-                    <input type="text" id="cf-filter-search" placeholder="Cari keterangan transaksi..." class="input-linear w-full text-xs">
+                    <label class="eyebrow block mb-1">Keterangan Transaksi</label>
+                    <input type="text" id="cf-filter-search" placeholder="Cari berdasarkan keterangan transaksi..." class="input-linear w-full text-xs">
+                </div>
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[var(--hairline)]">
+                    <span class="text-xs text-[var(--ink-muted)] flex items-center gap-1.5">
+                        <i class="fa-solid fa-sliders text-[11px] text-[var(--primary)]"></i> <span>Gunakan filter untuk menyaring data riwayat transaksi</span>
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <button id="cf-filter-reset" type="button" class="btn-secondary text-xs px-3.5 py-1.5 gap-1.5">
+                            <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
+                        </button>
+                        <button id="cf-filter-apply" type="button" class="btn-primary text-xs px-4 py-1.5 gap-1.5">
+                            <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan Filter</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
