@@ -54,11 +54,9 @@ $(function () {
         dashboard: lDash,
         siswa: lSiswa,
         kas: lKas,
-        jurnal: lJurnal,
-        kasbon: lKasbon,
+        jurnal: lCashflow,
+        accounts_categories: lMaster,
         ekspor: loadEksporTab,
-        bms: lBms,
-        alokasi: loadAlokasiAdmin,
         riwayat: loadRiwayatAdmin,
         pengaturan: loadPengaturanAdmin,
     };
@@ -264,11 +262,17 @@ $(function () {
     });
 
     function lDash() {
-        $.getJSON('src/api/public.php?action=get_summary', s => {
+        $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
+            if (!res || !res.ok) return;
+            const s = res.summary || {};
+            const queueText = s.pending_queue_count > 0 
+                ? `${s.pending_queue_count} antrean (${fmt(s.pending_queue_nominal)})` 
+                : '0 antrean';
             const cards = [
-                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
-                ['Saldo BMS', fmt(s.saldo_bms), 'text-[var(--accent-sky)]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Talangan Belum Diganti', fmt(s.total_kasbon), 'text-[var(--accent-orange)]', '<i class="fa-solid fa-handshake text-sm"></i>'],
+                ['Total Saldo Kas', fmt(s.total_saldo), 'text-[var(--primary)]', '<i class="fa-solid fa-wallet text-sm"></i>'],
+                ['Total Pemasukan', fmt(s.total_income), 'text-emerald-500', '<i class="fa-solid fa-arrow-trend-up text-sm"></i>'],
+                ['Total Pengeluaran', fmt(s.total_expense), 'text-rose-500', '<i class="fa-solid fa-arrow-trend-down text-sm"></i>'],
+                ['Antrean Kas Mingguan', queueText, s.pending_queue_count > 0 ? 'text-amber-500' : 'text-[var(--ink-muted)]', '<i class="fa-solid fa-bell text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -461,7 +465,10 @@ $(function () {
                     Object.keys(kasState.pending).forEach(sid => { kasState.saved[sid] = { ...kasState.saved[sid], ...kasState.pending[sid] }; });
                     kasState.pending = {};
                     lKas();
-                    if (r.jurnal_kas_id) lJurnal();
+                    lDash();
+                    if (r.queue_id) {
+                        alert('Perubahan kas mingguan tersimpan! Antrean baru telah dibuat di tab Cashflow & Dompet untuk dialokasikan.');
+                    }
                 } else {
                     alert(r.error || 'Gagal menyimpan.');
                 }
@@ -482,70 +489,11 @@ $(function () {
         });
         if (changes.length === 0) return;
 
-        // Hitung nominal baru (hanya yang dicentang)
-        const tarif = kasState.tarif || 0;
-        let newCount = 0;
-        changes.forEach(c => { if (c.checked === 1 && (kasState.saved[c.siswa_id] || {})[c.minggu] !== 1) newCount++; });
-        const nominalBaru = newCount * tarif;
-
-        if (nominalBaru > 0) {
-            // Tampilkan modal konfirmasi integrasi
-            _kasConfirmChanges = changes;
-            const bulanTahun = `${kasState.bulan} ${kasState.tahun}`;
-            $('#kas-confirm-nominal').text(fmt(nominalBaru));
-            $('#kas-confirm-detail').text(`${newCount} pembayaran baru (${newCount} × ${fmt(tarif)})`);
-            $('#kas-confirm-ket').val(`Penerimaan Kas Mingguan ${bulanTahun}`);
-            $('#kas-confirm-tgl').val(new Date().toISOString().slice(0, 10));
-            // Populate storage dropdown
-            $.getJSON('src/api/admin.php?action=list_accounts', function (accs) {
-                const opts = '<option value="">— Tidak dicatat ke dompet —</option>' +
-                    accs.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
-                $('#kas-confirm-storage').html(opts);
-            });
-            $('#modal-kas-save-confirm').removeClass('hidden');
-        } else {
-            // Tidak ada pembayaran baru — simpan langsung
-            const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Menyimpan...</span>');
-            doSaveKas(changes, { catat_jurnal: 0 }, $btn);
-        }
+        const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Menyimpan...</span>');
+        doSaveKas(changes, {}, $btn);
     });
 
-    // Toggle jurnal opts visibility
-    $('#kas-confirm-catat').on('change', function () {
-        $('#kas-confirm-jurnal-opts').toggleClass('hidden', !this.checked);
-        $('#kas-confirm-save').prop('disabled', false);
-    });
 
-    // Tutup modal konfirmasi
-    $('#kas-confirm-close').on('click', () => {
-        $('#modal-kas-save-confirm').addClass('hidden');
-        _kasConfirmChanges = null;
-    });
-
-    // Simpan tanpa jurnal
-    $('#kas-confirm-skip').on('click', function () {
-        if (!_kasConfirmChanges) return;
-        $('#modal-kas-save-confirm').addClass('hidden');
-        doSaveKas(_kasConfirmChanges, { catat_jurnal: 0 }, null);
-        _kasConfirmChanges = null;
-    });
-
-    // Simpan + catat jurnal
-    $('#kas-confirm-save').on('click', function () {
-        if (!_kasConfirmChanges) return;
-        const $btn = $(this).prop('disabled', true);
-        const catatJurnal = $('#kas-confirm-catat').is(':checked') ? 1 : 0;
-        const extra = {
-            catat_jurnal: catatJurnal,
-            storage_account_id: catatJurnal ? $('#kas-confirm-storage').val() : '',
-            jurnal_keterangan: $('#kas-confirm-ket').val(),
-            jurnal_tanggal: $('#kas-confirm-tgl').val(),
-        };
-        $('#modal-kas-save-confirm').addClass('hidden');
-        doSaveKas(_kasConfirmChanges, extra, null);
-        _kasConfirmChanges = null;
-        $btn.prop('disabled', false);
-    });
 
 
     $('#kas-reset-btn').on('click', function () {
@@ -608,127 +556,617 @@ $(function () {
         });
     }
 
-    // Jurnal Modal & CRUD
-    $('#btn-add-jurnal').on('click', () => openJurnalModal());
-    $('#modal-close, #modal-close-btn').on('click', () => $('#modal-jurnal').addClass('hidden'));
+    // ══════════════════════════════════════════════════════════════════════════════
+    //  CENTRALIZED CASHFLOW & MONEY TRACKER
+    // ══════════════════════════════════════════════════════════════════════════════
+    let cfOverviewData = { accounts: [], categories: [], summary: {}, pending_queue: [] };
+    let cfPage = 1;
 
-    // Populate storage dropdown di form Jurnal saat modal dibuka
-    function populateJurnalStorageDropdown(selectedId) {
-        $.getJSON('src/api/admin.php?action=list_accounts', function (accs) {
-            const opts = '<option value="">— Tidak dicatat ke dompet —</option>' +
-                accs.map(a => `<option value="${a.id}"${a.id == selectedId ? ' selected' : ''}>${escapeHtml(a.name)}</option>`).join('');
-            $('#jurnal-storage-select').html(opts);
+    function lCashflow() {
+        $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
+            if (!res || !res.ok) return;
+            cfOverviewData = res;
+
+            // 1. Render Accounts & Total Balance Grid
+            const s = res.summary || {};
+            const accounts = res.accounts || [];
+            let accGridHtml = `
+                <div class="card-linear border-indigo-500/30 bg-indigo-500/5">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="eyebrow text-indigo-400">Total Saldo Kas Bersih</span>
+                        <span class="text-indigo-400"><i class="fa-solid fa-vault text-base"></i></span>
+                    </div>
+                    <div class="text-2xl font-bold font-mono-num text-[var(--ink)]">${fmt(s.total_saldo)}</div>
+                    <div class="text-[11px] text-[var(--ink-muted)] mt-1 flex items-center justify-between">
+                        <span>Masuk: <b class="text-emerald-500 font-mono">${fmt(s.total_income)}</b></span>
+                        <span>Keluar: <b class="text-rose-500 font-mono">${fmt(s.total_expense)}</b></span>
+                    </div>
+                </div>
+            `;
+
+            accGridHtml += accounts.map(a => {
+                const icon = a.icon || 'fa-solid fa-wallet';
+                const bal = parseFloat(a.balance || 0);
+                const balClass = bal >= 0 ? 'text-[var(--ink)]' : 'text-rose-500';
+                return `
+                    <div class="card-linear">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="eyebrow">${escapeHtml(a.name)}</span>
+                            <span class="text-[var(--ink-muted)]"><i class="${escapeHtml(icon)} text-sm"></i></span>
+                        </div>
+                        <div class="text-2xl font-bold font-mono-num ${balClass}">${fmt(bal)}</div>
+                        <div class="text-[11px] text-[var(--ink-muted)] mt-1 capitalize">${escapeHtml(a.type || 'Akun')}</div>
+                    </div>
+                `;
+            }).join('');
+
+            $('#cashflow-accounts-grid').html(accGridHtml);
+
+            // 2. Render Uncategorized Queue Notification Banner
+            const pending = res.pending_queue || [];
+            if (pending.length > 0) {
+                $('#queue-count-badge').text(pending.length);
+                $('#queue-nominal-badge').text(fmt(s.pending_queue_nominal));
+                $('#cashflow-queue-banner').removeClass('hidden');
+            } else {
+                $('#cashflow-queue-banner').addClass('hidden');
+            }
+
+            // 3. Populate Filter Dropdowns
+            const accFilterOpts = '<option value="">Semua Akun</option>' +
+                accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            $('#cf-filter-account').html(accFilterOpts);
+
+            const catFilterOpts = '<option value="">Semua Kategori</option>' +
+                (res.categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+            $('#cf-filter-category').html(catFilterOpts);
+
+            // 4. Load Transaction Table
+            loadTransactionsTable();
         });
     }
 
-    function openJurnalModal(t) {
-        $('#modal-jurnal').removeClass('hidden');
-        const f = $('#form-jurnal')[0];
-        f.reset();
-        populateJurnalStorageDropdown(t ? t.storage_account_id : null);
-        if (t) {
-            f.id.value = t.id;
-            f.tanggal.value = t.tanggal;
-            f.keterangan.value = t.keterangan;
-            f.jenis.value = t.jenis;
-            f.nominal.value = t.nominal;
+    function loadTransactionsTable(page) {
+        if (page !== undefined) cfPage = page;
+        const params = {
+            action: 'get_transactions',
+            page: cfPage,
+            limit: 15,
+            type: $('#cf-filter-type').val() || '',
+            account_id: $('#cf-filter-account').val() || '',
+            category_id: $('#cf-filter-category').val() || '',
+            start_date: $('#cf-filter-dari').val() || '',
+            end_date: $('#cf-filter-sampai').val() || '',
+            search: $('#cf-filter-search').val() || ''
+        };
+
+        $.getJSON('src/api/admin.php', params, res => {
+            if (!res || !res.ok) {
+                $('#cashflow-table-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat transaksi.</div>');
+                return;
+            }
+
+            const rows = res.data || [];
+            let h = `<table class="table-linear">
+                <thead>
+                    <tr>
+                        <th class="w-28">Tanggal</th>
+                        <th class="w-24">Tipe</th>
+                        <th class="w-36">Kategori</th>
+                        <th class="w-40">Dompet / Akun</th>
+                        <th>Keterangan</th>
+                        <th class="text-right w-36">Nominal</th>
+                        <th class="w-28 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            if (rows.length === 0) {
+                h += `<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Belum ada data transaksi sesuai filter.</td></tr>`;
+            } else {
+                h += rows.map(t => {
+                    let typeBadge = '';
+                    let nomColor = 'text-[var(--ink)]';
+                    let nomPrefix = '';
+
+                    if (t.type === 'income') {
+                        typeBadge = '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-down text-[9px]"></i> Masuk</span>';
+                        nomColor = 'text-emerald-500 font-semibold';
+                        nomPrefix = '+';
+                    } else if (t.type === 'expense') {
+                        typeBadge = '<span class="badge-status badge-danger font-medium"><i class="fa-solid fa-arrow-up text-[9px]"></i> Keluar</span>';
+                        nomColor = 'text-rose-500 font-semibold';
+                        nomPrefix = '-';
+                    } else if (t.type === 'transfer') {
+                        typeBadge = '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-arrow-right-arrow-left text-[9px]"></i> Transfer</span>';
+                        nomColor = 'text-indigo-400 font-semibold';
+                    }
+
+                    const catBadge = t.category_name 
+                        ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium" style="background:${escapeHtml(t.category_color || '#3b82f6')}15; color:${escapeHtml(t.category_color || '#3b82f6')}">
+                            <i class="${escapeHtml(t.category_icon || 'fa-solid fa-tag')} text-[9px]"></i>
+                            <span>${escapeHtml(t.category_name)}</span>
+                        </span>`
+                        : '<span class="text-[var(--ink-muted)] text-xs">—</span>';
+
+                    let accText = escapeHtml(t.account_name || '—');
+                    if (t.type === 'transfer' && t.to_account_name) {
+                        accText = `<div class="text-xs flex items-center gap-1"><span>${escapeHtml(t.account_name)}</span> <i class="fa-solid fa-arrow-right text-[10px] text-[var(--ink-muted)]"></i> <span>${escapeHtml(t.to_account_name)}</span></div>`;
+                    }
+
+                    const jsonAttr = escapeHtml(JSON.stringify(t));
+
+                    return `
+                        <tr>
+                            <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.date)}</td>
+                            <td>${typeBadge}</td>
+                            <td>${catBadge}</td>
+                            <td class="text-xs text-[var(--ink)]">${accText}</td>
+                            <td class="text-xs text-[var(--ink)]">${escapeHtml(t.description || '—')}</td>
+                            <td class="text-right font-mono-num text-xs ${nomColor}">${nomPrefix}${fmt(t.amount)}</td>
+                            <td class="text-right space-x-1">
+                                <button class="btn-secondary text-xs px-2 py-1 edit-tx-btn" data-tx='${jsonAttr}'>
+                                    <i class="fa-solid fa-pen text-[9px]"></i>
+                                </button>
+                                <button class="btn-danger text-xs px-2 py-1 del-tx-btn" data-id="${t.id}">
+                                    <i class="fa-solid fa-trash-can text-[9px]"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            h += '</tbody></table>';
+            $('#cashflow-table-wrap').html(h);
+            renderPagination('cashflow-pagination', res.pagination, p => loadTransactionsTable(p));
+        });
+    }
+
+    // Filter Listeners
+    $('#cf-filter-type, #cf-filter-account, #cf-filter-category, #cf-filter-dari, #cf-filter-sampai').on('change', () => {
+        cfPage = 1;
+        loadTransactionsTable();
+    });
+
+    let cfSearchTimer = null;
+    $('#cf-filter-search').on('input', function () {
+        clearTimeout(cfSearchTimer);
+        cfSearchTimer = setTimeout(() => {
+            cfPage = 1;
+            loadTransactionsTable();
+        }, 300);
+    });
+
+    $('#cf-filter-reset').on('click', () => {
+        $('#cf-filter-type').val('');
+        $('#cf-filter-account').val('');
+        $('#cf-filter-category').val('');
+        $('#cf-filter-dari').val('');
+        $('#cf-filter-sampai').val('');
+        $('#cf-filter-search').val('');
+        cfPage = 1;
+        loadTransactionsTable();
+    });
+
+    // Transaction Modal Helpers
+    function setTxType(type) {
+        $('#tx-type').val(type);
+        $('.tx-type-btn').removeClass('border-emerald-500 border-rose-500 border-indigo-500 bg-[var(--surface-2)]');
+        $(`.tx-type-btn[data-type="${type}"]`).addClass('bg-[var(--surface-2)]');
+
+        const accounts = cfOverviewData.accounts || [];
+        const categories = cfOverviewData.categories || [];
+
+        // Populate accounts
+        const accOpts = accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)} (Saldo: ${fmt(a.balance)})</option>`).join('');
+        $('#tx-account-id').html(accOpts);
+        $('#tx-to-account-id').html(accOpts);
+
+        // Filter categories by type
+        const catFiltered = categories.filter(c => c.type === 'both' || c.type === type);
+        const catOpts = catFiltered.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        $('#tx-category-id').html(catOpts);
+
+        if (type === 'transfer') {
+            $(`.tx-type-btn[data-type="transfer"]`).addClass('border-indigo-500');
+            $('#tx-account-label').text('Dari Dompet / Akun *');
+            $('#tx-to-account-group').removeClass('hidden');
+            $('#tx-category-group').addClass('hidden');
+        } else {
+            if (type === 'income') $(`.tx-type-btn[data-type="income"]`).addClass('border-emerald-500');
+            if (type === 'expense') $(`.tx-type-btn[data-type="expense"]`).addClass('border-rose-500');
+            $('#tx-account-label').text('Dompet / Akun *');
+            $('#tx-to-account-group').addClass('hidden');
+            $('#tx-category-group').removeClass('hidden');
         }
     }
 
-    $('#form-jurnal').on('submit', function (e) {
+    function openTxModal(tx, defaultType = 'income') {
+        $('#modal-transaction').removeClass('hidden');
+        const f = $('#form-transaction')[0];
+        f.reset();
+
+        const type = tx ? tx.type : defaultType;
+        setTxType(type);
+
+        if (tx) {
+            $('#modal-tx-title span').text('Edit Transaksi');
+            $('#tx-id').val(tx.id);
+            $('#tx-date').val(tx.date);
+            $('#tx-amount').val(tx.amount);
+            $('#tx-account-id').val(tx.account_id);
+            if (tx.to_account_id) $('#tx-to-account-id').val(tx.to_account_id);
+            if (tx.category_id) $('#tx-category-id').val(tx.category_id);
+            $('#tx-description').val(tx.description || '');
+        } else {
+            $('#modal-tx-title span').text('Catat Transaksi');
+            $('#tx-id').val('');
+            $('#tx-date').val(new Date().toISOString().slice(0, 10));
+            $('#tx-amount').val('');
+            $('#tx-description').val('');
+        }
+    }
+
+    // Modal Close
+    $('.btn-close-modal').on('click', function () {
+        $(this).closest('.modal-overlay').addClass('hidden');
+    });
+
+    // Quick Action Triggers
+    $('#btn-cashflow-income').on('click', () => openTxModal(null, 'income'));
+    $('#btn-cashflow-expense').on('click', () => openTxModal(null, 'expense'));
+    $('#btn-cashflow-transfer').on('click', () => openTxModal(null, 'transfer'));
+
+    $('.tx-type-btn').on('click', function () {
+        setTxType($(this).data('type'));
+    });
+
+    // Submit Transaction
+    $('#form-transaction').on('submit', function (e) {
         e.preventDefault();
-        const id = this.id.value;
-        const action = id ? 'update_jurnal' : 'add_jurnal';
-        $.post('src/api/admin.php?action=' + action, $(this).serialize(), r => {
-            if (r.ok) { 
-                $('#modal-jurnal').addClass('hidden'); 
-                lJurnal(); 
+        const id = $('#tx-id').val();
+        const type = $('#tx-type').val();
+        const accountId = $('#tx-account-id').val();
+        const toAccountId = $('#tx-to-account-id').val();
+        const categoryId = $('#tx-category-id').val();
+        const amount = parseFloat($('#tx-amount').val());
+
+        if (!amount || amount <= 0) {
+            alert('Nominal harus lebih dari 0.');
+            return;
+        }
+
+        if (type === 'transfer' && accountId == toAccountId) {
+            alert('Akun asal dan akun tujuan transfer tidak boleh sama.');
+            return;
+        }
+
+        const payload = {
+            id: id || undefined,
+            date: $('#tx-date').val(),
+            type: type,
+            account_id: accountId,
+            to_account_id: type === 'transfer' ? toAccountId : null,
+            category_id: type !== 'transfer' ? categoryId : null,
+            amount: amount,
+            description: $('#tx-description').val().trim()
+        };
+
+        const action = id ? 'update_transaction' : 'add_transaction';
+        const $btn = $('#btn-save-tx').prop('disabled', true).text('Menyimpan...');
+
+        $.post(`src/api/admin.php?action=${action}`, payload, res => {
+            $btn.prop('disabled', false).text('Simpan Transaksi');
+            if (res && res.ok) {
+                $('#modal-transaction').addClass('hidden');
+                lCashflow();
+                lDash();
             } else {
-                alert(r.error);
+                alert((res && res.error) || 'Gagal menyimpan transaksi.');
+            }
+        }, 'json').fail(() => {
+            $btn.prop('disabled', false).text('Simpan Transaksi');
+            alert('Terjadi kesalahan koneksi.');
+        });
+    });
+
+    // Edit & Delete Transaction
+    $(document).on('click', '.edit-tx-btn', function () {
+        const tx = $(this).data('tx');
+        openTxModal(tx);
+    });
+
+    $(document).on('click', '.del-tx-btn', function () {
+        const id = $(this).data('id');
+        if (!confirm('Hapus transaksi ini? Saldo akun akan dikembalikan secara otomatis.')) return;
+
+        $.post('src/api/admin.php?action=delete_transaction', { id }, res => {
+            if (res && res.ok) {
+                lCashflow();
+                lDash();
+            } else {
+                alert((res && res.error) || 'Gagal menghapus transaksi.');
             }
         }, 'json');
     });
 
-    function lJurnal(page) {
-        if (page !== undefined) adminJurnalPage = page;
-        const params = { action: 'get_jurnal', page: adminJurnalPage, limit: 15 };
-        const b = $('#jurnal-bulan').val();
-        const t = $('#jurnal-tahun').val();
-        if (b) params.bulan = b;
-        if (t) params.tahun = t;
-        $.getJSON('src/api/public.php', params, r => {
-            const SOURCE_LABELS = { manual: null, kas_mingguan: 'Kas Mingguan', kasbon: 'Dana Talangan' };
-            const SOURCE_COLORS = { kas_mingguan: 'text-emerald-400', kasbon: 'text-amber-400' };
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-32">Tanggal</th>
-                        <th>Keterangan</th>
-                        <th class="w-28">Jenis</th>
-                        <th class="w-36">Dompet / Sumber</th>
-                        <th class="text-right w-36">Nominal</th>
-                        <th class="w-36 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (!r.transaksi || r.transaksi.length === 0) {
-                h += `<tr><td colspan="6" class="text-center py-6 text-[var(--ink-muted)]">Belum ada jurnal transaksi.</td></tr>`;
+    // ══════════════════════════════════════════════════════════════════════════════
+    //  CLAIM KAS MINGGUAN QUEUE
+    // ══════════════════════════════════════════════════════════════════════════════
+    $('#btn-open-queue-modal').on('click', () => {
+        const pending = cfOverviewData.pending_queue || [];
+        if (pending.length === 0) {
+            alert('Tidak ada antrean kas mingguan.');
+            return;
+        }
+
+        const item = pending[0];
+        $('#claim-queue-id').val(item.id);
+        const isNeg = parseFloat(item.nominal) < 0;
+        $('#claim-queue-title').text(isNeg ? 'Koreksi Kas Mingguan (Pengurangan)' : `Penerimaan Kas Mingguan: ${escapeHtml(item.bulan)} ${item.tahun}`);
+        $('#claim-queue-nominal').text(fmt(Math.abs(item.nominal)));
+        $('#claim-queue-info').text(isNeg ? 'Pilih dompet yang akan dipotong untuk koreksi pembatalan kas.' : 'Pilih akun/dompet tempat fisik/digital uang ini disimpan.');
+        $('#claim-description').val(item.keterangan || `Penerimaan Kas Mingguan ${item.bulan} ${item.tahun}`);
+
+        // Accounts dropdown
+        const accOpts = (cfOverviewData.accounts || []).map(a => `<option value="${a.id}">${escapeHtml(a.name)} (Saldo: ${fmt(a.balance)})</option>`).join('');
+        $('#claim-account-id').html(accOpts);
+
+        // Categories dropdown
+        const targetType = isNeg ? 'expense' : 'income';
+        const cats = (cfOverviewData.categories || []).filter(c => c.type === 'both' || c.type === targetType);
+        const catOpts = cats.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        $('#claim-category-id').html(catOpts);
+
+        $('#modal-claim-queue').removeClass('hidden');
+    });
+
+    $('#form-claim-queue').on('submit', function (e) {
+        e.preventDefault();
+        const payload = {
+            queue_id: $('#claim-queue-id').val(),
+            account_id: $('#claim-account-id').val(),
+            category_id: $('#claim-category-id').val(),
+            description: $('#claim-description').val().trim()
+        };
+
+        const $btn = $('#btn-submit-claim').prop('disabled', true).text('Membukukan...');
+        $.post('src/api/admin.php?action=claim_kas_queue', payload, res => {
+            $btn.prop('disabled', false).text('Catat ke Akun');
+            if (res && res.ok) {
+                $('#modal-claim-queue').addClass('hidden');
+                alert('Antrean kas berhasil dibukukan ke dalam dompet akun!');
+                lCashflow();
+                lDash();
             } else {
-                h += r.transaksi.map(t => {
-                    const srcLabel = SOURCE_LABELS[t.source];
-                    const srcColor = SOURCE_COLORS[t.source] || '';
-                    const srcBadge = srcLabel
-                        ? `<span class="ml-1 text-[9px] font-semibold tracking-wide uppercase ${srcColor}">${escapeHtml(srcLabel)}</span>`
-                        : '';
-                    const dompetBadge = t.storage_account_name
-                        ? `<div class="flex items-center gap-1 text-[11px] text-[var(--ink-muted)] mt-0.5"><i class="fa-solid fa-vault text-[9px]"></i>${escapeHtml(t.storage_account_name)}</div>`
-                        : '<div class="text-[11px] text-[var(--ink-muted)] mt-0.5">—</div>';
-                    return `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
-                        <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}${srcBadge}</td>
-                        <td>
-                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
-                                <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
-                                <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
-                            </span>
-                        </td>
-                        <td>${dompetBadge}</td>
-                        <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(t.nominal)}</td>
-                        <td class="text-right space-x-1">
-                            <button class="btn-secondary text-xs px-2.5 py-1 edit-j gap-1" data-id="${t.id}" data-t='${JSON.stringify({id:t.id,tanggal:t.tanggal,keterangan:t.keterangan,jenis:t.jenis,nominal:t.nominal,storage_account_id:t.storage_account_id||''})}' >
-                                <i class="fa-solid fa-pen text-[10px]"></i>
-                                <span>Edit</span>
-                            </button>
-                            <button class="btn-danger text-xs px-2.5 py-1 del-j gap-1" data-id="${t.id}">
-                                <i class="fa-solid fa-trash-can text-[10px]"></i>
-                                <span>Hapus</span>
-                            </button>
-                        </td>
-                    </tr>`;
+                alert((res && res.error) || 'Gagal membukukan antrean kas.');
+            }
+        }, 'json').fail(() => {
+            $btn.prop('disabled', false).text('Catat ke Akun');
+            alert('Terjadi kesalahan koneksi.');
+        });
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    //  KELOLA MASTER AKUN & KATEGORI
+    // ══════════════════════════════════════════════════════════════════════════════
+    function lMaster() {
+        $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
+            if (!res || !res.ok) return;
+            cfOverviewData = res;
+
+            // 1. Render Master Accounts List
+            const accs = res.accounts || [];
+            $('#master-account-count').text(`${accs.length} akun`);
+            let accHtml = '';
+            if (accs.length === 0) {
+                accHtml = '<div class="text-xs text-[var(--ink-muted)] py-4 text-center">Belum ada akun dompet.</div>';
+            } else {
+                accHtml = accs.map(a => {
+                    const icon = a.icon || 'fa-solid fa-wallet';
+                    const activeBadge = parseInt(a.is_active) === 1
+                        ? '<span class="badge-status badge-success text-[10px]">Aktif</span>'
+                        : '<span class="badge-status badge-neutral text-[10px]">Non-aktif</span>';
+                    const jsonAttr = escapeHtml(JSON.stringify(a));
+                    return `
+                        <div class="card-linear p-3 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-[var(--surface-2)] flex items-center justify-center text-sm text-[var(--primary)]">
+                                    <i class="${escapeHtml(icon)}"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold text-xs text-[var(--ink)]">${escapeHtml(a.name)}</span>
+                                        ${activeBadge}
+                                    </div>
+                                    <div class="text-[11px] text-[var(--ink-muted)] capitalize">
+                                        ${escapeHtml(a.type || 'cash')} • Saldo: <b class="font-mono text-[var(--ink)]">${fmt(a.balance)}</b>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button class="btn-secondary text-xs px-2 py-1 toggle-acc-btn" data-id="${a.id}" data-active="${a.is_active}" title="Ubah status aktif">
+                                    <i class="fa-solid ${parseInt(a.is_active)===1 ? 'fa-eye-slash' : 'fa-eye'} text-[10px]"></i>
+                                </button>
+                                <button class="btn-secondary text-xs px-2 py-1 edit-acc-btn" data-acc='${jsonAttr}' title="Edit akun">
+                                    <i class="fa-solid fa-pen text-[10px]"></i>
+                                </button>
+                                <button class="btn-danger text-xs px-2 py-1 del-acc-btn" data-id="${a.id}" title="Hapus akun">
+                                    <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
                 }).join('');
             }
-            h += '</tbody></table>';
-            $('#jurnal-wrap').html(h);
-            renderPagination('jurnal-pagination', r.pagination, (p) => lJurnal(p));
+            $('#master-accounts-list').html(accHtml);
+
+            // 2. Render Master Categories List
+            const cats = res.categories || [];
+            $('#master-category-count').text(`${cats.length} kategori`);
+            let catHtml = '';
+            if (cats.length === 0) {
+                catHtml = '<div class="text-xs text-[var(--ink-muted)] py-4 text-center">Belum ada kategori.</div>';
+            } else {
+                catHtml = cats.map(c => {
+                    const color = c.color || '#3b82f6';
+                    const icon = c.icon || 'fa-solid fa-tag';
+                    const typeLabel = c.type === 'income' ? 'Pemasukan' : (c.type === 'expense' ? 'Pengeluaran' : 'Semua (Masuk/Keluar)');
+                    const jsonAttr = escapeHtml(JSON.stringify(c));
+                    return `
+                        <div class="card-linear p-3 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg flex items-center justify-center text-sm" style="background:${color}20; color:${color}">
+                                    <i class="${escapeHtml(icon)}"></i>
+                                </div>
+                                <div>
+                                    <span class="font-semibold text-xs text-[var(--ink)]">${escapeHtml(c.name)}</span>
+                                    <div class="text-[11px] text-[var(--ink-muted)]">${typeLabel}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button class="btn-secondary text-xs px-2 py-1 edit-cat-btn" data-cat='${jsonAttr}' title="Edit kategori">
+                                    <i class="fa-solid fa-pen text-[10px]"></i>
+                                </button>
+                                <button class="btn-danger text-xs px-2 py-1 del-cat-btn" data-id="${c.id}" title="Hapus kategori">
+                                    <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            $('#master-categories-list').html(catHtml);
         });
     }
 
-    $(document).on('click', '.edit-j', function () {
-        const t = $(this).data('t');
-        if (t) {
-            openJurnalModal(typeof t === 'string' ? JSON.parse(t) : t);
-        } else {
-            const id = $(this).data('id');
-            $.getJSON('src/api/public.php?action=get_jurnal', r => {
-                const found = (r.transaksi || []).find(x => x.id == id);
-                if (found) openJurnalModal(found);
-            });
-        }
+    // Master Account Modal Handlers
+    $('#btn-add-account-master').on('click', () => {
+        $('#form-account')[0].reset();
+        $('#acc-id').val('');
+        $('#modal-account-title').text('Tambah Dompet / Akun');
+        $('#acc-initial-balance').val(0);
+        $('#acc-sort').val(1);
+        $('#acc-icon').val('fa-solid fa-wallet');
+        $('#acc-icon-preview').html('<i class="fa-solid fa-wallet"></i>');
+        $('#modal-account').removeClass('hidden');
     });
 
-    $(document).on('click', '.del-j', function () {
-        if (!confirm('Hapus transaksi ini?')) return;
-        $.post('src/api/admin.php?action=delete_jurnal', { id: $(this).data('id') }, r => lJurnal(), 'json');
+    $('#acc-icon').on('input', function () {
+        $('#acc-icon-preview').html(`<i class="${escapeHtml($(this).val())}"></i>`);
+    });
+
+    $(document).on('click', '.edit-acc-btn', function () {
+        const a = $(this).data('acc');
+        $('#modal-account-title').text('Edit Dompet / Akun');
+        $('#acc-id').val(a.id);
+        $('#acc-name').val(a.name);
+        $('#acc-type').val(a.type || 'cash');
+        $('#acc-sort').val(a.sort_order || 1);
+        $('#acc-initial-balance').val(a.initial_balance || 0);
+        $('#acc-icon').val(a.icon || 'fa-solid fa-wallet');
+        $('#acc-icon-preview').html(`<i class="${escapeHtml(a.icon || 'fa-solid fa-wallet')}"></i>`);
+        $('#modal-account').removeClass('hidden');
+    });
+
+    $('#form-account').on('submit', function (e) {
+        e.preventDefault();
+        const id = $('#acc-id').val();
+        const payload = {
+            sub_action: id ? 'update' : 'add',
+            id: id || undefined,
+            name: $('#acc-name').val().trim(),
+            type: $('#acc-type').val(),
+            sort_order: parseInt($('#acc-sort').val()) || 1,
+            initial_balance: parseFloat($('#acc-initial-balance').val()) || 0,
+            icon: $('#acc-icon').val().trim()
+        };
+
+        $.post('src/api/admin.php?action=manage_account', payload, res => {
+            if (res && res.ok) {
+                $('#modal-account').addClass('hidden');
+                lMaster();
+            } else {
+                alert((res && res.error) || 'Gagal menyimpan akun.');
+            }
+        }, 'json');
+    });
+
+    $(document).on('click', '.toggle-acc-btn', function () {
+        const id = $(this).data('id');
+        $.post('src/api/admin.php?action=manage_account', { sub_action: 'toggle_active', id }, res => {
+            if (res && res.ok) lMaster();
+            else alert((res && res.error) || 'Gagal mengubah status akun.');
+        }, 'json');
+    });
+
+    $(document).on('click', '.del-acc-btn', function () {
+        const id = $(this).data('id');
+        if (!confirm('Hapus akun ini? Pastikan tidak ada transaksi yang terhubung dengan akun ini.')) return;
+        $.post('src/api/admin.php?action=manage_account', { sub_action: 'delete', id }, res => {
+            if (res && res.ok) lMaster();
+            else alert((res && res.error) || 'Gagal menghapus akun.');
+        }, 'json');
+    });
+
+    // Master Category Modal Handlers
+    $('#btn-add-category-master').on('click', () => {
+        $('#form-category')[0].reset();
+        $('#cat-id').val('');
+        $('#modal-category-title').text('Tambah Kategori');
+        $('#cat-type').val('both');
+        $('#cat-color').val('#3b82f6');
+        $('#cat-icon').val('fa-solid fa-tag');
+        $('#cat-icon-preview').html('<i class="fa-solid fa-tag"></i>');
+        $('#modal-category').removeClass('hidden');
+    });
+
+    $('#cat-icon').on('input', function () {
+        $('#cat-icon-preview').html(`<i class="${escapeHtml($(this).val())}"></i>`);
+    });
+
+    $(document).on('click', '.edit-cat-btn', function () {
+        const c = $(this).data('cat');
+        $('#modal-category-title').text('Edit Kategori');
+        $('#cat-id').val(c.id);
+        $('#cat-name').val(c.name);
+        $('#cat-type').val(c.type || 'both');
+        $('#cat-color').val(c.color || '#3b82f6');
+        $('#cat-icon').val(c.icon || 'fa-solid fa-tag');
+        $('#cat-icon-preview').html(`<i class="${escapeHtml(c.icon || 'fa-solid fa-tag')}"></i>`);
+        $('#modal-category').removeClass('hidden');
+    });
+
+    $('#form-category').on('submit', function (e) {
+        e.preventDefault();
+        const id = $('#cat-id').val();
+        const payload = {
+            sub_action: id ? 'update' : 'add',
+            id: id || undefined,
+            name: $('#cat-name').val().trim(),
+            type: $('#cat-type').val(),
+            color: $('#cat-color').val(),
+            icon: $('#cat-icon').val().trim()
+        };
+
+        $.post('src/api/admin.php?action=manage_category', payload, res => {
+            if (res && res.ok) {
+                $('#modal-category').addClass('hidden');
+                lMaster();
+            } else {
+                alert((res && res.error) || 'Gagal menyimpan kategori.');
+            }
+        }, 'json');
+    });
+
+    $(document).on('click', '.del-cat-btn', function () {
+        const id = $(this).data('id');
+        if (!confirm('Hapus kategori ini? Pastikan tidak ada transaksi yang terhubung dengan kategori ini.')) return;
+        $.post('src/api/admin.php?action=manage_category', { sub_action: 'delete', id }, res => {
+            if (res && res.ok) lMaster();
+            else alert((res && res.error) || 'Gagal menghapus kategori.');
+        }, 'json');
     });
 
     // ===== Ekspor Laporan =====
@@ -1099,110 +1537,6 @@ $(function () {
     });
     $('#btn-load-export').on('click', function(e){ e.preventDefault(); loadExportData(); });
 
-    // Kas BMS
-    function lBms() {
-        $.getJSON('src/api/public.php?action=get_bms', function(data) {
-            const rows = (data && data.rows) || [];
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-16">#</th>
-                        <th class="w-32">Tanggal</th>
-                        <th>Keterangan</th>
-                        <th class="w-28">Jenis</th>
-                        <th class="text-right w-36">Jumlah</th>
-                        <th class="w-28 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (rows.length === 0) {
-                h += `<tr><td colspan="6" class="text-center py-6 text-[var(--ink-muted)]">Belum ada data kas BMS.</td></tr>`;
-            } else {
-                h += rows.map(function(r, i) {
-                    const badge = r.jenis === 'setor'
-                        ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i> <span>Setor</span></span>'
-                        : '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i> <span>Tarik</span></span>';
-                    return '<tr>' +
-                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + (i + 1) + '</td>' +
-                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + escapeHtml(r.tanggal) + '</td>' +
-                        '<td class="text-[var(--ink)]">' + escapeHtml(r.keterangan) + '</td>' +
-                        '<td>' + badge + '</td>' +
-                        '<td class="text-right font-mono-num font-medium text-[var(--ink)]">' + fmt(r.jumlah) + '</td>' +
-                        '<td class="text-right space-x-1">' +
-                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-bms gap-1" data-id="' + r.id + '" data-tanggal="' + escapeHtml(r.tanggal) + '" data-keterangan="' + escapeHtml(r.keterangan) + '" data-jenis="' + escapeHtml(r.jenis) + '" data-jumlah="' + r.jumlah + '">' +
-                                '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
-                            '</button>' +
-                            '<button class="btn-danger text-xs px-2.5 py-1 del-bms gap-1" data-id="' + r.id + '">' +
-                                '<i class="fa-solid fa-trash-can text-[10px]"></i> <span>Hapus</span>' +
-                            '</button>' +
-                        '</td>' +
-                    '</tr>';
-                }).join('');
-            }
-            h += '</tbody></table>';
-            $('#bms-wrap').html(h);
-        }).fail(function() {
-            $('#bms-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data kas BMS.</div>');
-        });
-    }
-
-    // Open modal in add mode
-    $('#bms-add-btn').on('click', function () {
-        $('#bms-edit-id').val('');
-        $('#bms-form')[0].reset();
-        $('#bms-tanggal').val(new Date().toISOString().slice(0, 10));
-        $('input[name="bms-jenis"][value="setor"]').prop('checked', true);
-        $('#bms-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Simpan</span>');
-        $('#bms-modal').removeClass('hidden');
-    });
-
-    $('#bms-modal-close, #bms-cancel-btn').on('click', function () {
-        $('#bms-modal').addClass('hidden');
-    });
-
-    $(document).on('click', '.edit-bms', function () {
-        const $btn = $(this);
-        $('#bms-edit-id').val($btn.data('id'));
-        $('#bms-tanggal').val($btn.data('tanggal'));
-        $('#bms-keterangan').val($btn.data('keterangan'));
-        $('#bms-jumlah').val($btn.data('jumlah'));
-        $('input[name="bms-jenis"][value="' + $btn.data('jenis') + '"]').prop('checked', true);
-        $('#bms-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Update</span>');
-        $('#bms-modal').removeClass('hidden');
-    });
-
-    $('#bms-form').on('submit', function (e) {
-        e.preventDefault();
-        const id = $('#bms-edit-id').val();
-        const payload = {
-            tanggal:     $('#bms-tanggal').val(),
-            keterangan:  $('#bms-keterangan').val(),
-            jenis:       $('input[name="bms-jenis"]:checked').val(),
-            jumlah:      $('#bms-jumlah').val(),
-        };
-        const action = id ? 'update_bms' : 'add_bms';
-        if (id) payload.id = id;
-        $.post('src/api/admin.php?action=' + action, payload, function (res) {
-            if (res && res.ok) {
-                $('#bms-modal').addClass('hidden');
-                lBms();
-            } else {
-                alert('Gagal menyimpan: ' + (res && res.error ? res.error : 'unknown'));
-            }
-        }, 'json').fail(function (xhr) {
-            alert('Gagal menyimpan (HTTP ' + xhr.status + ').');
-        });
-    });
-
-    $(document).on('click', '.del-bms', function () {
-        if (!confirm('Hapus transaksi kas BMS ini?')) return;
-        const id = $(this).data('id');
-        $.post('src/api/admin.php?action=delete_bms', { id: id }, function () {
-            lBms();
-        }, 'json').fail(function () {
-            alert('Gagal menghapus.');
-        });
-    });
 
     // ── Alokasi Dana (admin) ────────────────────────────────────────────
     let alokasiPage = 1, transferPage = 1;

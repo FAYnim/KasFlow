@@ -42,10 +42,7 @@
     const loaders = {
         dashboard: loadDashboard,
         kas: loadKas,
-        jurnal: loadJurnal,
-        kasbon: loadKasbon,
-        bms: loadBms,
-        alokasi: loadAlokasi,
+        jurnal: loadPublicCashflow,
         riwayat: loadRiwayat,
     };
 
@@ -61,25 +58,17 @@
     $('#kas-bulan, #kas-tahun').on('change', loadKas);
     $('#kas-search').on('input', filterKas);
 
-    $('#jurnal-bulan').html([''].concat(bulanList).map(b => `<option value="${b}">${b||'Semua'}</option>`).join(''));
-    $('#jurnal-tahun').html([''].concat([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1]).map(y => `<option value="${y}">${y||'Semua'}</option>`).join(''));
-    $('#jurnal-bulan, #jurnal-tahun').on('change', () => { jurnalPage = 1; loadJurnal(); });
-    $('#jurnal-reset').on('click', () => {
-        $('#jurnal-bulan').val('');
-        $('#jurnal-tahun').val('');
-        jurnalPage = 1;
-        loadJurnal();
+    $('#pub-filter-type, #pub-filter-account, #pub-filter-category').on('change', () => {
+        pubCfPage = 1;
+        loadPublicTransactionsTable();
     });
-
-    $('#kasbon-bulan').html(bulanList.map(b => `<option ${b===bulanList[now.getMonth()]?'selected':''}>${b}</option>`).join(''));
-    $('#kasbon-tahun').html([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option ${y===now.getFullYear()?'selected':''}>${y}</option>`).join(''));
-    $('#kasbon-bulan, #kasbon-tahun').on('change', loadKasbon);
-
-    $('#bms-apply').on('click', loadBms);
-    $('#bms-reset').on('click', () => {
-        $('#bms-dari').val('');
-        $('#bms-sampai').val('');
-        loadBms();
+    let pubSearchTimer = null;
+    $('#pub-filter-search').on('input', function () {
+        clearTimeout(pubSearchTimer);
+        pubSearchTimer = setTimeout(() => {
+            pubCfPage = 1;
+            loadPublicTransactionsTable();
+        }, 300);
     });
 
     const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
@@ -92,11 +81,15 @@
     let lastChartData = null;
     let lineChart, donutChart;
     function loadDashboard() {
-        $.getJSON('src/api/public.php?action=get_summary', function (s) {
+        $.getJSON('src/api/public.php?action=get_finance_public', function (res) {
+            if (!res || !res.ok) return;
+            const s = res.summary || {};
+            const accounts = res.accounts || [];
             const cards = [
-                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
-                ['Saldo BMS', fmt(s.saldo_bms), 'text-[var(--semantic-info)]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Talangan Belum Diganti', fmt(s.total_kasbon), 'text-amber-400', '<i class="fa-solid fa-handshake text-sm"></i>'],
+                ['Total Saldo Kas', fmt(s.total_saldo), 'text-[var(--primary)]', '<i class="fa-solid fa-wallet text-sm"></i>'],
+                ['Total Pemasukan', fmt(s.total_income), 'text-emerald-500', '<i class="fa-solid fa-arrow-trend-up text-sm"></i>'],
+                ['Total Pengeluaran', fmt(s.total_expense), 'text-rose-500', '<i class="fa-solid fa-arrow-trend-down text-sm"></i>'],
+                ['Dompet Simpanan', `${accounts.length} Akun`, 'text-indigo-400', '<i class="fa-solid fa-vault text-sm"></i>'],
             ];
             $('#summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -107,10 +100,50 @@
                     <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
                 </div>`
             ).join(''));
+
+            renderDonutChart(accounts);
         });
+
         $.getJSON('src/api/public.php', { action: 'get_jurnal' }, function (r) {
             lastChartData = r;
             renderCharts(r);
+        });
+    }
+
+    function renderDonutChart(accounts) {
+        if (!accounts || accounts.length === 0) return;
+        const labels = accounts.map(a => a.name);
+        const data = accounts.map(a => Math.max(0, parseFloat(a.balance || 0)));
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+        const isDark = $('html').attr('data-theme') === 'dark';
+        const donutBorderColor = isDark ? '#202020' : '#ffffff';
+
+        if (donutChart) donutChart.destroy();
+        const canvas = document.getElementById('chart-donut');
+        if (!canvas) return;
+        donutChart = new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data,
+                    backgroundColor: colors.slice(0, labels.length),
+                    borderColor: donutBorderColor,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 10, padding: 12 }
+                    }
+                },
+                cutout: '68%'
+            }
         });
     }
 
@@ -273,230 +306,145 @@
         });
     }
 
-    function loadJurnal(page) {
-        if (page !== undefined) jurnalPage = page;
-        const params = { action: 'get_jurnal', page: jurnalPage, limit: 15 };
-        const b = $('#jurnal-bulan').val();
-        const t = $('#jurnal-tahun').val();
-        if (b) params.bulan = b;
-        if (t) params.tahun = t;
-        $.getJSON('src/api/public.php', params, function (r) {
+    // ══════════════════════════════════════════════════════════════════════════════
+    //  PUBLIC CASHFLOW & MONEY TRACKER
+    // ══════════════════════════════════════════════════════════════════════════════
+    let pubCfPage = 1;
+    let pubOverviewData = { accounts: [], categories: [], summary: {} };
+
+    function loadPublicCashflow() {
+        $.getJSON('src/api/public.php?action=get_finance_public', function (res) {
+            if (!res || !res.ok) return;
+            pubOverviewData = res;
+
+            // 1. Render Account Cards
+            const accounts = res.accounts || [];
+            let cardsHtml = '';
+            if (accounts.length === 0) {
+                cardsHtml = '<div class="text-subtle text-xs py-4 col-span-full">Belum ada akun dompet aktif.</div>';
+            } else {
+                cardsHtml = accounts.map(a => {
+                    const icon = a.icon || 'fa-solid fa-wallet';
+                    const bal = parseFloat(a.balance || 0);
+                    const balClass = bal >= 0 ? 'text-[var(--ink)]' : 'text-rose-500';
+                    return `
+                        <div class="card-linear">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="eyebrow">${escapeHtml(a.name)}</span>
+                                <span class="text-subtle"><i class="${escapeHtml(icon)} text-sm"></i></span>
+                            </div>
+                            <div class="text-2xl font-bold font-mono-num ${balClass}">${fmt(bal)}</div>
+                            <div class="text-[11px] text-subtle mt-1 capitalize">${escapeHtml(a.type || 'Akun')}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            $('#public-accounts-grid').html(cardsHtml);
+
+            // 2. Populate Dropdowns
+            const accOpts = '<option value="">Semua Akun</option>' +
+                accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            $('#pub-filter-account').html(accOpts);
+
+            const catOpts = '<option value="">Semua Kategori</option>' +
+                (res.categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+            $('#pub-filter-category').html(catOpts);
+
+            // 3. Load Transactions
+            loadPublicTransactionsTable();
+        });
+    }
+
+    function loadPublicTransactionsTable(page) {
+        if (page !== undefined) pubCfPage = page;
+        const params = {
+            action: 'get_transactions_public',
+            page: pubCfPage,
+            limit: 15,
+            type: $('#pub-filter-type').val() || '',
+            account_id: $('#pub-filter-account').val() || '',
+            category_id: $('#pub-filter-category').val() || '',
+            search: $('#pub-filter-search').val() || ''
+        };
+
+        $.getJSON('src/api/public.php', params, function (res) {
+            if (!res || !res.ok) {
+                $('#public-cashflow-wrap').html('<div class="text-center py-6 text-subtle">Gagal memuat data transaksi.</div>');
+                return;
+            }
+
+            const rows = res.data || [];
             let h = `<table class="table-linear">
                 <thead>
                     <tr>
-                        <th class="w-32">Tanggal</th>
+                        <th class="w-28">Tanggal</th>
+                        <th class="w-24">Tipe</th>
+                        <th class="w-36">Kategori</th>
+                        <th class="w-36">Dompet / Akun</th>
                         <th>Keterangan</th>
-                        <th class="w-28">Jenis</th>
                         <th class="text-right w-36">Nominal</th>
                     </tr>
                 </thead>
                 <tbody>`;
-            if (!r.transaksi || r.transaksi.length === 0) {
-                h += `<tr><td colspan="4" class="text-center py-6 text-subtle">Belum ada transaksi jurnal.</td></tr>`;
-            } else {
-                h += r.transaksi.map(t =>
-                    `<tr>
-                        <td class="font-mono text-xs text-subtle">${escapeHtml(t.tanggal)}</td>
-                        <td class="text-ink">${escapeHtml(t.keterangan)}</td>
-                        <td>
-                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
-                                <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
-                                <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
-                            </span>
-                        </td>
-                        <td class="text-right font-mono-num font-medium text-ink">${fmt(t.nominal)}</td>
-                    </tr>`
-                ).join('');
-            }
-            h += '</tbody></table>';
-            $('#jurnal-table-wrap').html(h);
-            renderPagination('jurnal-pagination', r.pagination, (p) => loadJurnal(p));
-        });
-    }
 
-    function loadKasbon() {
-        const bulan = $('#kasbon-bulan').val();
-        const tahun = $('#kasbon-tahun').val();
-        $.getJSON('src/api/public.php', { action: 'get_kasbon', bulan, tahun }, function (data) {
-            const tbody = $('#kasbon-table-body');
-            if (!data.length) {
-                tbody.html('<tr><td colspan="6" class="text-center py-6 text-subtle">Tidak ada data dana talangan.</td></tr>');
-                return;
-            }
-            tbody.html(data.map((r, i) => {
-                const badge = r.status === 'lunas'
-                    ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i><span>Sudah Diganti</span></span>'
-                    : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i><span>Belum Diganti</span></span>';
-                // Tampilkan nomor absen jika tersedia (siswa terhubung ke master data)
-                const namaTampil = r.absen
-                    ? `${escapeHtml(r.nama)} <span class="text-[10px] font-mono text-subtle bg-[var(--surface-2)] px-1.5 py-0.5 rounded ml-1">Absen ${escapeHtml(r.absen)}</span>`
-                    : escapeHtml(r.nama);
-                return `<tr>
-                    <td class="text-center text-subtle">${i + 1}</td>
-                    <td class="font-mono text-xs text-subtle">${escapeHtml(r.tanggal)}</td>
-                    <td class="text-ink">${namaTampil}</td>
-                    <td class="text-subtle">${escapeHtml(r.keterangan)}</td>
-                    <td class="text-right font-mono-num font-medium text-ink">${fmt(r.jumlah)}</td>
-                    <td>${badge}</td>
-                </tr>`;
-            }).join(''));
-        }).fail(function() {
-            $('#kasbon-table-body').html('<tr><td colspan="6" class="text-center py-6 text-subtle">Gagal memuat data.</td></tr>');
-        });
-    }
-
-    function loadBms() {
-        const params = { action: 'get_bms' };
-        const dari = $('#bms-dari').val();
-        const sampai = $('#bms-sampai').val();
-        if (dari) params.dari = dari;
-        if (sampai) params.sampai = sampai;
-
-        $.getJSON('src/api/public.php', params, function (data) {
-            const totals = data.totals || { setor: 0, tarik: 0, saldo: 0 };
-            const cards = [
-                ['Total Setor',  fmt(totals.setor), 'text-[var(--semantic-success)]', '<i class="fa-solid fa-arrow-trend-up text-sm"></i>'],
-                ['Total Tarik',  fmt(totals.tarik), 'text-subtle',                     '<i class="fa-solid fa-arrow-trend-down text-sm"></i>'],
-                ['Saldo Akhir',  fmt(totals.saldo), 'text-[var(--primary)]',           '<i class="fa-solid fa-scale-balanced text-sm"></i>'],
-            ];
-            $('#bms-summary-cards').html(cards.map(([t, v, colorClass, icon]) =>
-                `<div class="card-linear">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="eyebrow">${t}</span>
-                        <span class="text-subtle">${icon}</span>
-                    </div>
-                    <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
-                </div>`
-            ).join(''));
-
-            const rows = data.rows || [];
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-32">Tanggal</th>
-                        <th>Keterangan</th>
-                        <th class="w-28">Jenis</th>
-                        <th class="text-right w-36">Jumlah</th>
-                    </tr>
-                </thead>
-                <tbody>`;
             if (rows.length === 0) {
-                h += `<tr><td colspan="4" class="text-center py-6 text-subtle">Belum ada data kas BMS.</td></tr>`;
+                h += `<tr><td colspan="6" class="text-center py-6 text-subtle">Belum ada transaksi sesuai filter.</td></tr>`;
             } else {
-                h += rows.map(b =>
-                    `<tr>
-                        <td class="font-mono text-xs text-subtle">${escapeHtml(b.tanggal)}</td>
-                        <td class="text-ink">${escapeHtml(b.keterangan)}</td>
-                        <td>
-                            <span class="badge-status ${b.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">
-                                <i class="fa-solid ${b.jenis==='setor' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket'} text-[10px]"></i>
-                                <span>${b.jenis==='setor' ? 'Setor' : 'Tarik'}</span>
-                            </span>
-                        </td>
-                        <td class="text-right font-mono-num font-medium text-ink">${fmt(b.jumlah)}</td>
-                    </tr>`
-                ).join('');
+                h += rows.map(t => {
+                    let typeBadge = '';
+                    let nomColor = 'text-[var(--ink)]';
+                    let nomPrefix = '';
+
+                    if (t.type === 'income') {
+                        typeBadge = '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-down text-[9px]"></i> Masuk</span>';
+                        nomColor = 'text-emerald-500 font-semibold';
+                        nomPrefix = '+';
+                    } else if (t.type === 'expense') {
+                        typeBadge = '<span class="badge-status badge-danger font-medium"><i class="fa-solid fa-arrow-up text-[9px]"></i> Keluar</span>';
+                        nomColor = 'text-rose-500 font-semibold';
+                        nomPrefix = '-';
+                    } else if (t.type === 'transfer') {
+                        typeBadge = '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-arrow-right-arrow-left text-[9px]"></i> Transfer</span>';
+                        nomColor = 'text-indigo-400 font-semibold';
+                    }
+
+                    const catBadge = t.category_name 
+                        ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium" style="background:${escapeHtml(t.category_color || '#3b82f6')}15; color:${escapeHtml(t.category_color || '#3b82f6')}">
+                            <i class="${escapeHtml(t.category_icon || 'fa-solid fa-tag')} text-[9px]"></i>
+                            <span>${escapeHtml(t.category_name)}</span>
+                        </span>`
+                        : '<span class="text-subtle text-xs">—</span>';
+
+                    let accText = escapeHtml(t.account_name || '—');
+                    if (t.type === 'transfer' && t.to_account_name) {
+                        accText = `<div class="text-xs flex items-center gap-1"><span>${escapeHtml(t.account_name)}</span> <i class="fa-solid fa-arrow-right text-[10px] text-subtle"></i> <span>${escapeHtml(t.to_account_name)}</span></div>`;
+                    }
+
+                    return `
+                        <tr>
+                            <td class="font-mono text-xs text-subtle">${escapeHtml(t.date)}</td>
+                            <td>${typeBadge}</td>
+                            <td>${catBadge}</td>
+                            <td class="text-xs text-ink">${accText}</td>
+                            <td class="text-xs text-ink">${escapeHtml(t.description || '—')}</td>
+                            <td class="text-right font-mono-num text-xs ${nomColor}">${nomPrefix}${fmt(t.amount)}</td>
+                        </tr>
+                    `;
+                }).join('');
             }
+
             h += '</tbody></table>';
-            $('#bms-wrap').html(h);
-        }).fail(function () {
-            $('#bms-wrap').html('<div class="text-center py-6 text-subtle">Gagal memuat data.</div>');
+            $('#public-cashflow-wrap').html(h);
+            renderPagination('public-cashflow-pagination', res.pagination, p => loadPublicTransactionsTable(p));
         });
     }
+
+
+
+
 
     activate('kas');
 
-    // ── Alokasi Dana loader ──────────────────────────────────────────────
-    let alokasiPage = 1;
-    let alokasiDonut = null;
-    const alokasiColors = ['#60a5fa', '#a78bfa', '#34d399', '#fbbf24', '#f87171'];
-
-    // Render KPI cards & donut dari data accounts (format sama: [{name, saldo, type, parent_type, icon}])
-    function renderAlokasiKpiCards(accounts, donut, isFiltered) {
-        const PT_COLORS = { cash: 'text-[var(--primary)]', ewallet: 'text-violet-400', bank: 'text-emerald-400', other: 'text-amber-400' };
-        $('#alokasi-accounts').html(accounts.map(a => {
-            const colorClass = PT_COLORS[a.parent_type] || PT_COLORS[a.type] || 'text-[var(--primary)]';
-            const icon = a.icon || 'fa-solid fa-vault';
-            const badge = isFiltered ? '<span class="ml-1 text-[9px] font-semibold tracking-wide uppercase text-amber-400">filter</span>' : '';
-            return `<div class="card-linear">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="eyebrow">${escapeHtml(a.name)}${badge}</span>
-                    <span class="text-subtle"><i class="${escapeHtml(icon)} text-sm"></i></span>
-                </div>
-                <div class="text-2xl font-bold font-mono-num ${colorClass}">${fmt(a.saldo)}</div>
-            </div>`;
-        }).join('') || '<div class="text-subtle text-sm">Belum ada akun aktif.</div>');
-    }
-
-    function loadAlokasi() {
-        $.getJSON('src/api/public.php?action=get_storage_breakdown', function (s) {
-            renderAlokasiKpiCards(s.accounts || [], s.donut, false);
-            loadAlokasiHistory();
-        }).fail(function () {
-            $('#alokasi-accounts').html('<div class="text-subtle text-sm">Gagal memuat data alokasi.</div>');
-        });
-    }
-
-    function loadAlokasiHistory(page) {
-        if (page !== undefined) alokasiPage = page;
-        const params = new URLSearchParams({ action: 'get_allocations', page: alokasiPage, limit: 15 });
-        const dari        = $('#alokasi-dari').val();
-        const sampai      = $('#alokasi-sampai').val();
-        const keterangan  = $('#alokasi-keterangan-search').val().trim();
-        if (dari)        params.set('dari', dari);
-        if (sampai)      params.set('sampai', sampai);
-        if (keterangan)  params.set('keterangan', keterangan);
-
-        // Jika ada filter aktif, perbarui KPI cards dengan data filtered
-        const hasFilter = dari || sampai || keterangan;
-        if (hasFilter) {
-            const kpiParams = new URLSearchParams({ action: 'get_alokasi_filtered_kpi' });
-            if (dari)        kpiParams.set('dari', dari);
-            if (sampai)      kpiParams.set('sampai', sampai);
-            if (keterangan)  kpiParams.set('keterangan', keterangan);
-            $.getJSON('src/api/public.php?' + kpiParams.toString(), function (kpi) {
-                renderAlokasiKpiCards(kpi.accounts || [], kpi.donut, true);
-            });
-        }
-
-        $('#alokasi-allocations-wrap').html('<div class="text-center py-6 text-subtle">Memuat…</div>');
-        $('#alokasi-allocations-pagination').empty();
-        $.getJSON('src/api/public.php?' + params.toString(), function (res) {
-            const rows = res.data || [];
-            const refLabel = { bms_setor: 'Setor BMS', bms_tarik: 'Tarik BMS', kas_mingguan: 'Kas Mingguan', manual: 'Manual' };
-            let html = '<table class="table-linear"><thead><tr><th class="w-32">Tanggal</th><th>Sumber</th><th>Keterangan</th><th>Pembagian</th><th class="text-right w-36">Total</th></tr></thead><tbody>';
-            if (!rows.length) {
-                html += '<tr><td colspan="5" class="text-center py-6 text-subtle">Belum ada alokasi.</td></tr>';
-            } else {
-                rows.forEach(r => {
-                    const lines = (r.lines || []).map(l => `${escapeHtml(l.account)} (${fmt(l.nominal)})`).join(', ');
-                    html += `<tr>
-                        <td class="font-mono text-xs text-subtle">${escapeHtml(r.tanggal)}</td>
-                        <td><span class="badge-neutral">${escapeHtml(refLabel[r.ref_type] || r.ref_type)}</span></td>
-                        <td class="text-ink">${escapeHtml(r.keterangan || '-')}</td>
-                        <td class="text-subtle text-xs">${lines || '-'}</td>
-                        <td class="text-right font-mono-num font-medium text-ink">${fmt(r.total_nominal)}</td>
-                    </tr>`;
-                });
-            }
-            html += '</tbody></table>';
-            $('#alokasi-allocations-wrap').html(html);
-            renderPagination('alokasi-allocations-pagination', res.pagination, (p) => loadAlokasiHistory(p));
-        }).fail(function () {
-            $('#alokasi-allocations-wrap').html('<div class="text-center py-6 text-subtle">Gagal memuat data.</div>');
-        });
-    }
-    $('#alokasi-apply').on('click', () => { alokasiPage = 1; loadAlokasiHistory(); });
-    $('#alokasi-reset').on('click', function () {
-        $('#alokasi-dari').val('');
-        $('#alokasi-sampai').val('');
-        $('#alokasi-keterangan-search').val('');
-        alokasiPage = 1;
-        loadAlokasi();
-    });
-    $('#alokasi-keterangan-search').on('keyup', function (e) {
-        if (e.key === 'Enter') { alokasiPage = 1; loadAlokasiHistory(); }
-    });
 
     // ── Riwayat helpers & loader ──────────────────────────────────────────
     function truncate(s, n) {

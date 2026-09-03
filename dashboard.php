@@ -90,25 +90,17 @@ try {
                     <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
                     <span>Kas Kelas</span>
                 </a>
-                <a data-tab="bms" class="sidebar-nav-item">
-                    <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
-                    <span>Kas BMS</span>
+                <a data-tab="jurnal" class="sidebar-nav-item">
+                    <i class="fa-solid fa-wallet w-4 text-center"></i>
+                    <span>Cashflow & Dompet</span>
                 </a>
-                <a data-tab="alokasi" class="sidebar-nav-item">
-                    <i class="fa-solid fa-vault w-4 text-center"></i>
-                    <span>Alokasi Dana</span>
-                </a>
-                <a data-tab="kasbon" class="sidebar-nav-item">
-                    <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
-                    <span>Dana Talangan</span>
+                <a data-tab="accounts_categories" class="sidebar-nav-item">
+                    <i class="fa-solid fa-layer-group w-4 text-center"></i>
+                    <span>Akun & Kategori</span>
                 </a>
                 <a data-tab="riwayat" class="sidebar-nav-item">
                     <i class="fa-solid fa-clock-rotate-left w-4 text-center"></i>
-                    <span>Riwayat</span>
-                </a>
-                <a data-tab="jurnal" class="sidebar-nav-item">
-                    <i class="fa-solid fa-receipt w-4 text-center"></i>
-                    <span>Cashflow</span>
+                    <span>Log Aktivitas</span>
                 </a>
                 <a data-tab="ekspor" class="sidebar-nav-item">
                     <i class="fa-solid fa-file-export w-4 text-center"></i>
@@ -193,34 +185,99 @@ try {
             <div id="kas-wrap" class="table-container overflow-x-auto"></div>
         </section>
 
-        <!-- Section: Kelola Jurnal -->
+        <!-- Section: Centralized Cashflow & Money Tracker -->
         <section data-tab-content="jurnal" class="tab-content hidden">
-            <div class="flex items-center justify-between mb-4">
+            <!-- Header & Action Bar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h2 class="display-md">Kelola Jurnal Kas</h2>
-                    <p class="text-sm text-[var(--ink-muted)]">Catat pengeluaran dan pemasukan kas secara akurat.</p>
+                    <h2 class="display-md">Cashflow & Saldo Dompet</h2>
+                    <p class="text-sm text-[var(--ink-muted)]">Pencatatan arus kas sentral, dompet simpanan, dan mutasi saldo.</p>
                 </div>
-                <button id="btn-add-jurnal" class="btn-primary gap-2">
-                    <i class="fa-solid fa-plus text-xs"></i>
-                    <span>Tambah Transaksi</span>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button id="btn-cashflow-income" class="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 px-3 py-2">
+                        <i class="fa-solid fa-arrow-down text-[11px]"></i>
+                        <span>+ Pemasukan</span>
+                    </button>
+                    <button id="btn-cashflow-expense" class="btn-primary bg-rose-600 hover:bg-rose-700 text-white text-xs gap-1.5 px-3 py-2">
+                        <i class="fa-solid fa-arrow-up text-[11px]"></i>
+                        <span>- Pengeluaran</span>
+                    </button>
+                    <button id="btn-cashflow-transfer" class="btn-secondary text-xs gap-1.5 px-3 py-2">
+                        <i class="fa-solid fa-arrow-right-arrow-left text-[11px]"></i>
+                        <span>⇄ Transfer Dompet</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Queue Notification Banner -->
+            <div id="cashflow-queue-banner" class="hidden mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-bell text-base"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-[var(--ink)]">Uang Kas Mingguan Belum Dicatat ke Dompet</h4>
+                        <p class="text-xs text-[var(--ink-muted)]">Ada <span id="queue-count-badge" class="font-bold text-amber-600">0</span> antrean (<span id="queue-nominal-badge" class="font-bold text-amber-600">Rp 0</span>) dari centangan kas mingguan yang siap dimasukkan ke pembukuan akun.</p>
+                    </div>
+                </div>
+                <button id="btn-open-queue-modal" class="btn-primary bg-amber-600 hover:bg-amber-700 text-white text-xs px-4 py-2 flex items-center gap-2">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Catat ke Akun Sekarang</span>
                 </button>
             </div>
-            <div class="flex flex-wrap gap-2 mb-4 items-end">
-                <div>
-                    <label class="eyebrow block mb-1">Bulan</label>
-                    <select id="jurnal-bulan" class="input-linear w-44"></select>
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Tahun</label>
-                    <select id="jurnal-tahun" class="input-linear w-32"></select>
-                </div>
-                <button id="jurnal-reset" type="button" class="btn-secondary text-xs gap-2">
-                    <i class="fa-solid fa-rotate-left text-[10px]"></i>
-                    <span>Semua Periode</span>
-                </button>
+
+            <!-- Total Kas & Accounts Grid -->
+            <div class="mb-6">
+                <div class="eyebrow mb-2">Ringkasan Dompet & Saldo Kas</div>
+                <div id="cashflow-accounts-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4"></div>
             </div>
-            <div id="jurnal-wrap" class="table-container overflow-x-auto"></div>
-            <div id="jurnal-pagination"></div>
+
+            <!-- Transactions Filter Bar -->
+            <div class="card-linear p-4 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 items-end">
+                    <div>
+                        <label class="eyebrow block mb-1">Tipe</label>
+                        <select id="cf-filter-type" class="input-linear w-full">
+                            <option value="">Semua Tipe</option>
+                            <option value="income">Pemasukan (+)</option>
+                            <option value="expense">Pengeluaran (-)</option>
+                            <option value="transfer">Transfer (⇄)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Dompet / Akun</label>
+                        <select id="cf-filter-account" class="input-linear w-full">
+                            <option value="">Semua Akun</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Kategori</label>
+                        <select id="cf-filter-category" class="input-linear w-full">
+                            <option value="">Semua Kategori</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Dari Tanggal</label>
+                        <input type="date" id="cf-filter-dari" class="input-linear w-full">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Sampai Tanggal</label>
+                        <input type="date" id="cf-filter-sampai" class="input-linear w-full">
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="cf-filter-reset" type="button" class="btn-secondary text-xs w-full justify-center">
+                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <input type="text" id="cf-filter-search" placeholder="Cari keterangan transaksi..." class="input-linear w-full text-xs">
+                </div>
+            </div>
+
+            <!-- Transactions Table -->
+            <div id="cashflow-table-wrap" class="table-container overflow-x-auto mb-4"></div>
+            <div id="cashflow-pagination"></div>
         </section>
 
             <section data-tab-content="ekspor" class="tab-content hidden">
@@ -357,136 +414,48 @@ try {
             </div>
         </section>
 
-        <!-- Section: Kelola Kasbon -->
-        <section data-tab-content="kasbon" class="tab-content hidden">
-            <div class="flex items-center justify-between mb-4">
+        <!-- Section: Kelola Akun & Kategori -->
+        <section data-tab-content="accounts_categories" class="tab-content hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h2 class="display-md">Kelola Dana Talangan</h2>
-                    <p class="text-sm text-[var(--ink-muted)]">Catat dan kelola dana talangan (reimbursement) siswa.</p>
+                    <h2 class="display-md">Kelola Akun & Kategori</h2>
+                    <p class="text-sm text-[var(--ink-muted)]">Atur tempat penyimpanan saldo (dompet/rekening) dan pos kategori keuangan kelas.</p>
                 </div>
-            </div>
-
-            <div class="card-linear p-4 mb-6">
-                <form id="form-kasbon" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                    <input type="hidden" id="kasbon-edit-id" value="">
-                    <div>
-                        <label class="eyebrow block mb-1">Peminjam (Siswa) *</label>
-                        <select id="kasbon-siswa-id" required class="input-linear">
-                            <option value="">— Pilih Siswa —</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="eyebrow block mb-1">Tanggal *</label>
-                        <input type="date" id="kasbon-tanggal" required class="input-linear">
-                    </div>
-                    <div>
-                        <label class="eyebrow block mb-1">Keterangan *</label>
-                        <input type="text" id="kasbon-keterangan" required class="input-linear">
-                    </div>
-                    <div>
-                        <label class="eyebrow block mb-1">Jumlah *</label>
-                        <input type="number" id="kasbon-jumlah" min="1" step="any" required class="input-linear">
-                    </div>
-                    <div>
-                        <label class="eyebrow block mb-1">Status</label>
-                        <select id="kasbon-status" class="input-linear">
-                            <option value="belum_lunas">Belum Diganti</option>
-                            <option value="lunas">Sudah Diganti</option>
-                        </select>
-                    </div>
-                    <div class="sm:col-span-2 lg:col-span-5 flex gap-2">
-                        <button type="submit" id="kasbon-submit-btn" class="btn-primary gap-2">
-                            <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Tambah</span>
-                        </button>
-                        <button type="button" id="kasbon-cancel-btn" class="hidden btn-secondary gap-2">
-                            <i class="fa-solid fa-xmark text-xs"></i>
-                            <span>Batal</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="flex flex-wrap gap-2 mb-4 items-end">
-                <div>
-                    <label class="eyebrow block mb-1">Bulan</label>
-                    <select id="admin-kasbon-bulan" class="input-linear w-44"></select>
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Tahun</label>
-                    <select id="admin-kasbon-tahun" class="input-linear w-32"></select>
-                </div>
-            </div>
-
-            <div id="kasbon-wrap" class="table-container overflow-x-auto"></div>
-        </section>
-
-        <!-- Section: Kas BMS -->
-        <section data-tab-content="bms" class="tab-content hidden">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <h2 class="display-md">Kas BMS</h2>
-                    <p class="text-sm text-[var(--ink-muted)]">Catat dan kelola dana BMS (setor/tarik).</p>
-                </div>
-                <button id="bms-add-btn" class="btn-primary gap-2">
-                    <i class="fa-solid fa-plus text-xs"></i>
-                    <span>Tambah Transaksi</span>
-                </button>
-            </div>
-
-            <div id="bms-wrap" class="table-container overflow-x-auto"></div>
-        </section>
-
-        <!-- Section: Alokasi Dana -->
-        <section data-tab-content="alokasi" class="tab-content hidden">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <h2 class="display-md">Alokasi Dana</h2>
-                    <p class="text-sm text-[var(--ink-muted)]">Pecah dana masuk ke beberapa tempat simpan, atau transfer antar akun.</p>
-                </div>
-                <div class="flex gap-2 flex-wrap">
-                    <button id="alokasi-add-btn" class="btn-primary gap-2">
-                        <i class="fa-solid fa-plus text-xs"></i><span>Alokasi Baru</span>
+                <div class="flex gap-2">
+                    <button id="btn-add-account-master" class="btn-primary text-xs gap-1.5 px-3 py-2">
+                        <i class="fa-solid fa-plus"></i> <span>Tambah Dompet / Akun</span>
                     </button>
-                    <button id="alokasi-transfer-btn" class="btn-secondary gap-2">
-                        <i class="fa-solid fa-arrow-right-arrow-left text-xs"></i><span>Transfer</span>
-                    </button>
-                    <button id="alokasi-manage-accounts-btn" class="btn-secondary gap-2">
-                        <i class="fa-solid fa-gear text-xs"></i><span>Kelola Akun Simpan</span>
+                    <button id="btn-add-category-master" class="btn-secondary text-xs gap-1.5 px-3 py-2">
+                        <i class="fa-solid fa-plus"></i> <span>Tambah Kategori</span>
                     </button>
                 </div>
             </div>
 
-            <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Kolom 1: Daftar Akun / Dompet -->
+                <div class="card-linear p-5">
+                    <div class="flex items-center justify-between mb-4 border-b border-[var(--hairline)] pb-3">
+                        <h3 class="headline flex items-center gap-2">
+                            <i class="fa-solid fa-wallet text-indigo-500"></i>
+                            <span>Daftar Dompet / Rekening</span>
+                        </h3>
+                        <span id="master-account-count" class="text-xs text-[var(--ink-muted)]">0 akun</span>
+                    </div>
+                    <div id="master-accounts-list" class="space-y-3"></div>
+                </div>
 
-            <div class="card-linear p-4 mb-3">
-                <div class="flex flex-wrap gap-2 items-end">
-                    <div>
-                        <span class="eyebrow block mb-1">Dari</span>
-                        <input type="date" id="alokasi-dari" class="input-linear">
+                <!-- Kolom 2: Daftar Kategori -->
+                <div class="card-linear p-5">
+                    <div class="flex items-center justify-between mb-4 border-b border-[var(--hairline)] pb-3">
+                        <h3 class="headline flex items-center gap-2">
+                            <i class="fa-solid fa-tags text-emerald-500"></i>
+                            <span>Daftar Kategori Transaksi</span>
+                        </h3>
+                        <span id="master-category-count" class="text-xs text-[var(--ink-muted)]">0 kategori</span>
                     </div>
-                    <div>
-                        <span class="eyebrow block mb-1">Sampai</span>
-                        <input type="date" id="alokasi-sampai" class="input-linear">
-                    </div>
-                    <div class="flex-1 min-w-[160px]">
-                        <span class="eyebrow block mb-1">Keterangan</span>
-                        <input type="text" id="alokasi-keterangan-search" placeholder="Cari keterangan…" class="input-linear w-full">
-                    </div>
-                    <button id="alokasi-apply" class="btn-primary text-xs gap-2">
-                        <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
-                    </button>
-                    <button id="alokasi-reset" class="btn-secondary text-xs gap-2">
-                        <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
-                    </button>
+                    <div id="master-categories-list" class="space-y-3"></div>
                 </div>
             </div>
-            <div id="alokasi-allocations-wrap" class="table-container overflow-x-auto"></div>
-            <div id="alokasi-allocations-pagination"></div>
-
-            <div class="mt-8 mb-3"><h3 class="headline">Histori Transfer</h3></div>
-            <div id="alokasi-transfers-wrap" class="table-container overflow-x-auto"></div>
-            <div id="alokasi-transfers-pagination"></div>
         </section>
 
         <!-- Section: Riwayat -->
@@ -534,331 +503,206 @@ try {
         </section>
     </main>
 
-    <!-- Modal Form Transaksi Jurnal -->
-    <div id="modal-jurnal" class="modal-overlay hidden">
-        <form id="form-jurnal" class="modal-card">
-            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
-                <h3 class="headline text-lg flex items-center gap-2">
-                    <i class="fa-solid fa-pen-to-square text-sm text-[var(--primary)]"></i>
-                    <span>Transaksi Jurnal</span>
+    <!-- Modal: Form Transaksi Sentral (Pemasukan / Pengeluaran / Transfer) -->
+    <div id="modal-transaction" class="modal-overlay hidden">
+        <form id="form-transaction" class="modal-card max-w-lg">
+            <input type="hidden" id="tx-id" value="">
+            <div class="flex items-center justify-between mb-4 border-b border-[var(--hairline)] pb-3">
+                <h3 id="modal-tx-title" class="headline flex items-center gap-2">
+                    <i class="fa-solid fa-receipt text-indigo-500"></i>
+                    <span>Catat Transaksi</span>
                 </h3>
-                <button type="button" id="modal-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                <button type="button" class="btn-close-modal text-[var(--ink-muted)] hover:text-[var(--ink)]">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <input type="hidden" name="id">
-            <div class="space-y-3 mb-6">
+            <div class="space-y-4">
                 <div>
-                    <label class="eyebrow block mb-1">Tanggal</label>
-                    <input type="date" name="tanggal" required class="input-linear" value="<?= date('Y-m-d') ?>">
+                    <label class="eyebrow block mb-1">Tipe Transaksi *</label>
+                    <div class="grid grid-cols-3 gap-2" id="tx-type-selector">
+                        <button type="button" data-type="income" class="tx-type-btn p-2.5 rounded-lg border border-[var(--hairline)] text-center text-xs font-semibold hover:border-emerald-500 hover:text-emerald-500 transition">
+                            <i class="fa-solid fa-arrow-down block mb-1 text-sm text-emerald-500"></i> Pemasukan
+                        </button>
+                        <button type="button" data-type="expense" class="tx-type-btn p-2.5 rounded-lg border border-[var(--hairline)] text-center text-xs font-semibold hover:border-rose-500 hover:text-rose-500 transition">
+                            <i class="fa-solid fa-arrow-up block mb-1 text-sm text-rose-500"></i> Pengeluaran
+                        </button>
+                        <button type="button" data-type="transfer" class="tx-type-btn p-2.5 rounded-lg border border-[var(--hairline)] text-center text-xs font-semibold hover:border-indigo-500 hover:text-indigo-500 transition">
+                            <i class="fa-solid fa-arrow-right-arrow-left block mb-1 text-sm text-indigo-500"></i> Transfer
+                        </button>
+                    </div>
+                    <input type="hidden" id="tx-type" name="type" value="income" required>
                 </div>
-                <div>
-                    <label class="eyebrow block mb-1">Keterangan</label>
-                    <input name="keterangan" required placeholder="Contoh: Beli spidol & kertas" class="input-linear">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="eyebrow block mb-1">Tanggal *</label>
+                        <input type="date" id="tx-date" name="date" required class="input-linear w-full" value="<?= date('Y-m-d') ?>">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Nominal (Rp) *</label>
+                        <input type="number" id="tx-amount" name="amount" min="1" step="any" placeholder="0" required class="input-linear w-full font-mono font-semibold">
+                    </div>
                 </div>
-                <div>
-                    <label class="eyebrow block mb-1">Jenis Transaksi</label>
-                    <select name="jenis" class="input-linear">
-                        <option value="masuk">Pemasukan (Masuk)</option>
-                        <option value="keluar">Pengeluaran (Keluar)</option>
-                    </select>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label id="tx-account-label" class="eyebrow block mb-1">Dompet / Akun *</label>
+                        <select id="tx-account-id" name="account_id" required class="input-linear w-full"></select>
+                    </div>
+                    <div id="tx-to-account-group" class="hidden">
+                        <label class="eyebrow block mb-1">Tujuan Transfer *</label>
+                        <select id="tx-to-account-id" name="to_account_id" class="input-linear w-full"></select>
+                    </div>
+                    <div id="tx-category-group">
+                        <label class="eyebrow block mb-1">Kategori *</label>
+                        <select id="tx-category-id" name="category_id" class="input-linear w-full"></select>
+                    </div>
                 </div>
+
                 <div>
-                    <label class="eyebrow block mb-1">Nominal (Rp)</label>
-                    <input type="number" name="nominal" required min="1" placeholder="0" class="input-linear">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">
-                        Tempat Penyimpanan
-                        <span class="text-[var(--ink-muted)] font-normal normal-case ml-1">(opsional)</span>
-                    </label>
-                    <select name="storage_account_id" id="jurnal-storage-select" class="input-linear">
-                        <option value="">— Tidak dicatat ke dompet —</option>
-                    </select>
-                    <p class="text-[11px] text-[var(--ink-muted)] mt-1">Jika dipilih, saldo dompet akan otomatis diperbarui.</p>
+                    <label class="eyebrow block mb-1">Keterangan / Rincian</label>
+                    <textarea id="tx-description" name="description" rows="2" placeholder="Contoh: Beli spidol & kertas HVS" class="input-linear w-full text-xs"></textarea>
                 </div>
             </div>
-            <div class="flex justify-end gap-2">
-                <button type="button" id="modal-close-btn" class="btn-secondary">Batal</button>
-                <button class="btn-primary gap-2">
-                    <i class="fa-solid fa-floppy-disk text-xs"></i>
-                    <span>Simpan Transaksi</span>
-                </button>
+
+            <div class="flex justify-end gap-2 mt-6 pt-4 border-t border-[var(--hairline)]">
+                <button type="button" class="btn-close-modal btn-secondary">Batal</button>
+                <button type="submit" id="btn-save-tx" class="btn-primary">Simpan Transaksi</button>
             </div>
         </form>
     </div>
 
-    <!-- Modal Konfirmasi Simpan Kas Mingguan -->
-    <div id="modal-kas-save-confirm" class="modal-overlay hidden">
-        <div class="modal-card max-w-md">
-            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
-                <h3 class="headline text-base flex items-center gap-2">
-                    <i class="fa-solid fa-money-bill-wave text-sm text-[var(--primary)]"></i>
-                    <span>Simpan Kas Mingguan</span>
+    <!-- Modal: Bukukan Antrean Kas Mingguan -->
+    <div id="modal-claim-queue" class="modal-overlay hidden">
+        <form id="form-claim-queue" class="modal-card max-w-md">
+            <input type="hidden" id="claim-queue-id" value="">
+            <div class="flex items-center justify-between mb-4 border-b border-[var(--hairline)] pb-3">
+                <h3 class="headline flex items-center gap-2">
+                    <i class="fa-solid fa-coins text-amber-500"></i>
+                    <span>Bukukan Kas Mingguan</span>
                 </h3>
-                <button type="button" id="kas-confirm-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                <button type="button" class="btn-close-modal text-[var(--ink-muted)] hover:text-[var(--ink)]">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <div class="mb-4">
-                <div class="rounded-lg bg-[var(--surface-2)] border border-[var(--hairline)] px-4 py-3 mb-4 text-sm">
-                    <div class="eyebrow mb-1">Pembayaran Baru Terdeteksi</div>
-                    <div class="text-2xl font-bold font-mono-num text-[var(--primary)]" id="kas-confirm-nominal">Rp 0</div>
-                    <div class="text-[11px] text-[var(--ink-muted)] mt-1" id="kas-confirm-detail">—</div>
+            <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl mb-4 text-xs">
+                <div class="font-semibold text-amber-600 mb-1" id="claim-queue-title">Penerimaan Kas Mingguan</div>
+                <div class="text-2xl font-bold font-mono text-[var(--ink)]" id="claim-queue-nominal">Rp 0</div>
+                <div class="text-[var(--ink-muted)] mt-1" id="claim-queue-info">Pilih dompet tempat fisik/digital uang ini disimpan.</div>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="eyebrow block mb-1">Masukkan ke Akun / Dompet *</label>
+                    <select id="claim-account-id" required class="input-linear w-full"></select>
                 </div>
-                <label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-[var(--hairline)] hover:bg-[var(--surface-2)] transition-colors mb-3" id="kas-confirm-toggle-label">
-                    <input type="checkbox" id="kas-confirm-catat" class="mt-0.5 accent-[var(--primary)]" checked>
+                <div>
+                    <label class="eyebrow block mb-1">Pos Kategori *</label>
+                    <select id="claim-category-id" required class="input-linear w-full"></select>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Keterangan Transaksi</label>
+                    <input type="text" id="claim-description" class="input-linear w-full text-xs" placeholder="Contoh: Penerimaan kas minggu 1">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6 pt-4 border-t border-[var(--hairline)]">
+                <button type="button" class="btn-close-modal btn-secondary">Batal</button>
+                <button type="submit" id="btn-submit-claim" class="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white">Catat ke Akun</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal: Tambah/Edit Akun Dompet Master -->
+    <div id="modal-account" class="modal-overlay hidden">
+        <form id="form-account" class="modal-card max-w-md">
+            <input type="hidden" id="acc-id" value="">
+            <div class="flex items-center justify-between mb-4 border-b border-[var(--hairline)] pb-3">
+                <h3 id="modal-account-title" class="headline">Tambah Dompet / Akun</h3>
+                <button type="button" class="btn-close-modal text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="eyebrow block mb-1">Nama Akun *</label>
+                    <input type="text" id="acc-name" required class="input-linear w-full" placeholder="Contoh: Kas Tunai, DANA, BCA">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <div class="text-sm font-medium text-[var(--ink)]">Catat otomatis ke Jurnal Kas</div>
-                        <div class="text-[11px] text-[var(--ink-muted)]">Transaksi pemasukan akan ditambahkan ke Jurnal Kas secara otomatis.</div>
-                    </div>
-                </label>
-                <div id="kas-confirm-jurnal-opts" class="space-y-2 pl-2">
-                    <div>
-                        <label class="eyebrow block mb-1">Tanggal Jurnal</label>
-                        <input type="date" id="kas-confirm-tgl" class="input-linear" value="<?= date('Y-m-d') ?>">
-                    </div>
-                    <div>
-                        <label class="eyebrow block mb-1">Keterangan Jurnal</label>
-                        <input type="text" id="kas-confirm-ket" class="input-linear" placeholder="Penerimaan Kas Mingguan ...">
-                    </div>
-                    <div>
-                        <label class="eyebrow block mb-1">
-                            Simpan ke Tempat Penyimpanan
-                            <span class="text-[var(--ink-muted)] font-normal normal-case ml-1">(opsional)</span>
-                        </label>
-                        <select id="kas-confirm-storage" class="input-linear">
-                            <option value="">— Tidak dicatat ke dompet —</option>
+                        <label class="eyebrow block mb-1">Tipe Akun</label>
+                        <select id="acc-type" class="input-linear w-full">
+                            <option value="cash">Uang Tunai</option>
+                            <option value="ewallet">E-Wallet</option>
+                            <option value="bank">Bank / Rekening</option>
+                            <option value="other">Lainnya</option>
                         </select>
                     </div>
-                </div>
-            </div>
-            <div class="flex justify-end gap-2">
-                <button type="button" id="kas-confirm-skip" class="btn-secondary">Simpan Saja (Tanpa Jurnal)</button>
-                <button type="button" id="kas-confirm-save" class="btn-primary gap-2">
-                    <i class="fa-solid fa-floppy-disk text-xs"></i>
-                    <span>Simpan &amp; Catat</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Form Kas BMS -->
-    <div id="bms-modal" class="modal-overlay hidden">
-        <form id="bms-form" class="modal-card">
-            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
-                <h3 class="headline text-lg flex items-center gap-2">
-                    <i class="fa-solid fa-sack-dollar text-sm text-[var(--primary)]"></i>
-                    <span>Form Kas BMS</span>
-                </h3>
-                <button type="button" id="bms-modal-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-            <input type="hidden" id="bms-edit-id" value="">
-            <div class="space-y-3 mb-6">
-                <div>
-                    <label class="eyebrow block mb-1">Tanggal</label>
-                    <input type="date" id="bms-tanggal" required class="input-linear">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Keterangan</label>
-                    <input type="text" id="bms-keterangan" required placeholder="Contoh: Dana BMS masuk" class="input-linear">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Jenis</label>
-                    <div class="flex gap-4 mt-1">
-                        <label class="inline-flex items-center gap-2 text-sm text-[var(--ink)]">
-                            <input type="radio" name="bms-jenis" value="setor" checked> Setor
-                        </label>
-                        <label class="inline-flex items-center gap-2 text-sm text-[var(--ink)]">
-                            <input type="radio" name="bms-jenis" value="tarik"> Tarik
-                        </label>
+                    <div>
+                        <label class="eyebrow block mb-1">Urutan Tampil</label>
+                        <input type="number" id="acc-sort" class="input-linear w-full" value="1" min="0">
                     </div>
                 </div>
                 <div>
-                    <label class="eyebrow block mb-1">Jumlah (Rp)</label>
-                    <input type="number" id="bms-jumlah" min="1" step="1" required placeholder="0" class="input-linear">
+                    <label class="eyebrow block mb-1">Saldo Awal (Rp)</label>
+                    <input type="number" id="acc-initial-balance" class="input-linear w-full font-mono" value="0" min="0" step="any">
+                    <p class="text-[11px] text-[var(--ink-muted)] mt-1">Saldo saat sistem baru mulai digunakan.</p>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Ikon FontAwesome</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="acc-icon" class="input-linear flex-1" value="fa-solid fa-wallet">
+                        <span id="acc-icon-preview" class="w-8 h-8 rounded-lg bg-[var(--surface-2)] flex items-center justify-center text-sm"><i class="fa-solid fa-wallet"></i></span>
+                    </div>
                 </div>
             </div>
-            <div class="flex justify-end gap-2">
-                <button type="button" id="bms-cancel-btn" class="btn-secondary">Batal</button>
-                <button type="submit" id="bms-submit-btn" class="btn-primary gap-2">
-                    <i class="fa-solid fa-floppy-disk text-xs"></i>
-                    <span>Simpan</span>
-                </button>
+            <div class="flex justify-end gap-2 mt-6 pt-4 border-t border-[var(--hairline)]">
+                <button type="button" class="btn-close-modal btn-secondary">Batal</button>
+                <button type="submit" id="btn-save-acc" class="btn-primary">Simpan Akun</button>
             </div>
         </form>
     </div>
 
-    <!-- Modal Form Alokasi Dana -->
-    <div id="modal-alokasi" class="modal-overlay hidden">
-        <form id="form-alokasi" class="modal-card">
-            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
-                <h3 class="headline text-lg flex items-center gap-2">
-                    <i class="fa-solid fa-vault text-sm text-[var(--primary)]"></i>
-                    <span>Form Alokasi Dana</span>
-                </h3>
-                <button type="button" id="alokasi-modal-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
+    <!-- Modal: Tambah/Edit Kategori Master -->
+    <div id="modal-category" class="modal-overlay hidden">
+        <form id="form-category" class="modal-card max-w-md">
+            <input type="hidden" id="cat-id" value="">
+            <div class="flex items-center justify-between mb-4 border-b border-[var(--hairline)] pb-3">
+                <h3 id="modal-category-title" class="headline">Tambah Kategori</h3>
+                <button type="button" class="btn-close-modal text-[var(--ink-muted)] hover:text-[var(--ink)]">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <input type="hidden" id="alokasi-edit-id" value="">
-            <div class="space-y-3 mb-6">
+            <div class="space-y-3">
                 <div>
-                    <label class="eyebrow block mb-1">Tanggal</label>
-                    <input type="date" id="alokasi-tanggal" required class="input-linear">
+                    <label class="eyebrow block mb-1">Nama Kategori *</label>
+                    <input type="text" id="cat-name" required class="input-linear w-full" placeholder="Contoh: Uang Kas, Pembelian ATK, Hadiah Lomba">
                 </div>
-                <div>
-                    <label class="eyebrow block mb-1">Sumber Dana</label>
-                    <select id="alokasi-ref_type" class="input-linear">
-                        <option value="bms_setor">Setor BMS</option>
-                        <option value="bms_tarik">Tarik BMS</option>
-                        <option value="kas_mingguan">Kas Mingguan</option>
-                        <option value="manual">Manual / Lainnya</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Keterangan</label>
-                    <input type="text" id="alokasi-keterangan" placeholder="Contoh: Hasil iuran minggu 3" class="input-linear">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Total Nominal (Rp)</label>
-                    <input type="number" id="alokasi-total" min="1" step="any" required placeholder="0" class="input-linear">
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="eyebrow">Pembagian ke Akun</label>
-                        <button type="button" id="alokasi-add-line" class="btn-secondary text-xs gap-1">
-                            <i class="fa-solid fa-plus text-[10px]"></i><span>Tambah Baris</span>
-                        </button>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="eyebrow block mb-1">Jenis Kategori</label>
+                        <select id="cat-type" class="input-linear w-full">
+                            <option value="both">Pemasukan & Pengeluaran</option>
+                            <option value="income">Hanya Pemasukan</option>
+                            <option value="expense">Hanya Pengeluaran</option>
+                        </select>
                     </div>
-                    <div id="alokasi-lines" class="space-y-2"></div>
-                    <div class="text-xs text-[var(--ink-muted)] mt-2">Sisa belum dialokasikan: <b id="alokasi-remaining">Rp 0</b></div>
+                    <div>
+                        <label class="eyebrow block mb-1">Warna Label</label>
+                        <input type="color" id="cat-color" class="input-linear w-full h-9 p-1 cursor-pointer" value="#3b82f6">
+                    </div>
+                </div>
+                <div>
+                    <label class="eyebrow block mb-1">Ikon FontAwesome</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="cat-icon" class="input-linear flex-1" value="fa-solid fa-tag">
+                        <span id="cat-icon-preview" class="w-8 h-8 rounded-lg bg-[var(--surface-2)] flex items-center justify-center text-sm"><i class="fa-solid fa-tag"></i></span>
+                    </div>
                 </div>
             </div>
-            <div class="flex justify-end gap-2">
-                <button type="button" id="alokasi-cancel-btn" class="btn-secondary">Batal</button>
-                <button type="submit" id="alokasi-submit-btn" class="btn-primary gap-2">
-                    <i class="fa-solid fa-floppy-disk text-xs"></i><span>Simpan Alokasi</span>
-                </button>
+            <div class="flex justify-end gap-2 mt-6 pt-4 border-t border-[var(--hairline)]">
+                <button type="button" class="btn-close-modal btn-secondary">Batal</button>
+                <button type="submit" id="btn-save-cat" class="btn-primary">Simpan Kategori</button>
             </div>
         </form>
-    </div>
-
-    <!-- Modal Form Transfer -->
-    <div id="modal-transfer" class="modal-overlay hidden">
-        <form id="form-transfer" class="modal-card">
-            <div class="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline)]">
-                <h3 class="headline text-lg flex items-center gap-2">
-                    <i class="fa-solid fa-arrow-right-arrow-left text-sm text-[var(--primary)]"></i>
-                    <span>Form Transfer</span>
-                </h3>
-                <button type="button" id="transfer-modal-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)]">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-            <div class="space-y-3 mb-6">
-                <div>
-                    <label class="eyebrow block mb-1">Tanggal</label>
-                    <input type="date" id="transfer-tanggal" required class="input-linear">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Dari Akun</label>
-                    <select id="transfer-from" class="input-linear"></select>
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Ke Akun</label>
-                    <select id="transfer-to" class="input-linear"></select>
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Nominal (Rp)</label>
-                    <input type="number" id="transfer-nominal" min="1" step="any" required placeholder="0" class="input-linear">
-                </div>
-                <div>
-                    <label class="eyebrow block mb-1">Keterangan</label>
-                    <input type="text" id="transfer-keterangan" placeholder="Contoh: Setor tunai ke rekening" class="input-linear">
-                </div>
-            </div>
-            <div class="flex justify-end gap-2">
-                <button type="button" id="transfer-cancel-btn" class="btn-secondary">Batal</button>
-                <button type="submit" id="transfer-submit-btn" class="btn-primary gap-2">
-                    <i class="fa-solid fa-floppy-disk text-xs"></i><span>Simpan Transfer</span>
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Modal Kelola Akun Simpan -->
-    <div id="modal-storage-accounts" class="modal-overlay hidden">
-        <div class="modal-card flex flex-col max-h-[90vh]" style="max-width:680px;width:95%">
-            <div class="flex items-center justify-between pb-3 mb-3 border-b border-[var(--hairline)] flex-shrink-0">
-                <h3 class="headline text-lg flex items-center gap-2">
-                    <i class="fa-solid fa-vault text-sm text-[var(--primary)]"></i>
-                    <span>Kelola Tempat Penyimpanan</span>
-                </h3>
-                <button type="button" id="storage-modal-close" class="text-[var(--ink-muted)] hover:text-[var(--ink)] p-1">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <div class="overflow-y-auto flex-1 pr-1 space-y-4">
-                <!-- Quick Preset -->
-                <div>
-                    <div class="eyebrow mb-2">Tambah Cepat (Preset)</div>
-                    <div class="flex flex-wrap gap-2" id="storage-presets">
-                        <!-- diisi JS -->
-                    </div>
-                </div>
-
-                <!-- Form Tambah / Edit -->
-                <form id="form-storage-account" class="card-linear p-3 space-y-3">
-                    <input type="hidden" id="sa-edit-id" value="">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="eyebrow block mb-1">Nama Akun *</label>
-                            <input type="text" id="sa-name" required class="input-linear" placeholder="Contoh: OVO, BCA, Dompet Tunai">
-                        </div>
-                        <div>
-                            <label class="eyebrow block mb-1">Tipe Kategori</label>
-                            <select id="sa-parent-type" class="input-linear">
-                                <option value="cash">Uang Tunai (Cash)</option>
-                                <option value="ewallet">E-Wallet</option>
-                                <option value="bank">Bank / Rekening</option>
-                                <option value="other">Lainnya</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="eyebrow block mb-1">Ikon <span class="text-[var(--ink-muted)] font-normal text-[11px]">FontAwesome class</span></label>
-                            <div class="flex gap-2 items-center">
-                                <input type="text" id="sa-icon" class="input-linear flex-1" placeholder="fa-solid fa-wallet">
-                                <span id="sa-icon-preview" class="text-[var(--ink-muted)] text-xl w-6 text-center"><i class="fa-solid fa-vault"></i></span>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="eyebrow block mb-1">Urutan Tampil</label>
-                            <input type="number" id="sa-sort" class="input-linear" min="1" max="999" value="99">
-                        </div>
-                    </div>
-                    <div class="flex gap-2 pt-1">
-                        <button type="submit" id="sa-submit-btn" class="btn-primary gap-2 text-sm">
-                            <i class="fa-solid fa-plus text-xs"></i><span id="sa-submit-label">Tambah Akun</span>
-                        </button>
-                        <button type="button" id="sa-cancel-edit" class="btn-secondary text-sm hidden">
-                            <i class="fa-solid fa-xmark text-xs"></i> Batal Edit
-                        </button>
-                    </div>
-                </form>
-
-                <!-- Daftar Akun -->
-                <div>
-                    <div class="eyebrow mb-2">Daftar Tempat Penyimpanan</div>
-                    <div id="storage-accounts-list" class="space-y-2">
-                        <div class="text-subtle text-sm py-4 text-center">Memuat...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
