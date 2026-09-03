@@ -47,7 +47,14 @@ $(function () {
     $('#btn-close-sidebar, #sidebar-overlay').on('click', closeSidebar);
 
     function loadEksporTab() {
-        $('#export-type').trigger('change');
+        if (!cfOverviewData.accounts || cfOverviewData.accounts.length === 0) {
+            $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
+                if (res && res.ok) cfOverviewData = res;
+                $('#export-type').trigger('change');
+            });
+        } else {
+            $('#export-type').trigger('change');
+        }
     }
 
     const loaders = {
@@ -1190,30 +1197,67 @@ $(function () {
     let _exportRows = [];
     let _lastApiRes = null;
     const EXPORT_META = {
-        kasminggu: { action: 'export_kasminggu', title: 'Kas Mingguan Siswa', fileBase: 'laporan_kas_mingguan', filterTpl: 'month' }
+        kasminggu: { action: 'export_kasminggu', title: 'Kas Mingguan Siswa', fileBase: 'laporan_kas_mingguan', filterTpl: 'month' },
+        cashflow:  { action: 'get_jurnal_all',   title: 'Buku Kas & Transaksi', fileBase: 'laporan_buku_kas',       filterTpl: 'cashflow' }
     };
 
     function buildExportFilter(type) {
-        const bulanOpts = bulanList.map(b => `<option value="${b}">${b}</option>`).join('');
-        const tahunOpts = [now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option value="${y}" ${y===now.getFullYear()?'selected':''}>${y}</option>`).join('');
-        return `
-            <div class="w-full sm:w-44">
-                <label class="eyebrow block mb-1">Bulan</label>
-                <select name="bulan" class="input-linear w-full">${bulanOpts}</select>
-            </div>
-            <div class="w-full sm:w-44">
-                <label class="eyebrow block mb-1">Tahun</label>
-                <select name="tahun" class="input-linear w-full">${tahunOpts}</select>
-            </div>`;
+        if (type === 'kasminggu') {
+            const bulanOpts = bulanList.map(b => `<option value="${b}">${b}</option>`).join('');
+            const tahunOpts = [now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option value="${y}" ${y===now.getFullYear()?'selected':''}>${y}</option>`).join('');
+            return `
+                <div class="w-full sm:w-36">
+                    <label class="eyebrow block mb-1">Bulan</label>
+                    <select name="bulan" class="input-linear w-full">${bulanOpts}</select>
+                </div>
+                <div class="w-full sm:w-28">
+                    <label class="eyebrow block mb-1">Tahun</label>
+                    <select name="tahun" class="input-linear w-full">${tahunOpts}</select>
+                </div>`;
+        } else {
+            const accOpts = '<option value="">Semua Dompet</option>' +
+                (cfOverviewData.accounts || []).map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            const catOpts = '<option value="">Semua Kategori</option>' +
+                (cfOverviewData.categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+            return `
+                <div class="w-full sm:w-36">
+                    <label class="eyebrow block mb-1">Dari Tanggal</label>
+                    <input type="date" name="dari" class="input-linear w-full">
+                </div>
+                <div class="w-full sm:w-36">
+                    <label class="eyebrow block mb-1">Sampai Tanggal</label>
+                    <input type="date" name="sampai" class="input-linear w-full">
+                </div>
+                <div class="w-full sm:w-32">
+                    <label class="eyebrow block mb-1">Tipe</label>
+                    <select name="type" class="input-linear w-full">
+                        <option value="">Semua Tipe</option>
+                        <option value="income">Pemasukan (+)</option>
+                        <option value="expense">Pengeluaran (-)</option>
+                        <option value="transfer">Transfer (⇄)</option>
+                    </select>
+                </div>
+                <div class="w-full sm:w-40">
+                    <label class="eyebrow block mb-1">Dompet / Akun</label>
+                    <select name="account_id" class="input-linear w-full">${accOpts}</select>
+                </div>
+                <div class="w-full sm:w-40">
+                    <label class="eyebrow block mb-1">Kategori</label>
+                    <select name="category_id" class="input-linear w-full">${catOpts}</select>
+                </div>`;
+        }
     }
 
     function loadExportData(cb) {
         const type = $('#export-type').val();
-        const meta = EXPORT_META[type] || EXPORT_META.jurnal;
+        const meta = EXPORT_META[type] || EXPORT_META.kasminggu;
         const $f = $('#export-filters');
         const params = new URLSearchParams({ action: meta.action });
         $f.find('[name=dari]').each(function(){ if ($(this).val()) params.set('dari', $(this).val()); });
         $f.find('[name=sampai]').each(function(){ if ($(this).val()) params.set('sampai', $(this).val()); });
+        $f.find('[name=type]').each(function(){ if ($(this).val()) params.set('type', $(this).val()); });
+        $f.find('[name=account_id]').each(function(){ if ($(this).val()) params.set('account_id', $(this).val()); });
+        $f.find('[name=category_id]').each(function(){ if ($(this).val()) params.set('category_id', $(this).val()); });
         $f.find('[name=bulan]').each(function(){ if ($(this).val()) params.set('bulan', $(this).val()); });
         $f.find('[name=tahun]').each(function(){ if ($(this).val()) params.set('tahun', $(this).val()); });
         const q = params.toString();
@@ -1235,28 +1279,84 @@ $(function () {
             return; 
         }
         let h = '<table class="table-linear"><thead><tr>';
-        const tarif = Number(apiRes?.tarif) || 0;
-        h += '<th class="w-12 text-center">#</th><th class="w-12 text-center">Absen</th><th>Nama Siswa</th>'
-            + '<th class="text-center w-14">M1</th><th class="text-center w-14">M2</th><th class="text-center w-14">M3</th><th class="text-center w-14">M4</th><th class="text-center w-14">M5</th>'
-            + '<th class="text-right w-36">Total Bayar</th><th class="text-right w-36">Selisih</th></tr></thead><tbody>';
-        const checkCell = v => `<td class="text-center text-xs">${v ? '<i class="fa-solid fa-circle-check text-green-500" title="Sudah bayar"></i>' : '<span class="text-[var(--ink-muted)]">-</span>'}</td>`;
-        let body = rows.map((r, i) => {
-            const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
-            const totalTarif = vals.filter(Boolean).length * tarif;
-            const paid = +r.total_bayar || 0;
-            const selisih = paid - totalTarif;
-            return `<tr>
-                <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
-                <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${escapeHtml(r.absen||'-')}</td>
-                <td class="text-[var(--ink)] font-medium">${escapeHtml(r.nama)}</td>
-                ${vals.map(checkCell).join('')}
-                <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(paid)}</td>
-                <td class="text-right font-mono-num ${selisih>=0?'text-green-500':'text-red-500'}">${fmt(Math.abs(selisih))}${selisih<0?' ↓':''}</td>
+        let body = '';
+
+        if (type === 'cashflow') {
+            h += '<th class="w-12 text-center">#</th>'
+               + '<th class="w-28">Tanggal</th>'
+               + '<th class="w-28 text-center">Tipe</th>'
+               + '<th>Dompet / Rekening</th>'
+               + '<th>Kategori</th>'
+               + '<th>Keterangan</th>'
+               + '<th class="text-right w-36">Nominal</th>'
+               + '</tr></thead><tbody>';
+
+            body = rows.map((t, i) => {
+                let tipeBadge = '';
+                let akunTampil = escapeHtml(t.account_name || '-');
+                let katTampil = escapeHtml(t.category_name || '-');
+                let nomColor = 'text-[var(--ink)]';
+
+                if (t.type === 'income') {
+                    tipeBadge = '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-trend-up text-[10px]"></i> Masuk</span>';
+                    nomColor = 'text-emerald-500 font-semibold';
+                } else if (t.type === 'expense') {
+                    tipeBadge = '<span class="badge-status badge-danger font-medium"><i class="fa-solid fa-arrow-trend-down text-[10px]"></i> Keluar</span>';
+                    nomColor = 'text-rose-500 font-semibold';
+                } else if (t.type === 'transfer') {
+                    tipeBadge = '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-right-left text-[10px]"></i> Transfer</span>';
+                    akunTampil = `${escapeHtml(t.account_name || '-')} <i class="fa-solid fa-arrow-right text-[10px] mx-1 text-[var(--ink-muted)]"></i> ${escapeHtml(t.to_account_name || '-')}`;
+                    katTampil = '<span class="text-[var(--ink-muted)] italic">Transfer Antar Dompet</span>';
+                    nomColor = 'text-cyan-500 font-semibold';
+                }
+
+                return `<tr>
+                    <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
+                    <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
+                    <td class="text-center">${tipeBadge}</td>
+                    <td class="font-medium text-[var(--ink)]">${akunTampil}</td>
+                    <td class="text-xs text-[var(--ink-muted)]">${katTampil}</td>
+                    <td class="text-[var(--ink)]">${escapeHtml(t.keterangan || '-')}</td>
+                    <td class="text-right font-mono-num ${nomColor}">${fmt(t.nominal)}</td>
+                </tr>`;
+            }).join('');
+
+            const totals = apiRes?.totals || {};
+            body += `<tr class="font-bold border-t-2 border-[var(--hairline)]">
+                <td colspan="6" class="text-right pr-3 text-xs uppercase tracking-wide">
+                    Total Masuk: <span class="text-emerald-500 font-mono-num font-bold mr-3">${fmt(totals.masuk || 0)}</span>
+                    Total Keluar: <span class="text-rose-500 font-mono-num font-bold mr-3">${fmt(totals.keluar || 0)}</span>
+                    Net Arus Kas:
+                </td>
+                <td class="text-right font-mono-num ${(totals.net || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'} font-bold">
+                    ${fmt(totals.net || 0)}
+                </td>
             </tr>`;
-        }).join('');
-        const sumAll = apiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
-        const countSiswa = apiRes?.totals?.count || rows.length;
-        body += `<tr class="font-bold"><td colspan="3" class="text-right pr-2">Total (${countSiswa} siswa):</td><td colspan="5"></td><td class="text-right font-mono-num">${fmt(sumAll)}</td><td></td></tr>`;
+        } else {
+            const tarif = Number(apiRes?.tarif) || 0;
+            h += '<th class="w-12 text-center">#</th><th class="w-12 text-center">Absen</th><th>Nama Siswa</th>'
+                + '<th class="text-center w-14">M1</th><th class="text-center w-14">M2</th><th class="text-center w-14">M3</th><th class="text-center w-14">M4</th><th class="text-center w-14">M5</th>'
+                + '<th class="text-right w-36">Total Bayar</th><th class="text-right w-36">Selisih</th></tr></thead><tbody>';
+            const checkCell = v => `<td class="text-center text-xs">${v ? '<i class="fa-solid fa-circle-check text-green-500" title="Sudah bayar"></i>' : '<span class="text-[var(--ink-muted)]">-</span>'}</td>`;
+            body = rows.map((r, i) => {
+                const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
+                const totalTarif = vals.filter(Boolean).length * tarif;
+                const paid = +r.total_bayar || 0;
+                const selisih = paid - totalTarif;
+                return `<tr>
+                    <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
+                    <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${escapeHtml(r.absen||'-')}</td>
+                    <td class="text-[var(--ink)] font-medium">${escapeHtml(r.nama)}</td>
+                    ${vals.map(checkCell).join('')}
+                    <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(paid)}</td>
+                    <td class="text-right font-mono-num ${selisih>=0?'text-green-500':'text-red-500'}">${fmt(Math.abs(selisih))}${selisih<0?' ↓':''}</td>
+                </tr>`;
+            }).join('');
+            const sumAll = apiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
+            const countSiswa = apiRes?.totals?.count || rows.length;
+            body += `<tr class="font-bold"><td colspan="3" class="text-right pr-2">Total (${countSiswa} siswa):</td><td colspan="5"></td><td class="text-right font-mono-num">${fmt(sumAll)}</td><td></td></tr>`;
+        }
+
         h += body + '</tbody></table>';
         $p.html(h);
     }
@@ -1266,17 +1366,42 @@ $(function () {
         e.preventDefault();
         const rows = _exportRows;
         if (!rows || !rows.length) { alert('Tidak ada data untuk diekspor.'); return; }
-        const meta = EXPORT_META.kasminggu;
+        const type = $('#export-type').val();
+        const meta = EXPORT_META[type] || EXPORT_META.kasminggu;
         const sep = '\t'; // tab-separated → Excel opens nicely
         const esc = s => `"${String(s||'').replace(/"/g,'""')}"`;
-        const csv = ['No','Absen','Nama Siswa','Minggu 1','Minggu 2','Minggu 3','Minggu 4','Minggu 5','Total Bayar'].join(sep) + '\n'
-            + rows.map((r,i) => [i+1, r.absen||'-', esc(r.nama), r.m1?'✓':'-', r.m2?'✓':'-', r.m3?'✓':'-', r.m4?'✓':'-', r.m5?'✓':'-', r.total_bayar||0].join(sep)).join('\n');
+        let csv = '';
+        let fileName = meta.fileBase;
+
+        if (type === 'cashflow') {
+            csv = ['No','Tanggal','Tipe','Dompet Sumber','Dompet Tujuan','Kategori','Keterangan','Nominal'].join(sep) + '\n'
+                + rows.map((r, i) => [
+                    i + 1,
+                    r.tanggal,
+                    r.type === 'income' ? 'Pemasukan' : (r.type === 'expense' ? 'Pengeluaran' : 'Transfer'),
+                    esc(r.account_name || '-'),
+                    esc(r.to_account_name || '-'),
+                    esc(r.category_name || '-'),
+                    esc(r.keterangan || '-'),
+                    r.nominal || 0
+                ].join(sep)).join('\n');
+            const totals = _lastApiRes?.totals || {};
+            csv += '\n' + ['', '', '', '', '', 'Total Masuk', totals.masuk || 0].join(sep);
+            csv += '\n' + ['', '', '', '', '', 'Total Keluar', totals.keluar || 0].join(sep);
+            csv += '\n' + ['', '', '', '', '', 'Mutasi Bersih', totals.net || 0].join(sep);
+            fileName += '_' + (new Date().toISOString().slice(0, 10));
+        } else {
+            csv = ['No','Absen','Nama Siswa','Minggu 1','Minggu 2','Minggu 3','Minggu 4','Minggu 5','Total Bayar'].join(sep) + '\n'
+                + rows.map((r,i) => [i+1, r.absen||'-', esc(r.nama), r.m1?'✓':'-', r.m2?'✓':'-', r.m3?'✓':'-', r.m4?'✓':'-', r.m5?'✓':'-', r.total_bayar||0].join(sep)).join('\n');
+            const bulan = $('#export-filters [name=bulan]').val() || 'semua';
+            const tahun = $('#export-filters [name=tahun]').val() || new Date().getFullYear();
+            fileName += `_${bulan}_${tahun}`;
+        }
+
         const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        const bulan = $('#export-filters [name=bulan]').val() || 'semua';
-        const tahun = $('#export-filters [name=tahun]').val() || new Date().getFullYear();
-        a.download = `${meta.fileBase}_${bulan}_${tahun}.csv`;
+        a.download = `${fileName}.csv`;
         a.click();
     });
 
@@ -1286,41 +1411,84 @@ $(function () {
         if (!rows || !rows.length) { alert('Tidak ada data untuk diekspor.'); return; }
         if (typeof window.jspdf === 'undefined') { alert('jsPDF belum dimuat. Pastikan koneksi internet aktif atau tunggu sebentar.'); return; }
         const { jsPDF } = window.jspdf;
-        const meta = EXPORT_META.kasminggu;
+        const type = $('#export-type').val();
+        const meta = EXPORT_META[type] || EXPORT_META.kasminggu;
         const kelas = window.namaKelas || '';
-        const bulan = $('#export-filters [name=bulan]').val() || '';
-        const tahun = $('#export-filters [name=tahun]').val() || '';
         const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+        let tableHeaders = [];
+        let tableBody = [];
+        let tableFoot = [];
+        let titleSub = '';
+        let fileName = meta.fileBase;
+
+        if (type === 'cashflow') {
+            const dari = $('#export-filters [name=dari]').val();
+            const sampai = $('#export-filters [name=sampai]').val();
+            const periodeStr = (dari || sampai) ? `Periode: ${dari || 'Awal'} s.d. ${sampai || 'Sekarang'}  •  ` : '';
+            titleSub = `${periodeStr}Kas Kelas ${kelas}  •  Dicetak: ${dateStr}`;
+            fileName += '_' + new Date().toISOString().slice(0, 10);
+
+            tableHeaders = [['#', 'Tanggal', 'Tipe', 'Dompet / Rekening', 'Kategori', 'Keterangan', 'Nominal']];
+            tableBody = rows.map((r, i) => {
+                let dompet = r.account_name || '-';
+                let kat = r.category_name || '-';
+                let tipeTampil = r.type === 'income' ? 'Masuk' : (r.type === 'expense' ? 'Keluar' : 'Transfer');
+                if (r.type === 'transfer') {
+                    dompet = `${r.account_name || '-'} -> ${r.to_account_name || '-'}`;
+                    kat = 'Transfer Antar Dompet';
+                }
+                return [
+                    String(i + 1),
+                    r.tanggal || '',
+                    tipeTampil,
+                    dompet,
+                    kat,
+                    r.keterangan || '-',
+                    fmt(r.nominal)
+                ];
+            });
+
+            const totals = _lastApiRes?.totals || {};
+            tableFoot = [[
+                { content: `Total Masuk: ${fmt(totals.masuk || 0)}   |   Total Keluar: ${fmt(totals.keluar || 0)}   |   Mutasi Bersih: ${fmt(totals.net || 0)}`, colSpan: 7, styles: { fontStyle: 'bold', halign: 'right' } }
+            ]];
+        } else {
+            const bulan = $('#export-filters [name=bulan]').val() || '';
+            const tahun = $('#export-filters [name=tahun]').val() || '';
+            titleSub = `Kas Mingguan ${bulan} ${tahun}  •  Kas Kelas ${kelas}  •  Dicetak: ${dateStr}`;
+            fileName += `_${bulan}_${tahun}`;
+
+            const tarif = Number(_lastApiRes?.tarif) || 0;
+            tableHeaders = [['Absen', 'Nama Siswa', 'M1', 'M2', 'M3', 'M4', 'M5', 'Total Bayar']];
+            tableBody = rows.map(r => {
+                const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
+                const cell = v => v ? fmt(tarif) : '-';
+                return [
+                    r.absen || '-',
+                    r.nama || '',
+                    cell(vals[0]),
+                    cell(vals[1]),
+                    cell(vals[2]),
+                    cell(vals[3]),
+                    cell(vals[4]),
+                    fmt(+r.total_bayar || 0)
+                ];
+            });
+            const sumAll = _lastApiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
+            tableFoot = [[
+                { content: `Total Kas Mingguan (${rows.length} Siswa): ${fmt(sumAll)}`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }
+            ]];
+        }
 
         // Title and header info
         doc.setFontSize(14);
         doc.setTextColor(30, 30, 60);
-        doc.text(`Laporan ${meta.title} - ${bulan} ${tahun}`, 14, 15);
+        doc.text(`Laporan ${meta.title}`, 14, 15);
         doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
-        doc.text(`Kas Kelas ${kelas}  •  Dicetak: ${dateStr}`, 14, 21);
-
-        const tarif = Number(_lastApiRes?.tarif) || 0;
-        const tableHeaders = [['Absen', 'Nama Siswa', 'M1', 'M2', 'M3', 'M4', 'M5', 'Total Bayar']];
-        const tableBody = rows.map(r => {
-            const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
-            const cell = v => v ? fmt(tarif) : '-';
-            return [
-                r.absen || '-',
-                r.nama || '',
-                cell(vals[0]),
-                cell(vals[1]),
-                cell(vals[2]),
-                cell(vals[3]),
-                cell(vals[4]),
-                fmt(+r.total_bayar || 0)
-            ];
-        });
-        const sumAll = _lastApiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
-        const tableFoot = [[
-            { content: `Total Kas Mingguan (${rows.length} Siswa): ${fmt(sumAll)}`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }
-        ]];
+        doc.text(titleSub, 14, 21);
 
         if (typeof doc.autoTable === 'function') {
             doc.autoTable({
@@ -1342,17 +1510,24 @@ $(function () {
             });
         }
 
-        doc.save(`${meta.fileBase}_${bulan}_${tahun}.pdf`);
+        doc.save(`${fileName}.pdf`);
     });
 
     // Init export filter events
     $('#export-type').on('change', function() {
         $('#export-filters').html(buildExportFilter(this.value));
-        $('#export-filters [name=bulan]').val(bulanList[now.getMonth()]);
-        $('#export-filters [name=tahun]').val(now.getFullYear());
+        if (this.value === 'kasminggu') {
+            $('#export-filters [name=bulan]').val(bulanList[now.getMonth()]);
+            $('#export-filters [name=tahun]').val(now.getFullYear());
+        } else if (this.value === 'cashflow') {
+            const y = now.getFullYear();
+            const m = String(now.getMonth()+1).padStart(2,'0');
+            $('#export-filters [name=dari]').val(`${y}-${m}-01`);
+            $('#export-filters [name=sampai]').val(`${y}-${m}-${new Date(y, now.getMonth()+1,0).getDate()}`);
+        }
         loadExportData();
     });
-    $('#export-filters').on('change', 'select', function() {
+    $('#export-filters').on('change', 'select, input[type=date]', function() {
         loadExportData();
     });
     $('#btn-load-export').on('click', function(e){ e.preventDefault(); loadExportData(); });

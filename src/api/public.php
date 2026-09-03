@@ -135,21 +135,43 @@ try {
             break;
         }
         case 'get_jurnal_all': {
-            $dari     = $_GET['dari'] ?? '';
-            $sampai   = $_GET['sampai'] ?? '';
-            $where    = [];
-            $args     = [];
+            $dari       = $_GET['dari'] ?? '';
+            $sampai     = $_GET['sampai'] ?? '';
+            $type       = $_GET['type'] ?? '';
+            $accountId  = !empty($_GET['account_id']) ? (int)$_GET['account_id'] : null;
+            $categoryId = !empty($_GET['category_id']) ? (int)$_GET['category_id'] : null;
+
+            $where = [];
+            $args  = [];
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 't.date >= ?'; $args[] = $dari; }
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 't.date <= ?'; $args[] = $sampai; }
+            if (!empty($type)) {
+                $where[] = 't.type = ?';
+                $args[] = $type;
+            }
+            if ($accountId) {
+                $where[] = '(t.account_id = ? OR t.to_account_id = ?)';
+                $args[] = $accountId;
+                $args[] = $accountId;
+            }
+            if ($categoryId) {
+                $where[] = 't.category_id = ?';
+                $args[] = $categoryId;
+            }
+
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             $stmt = $pdo->prepare("
-                SELECT t.id, t.date AS tanggal, t.description AS keterangan,
+                SELECT t.id, t.date AS tanggal, t.type,
+                       t.description AS keterangan,
                        CASE t.type WHEN 'income' THEN 'masuk' WHEN 'expense' THEN 'keluar' ELSE 'transfer' END AS jenis,
                        t.amount AS nominal,
-                       COALESCE(t.ref_type, 'manual') AS source, a.name AS storage_name,
+                       COALESCE(t.ref_type, 'manual') AS source,
+                       a.name AS account_name,
+                       to_a.name AS to_account_name,
                        c.name AS category_name
                 FROM transactions t
                 LEFT JOIN accounts a ON a.id = t.account_id
+                LEFT JOIN accounts to_a ON to_a.id = t.to_account_id
                 LEFT JOIN categories c ON c.id = t.category_id
                 $sqlWhere
                 ORDER BY t.date ASC, t.id ASC
@@ -158,10 +180,22 @@ try {
             $rows = array_map(function($r) {
                 $r['nominal'] = (float)$r['nominal'];
                 return $r;
-            }, $stmt->fetchAll());
-            $totMasuk = array_sum(array_column(array_filter($rows, fn($r)=>$r['jenis']==='masuk'), 'nominal'));
-            $totKeluar = array_sum(array_column(array_filter($rows, fn($r)=>$r['jenis']==='keluar'), 'nominal'));
-            echo json_encode(['rows' => $rows, 'totals' => ['masuk'=>$totMasuk, 'keluar'=>$totKeluar]]);
+            }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+
+            $totMasuk    = array_sum(array_column(array_filter($rows, fn($r)=>$r['type']==='income'), 'nominal'));
+            $totKeluar   = array_sum(array_column(array_filter($rows, fn($r)=>$r['type']==='expense'), 'nominal'));
+            $totTransfer = array_sum(array_column(array_filter($rows, fn($r)=>$r['type']==='transfer'), 'nominal'));
+
+            echo json_encode([
+                'rows'   => $rows,
+                'totals' => [
+                    'masuk'    => $totMasuk,
+                    'keluar'   => $totKeluar,
+                    'transfer' => $totTransfer,
+                    'net'      => $totMasuk - $totKeluar,
+                    'count'    => count($rows)
+                ]
+            ]);
             break;
         }
         case 'get_kasbon': {

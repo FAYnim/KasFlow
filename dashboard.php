@@ -292,6 +292,7 @@ try {
                         <label class="eyebrow block mb-1">Jenis Laporan</label>
                         <select id="export-type" class="input-linear w-full">
                             <option value="kasminggu" selected>Kas Mingguan per Siswa</option>
+                            <option value="cashflow">Buku Kas / Jurnal Transaksi</option>
                         </select>
                     </div>
                     <div id="export-filters" class="flex flex-wrap gap-3 items-end flex-1"></div>
