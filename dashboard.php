@@ -269,18 +269,13 @@ try {
                     <label class="eyebrow block mb-1">Keterangan Transaksi</label>
                     <input type="text" id="cf-filter-search" placeholder="Cari berdasarkan keterangan transaksi..." class="input-linear w-full text-xs">
                 </div>
-                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[var(--hairline)]">
-                    <span class="text-xs text-[var(--ink-muted)] flex items-center gap-1.5">
-                        <i class="fa-solid fa-sliders text-[11px] text-[var(--primary)]"></i> <span>Gunakan filter untuk menyaring data riwayat transaksi</span>
-                    </span>
-                    <div class="flex items-center gap-2">
-                        <button id="cf-filter-reset" type="button" class="btn-secondary text-xs px-3.5 py-1.5 gap-1.5">
-                            <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
-                        </button>
-                        <button id="cf-filter-apply" type="button" class="btn-primary text-xs px-4 py-1.5 gap-1.5">
-                            <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan Filter</span>
-                        </button>
-                    </div>
+                <div class="mt-3 flex items-center justify-end gap-2 pt-3 border-t border-[var(--hairline)]">
+                    <button id="cf-filter-reset" type="button" class="btn-secondary text-xs px-3.5 py-1.5 gap-1.5">
+                        <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
+                    </button>
+                    <button id="cf-filter-apply" type="button" class="btn-primary text-xs px-4 py-1.5 gap-1.5">
+                        <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan Filter</span>
+                    </button>
                 </div>
             </div>
 
