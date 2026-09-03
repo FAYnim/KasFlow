@@ -1206,44 +1206,48 @@ $(function () {
             const bulanOpts = bulanList.map(b => `<option value="${b}">${b}</option>`).join('');
             const tahunOpts = [now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option value="${y}" ${y===now.getFullYear()?'selected':''}>${y}</option>`).join('');
             return `
-                <div class="w-full sm:w-36">
-                    <label class="eyebrow block mb-1">Bulan</label>
-                    <select name="bulan" class="input-linear w-full">${bulanOpts}</select>
-                </div>
-                <div class="w-full sm:w-28">
-                    <label class="eyebrow block mb-1">Tahun</label>
-                    <select name="tahun" class="input-linear w-full">${tahunOpts}</select>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                        <label class="eyebrow block mb-1">Bulan</label>
+                        <select name="bulan" class="input-linear w-full">${bulanOpts}</select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Tahun</label>
+                        <select name="tahun" class="input-linear w-full">${tahunOpts}</select>
+                    </div>
                 </div>`;
         } else {
-            const accOpts = '<option value="">Semua Dompet</option>' +
+            const accOpts = '<option value="">Semua Dompet / Rekening</option>' +
                 (cfOverviewData.accounts || []).map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
             const catOpts = '<option value="">Semua Kategori</option>' +
                 (cfOverviewData.categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
             return `
-                <div class="w-full sm:w-36">
-                    <label class="eyebrow block mb-1">Dari Tanggal</label>
-                    <input type="date" name="dari" class="input-linear w-full">
-                </div>
-                <div class="w-full sm:w-36">
-                    <label class="eyebrow block mb-1">Sampai Tanggal</label>
-                    <input type="date" name="sampai" class="input-linear w-full">
-                </div>
-                <div class="w-full sm:w-32">
-                    <label class="eyebrow block mb-1">Tipe</label>
-                    <select name="type" class="input-linear w-full">
-                        <option value="">Semua Tipe</option>
-                        <option value="income">Pemasukan (+)</option>
-                        <option value="expense">Pengeluaran (-)</option>
-                        <option value="transfer">Transfer (⇄)</option>
-                    </select>
-                </div>
-                <div class="w-full sm:w-40">
-                    <label class="eyebrow block mb-1">Dompet / Akun</label>
-                    <select name="account_id" class="input-linear w-full">${accOpts}</select>
-                </div>
-                <div class="w-full sm:w-40">
-                    <label class="eyebrow block mb-1">Kategori</label>
-                    <select name="category_id" class="input-linear w-full">${catOpts}</select>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div>
+                        <label class="eyebrow block mb-1">Dari Tanggal</label>
+                        <input type="date" name="dari" class="input-linear w-full">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Sampai Tanggal</label>
+                        <input type="date" name="sampai" class="input-linear w-full">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Tipe</label>
+                        <select name="type" class="input-linear w-full">
+                            <option value="">Semua Tipe</option>
+                            <option value="income">Pemasukan (+)</option>
+                            <option value="expense">Pengeluaran (-)</option>
+                            <option value="transfer">Transfer (⇄)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Dompet / Rekening</label>
+                        <select name="account_id" class="input-linear w-full">${accOpts}</select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Kategori</label>
+                        <select name="category_id" class="input-linear w-full">${catOpts}</select>
+                    </div>
                 </div>`;
         }
     }

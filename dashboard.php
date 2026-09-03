@@ -287,30 +287,37 @@ try {
             <section data-tab-content="ekspor" class="tab-content hidden">
                 <h2 class="display-md mb-2">Ekspor Laporan</h2>
                 <p class="text-sm text-[var(--ink-muted)] mb-4">Pilih jenis laporan, atur filter, unduh CSV atau cetak PDF.</p>
-                <div class="card-linear p-4 mb-6 flex flex-col sm:flex-row gap-3 items-end">
-                    <div class="w-full sm:w-64">
-                        <label class="eyebrow block mb-1">Jenis Laporan</label>
-                        <select id="export-type" class="input-linear w-full">
-                            <option value="kasminggu" selected>Kas Mingguan per Siswa</option>
-                            <option value="cashflow">Buku Kas / Jurnal Transaksi</option>
-                        </select>
+                
+                <div class="card-linear p-4 mb-6 space-y-4">
+                    <!-- Baris Atas: Jenis Laporan & Tombol Aksi Ekspor -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--hairline)]">
+                        <div class="w-full sm:w-72">
+                            <label class="eyebrow block mb-1">Jenis Laporan</label>
+                            <select id="export-type" class="input-linear w-full font-medium">
+                                <option value="kasminggu" selected>Kas Mingguan per Siswa</option>
+                                <option value="cashflow">Buku Kas / Jurnal Transaksi</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-auto">
+                            <button class="btn-secondary gap-2 text-xs" id="btn-load-export" title="Perbarui data">
+                                <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
+                                <span>Muat Data</span>
+                            </button>
+                            <button class="btn-secondary gap-2 text-xs" id="btn-csv" title="Unduh file spreadsheet">
+                                <i class="fa-solid fa-file-csv text-xs text-[#60a5fa]"></i>
+                                <span>Unduh CSV</span>
+                            </button>
+                            <button class="btn-primary gap-2 text-xs" id="btn-pdf" title="Cetak dokumen PDF">
+                                <i class="fa-solid fa-file-pdf text-xs"></i>
+                                <span>Cetak PDF</span>
+                            </button>
+                        </div>
                     </div>
-                    <div id="export-filters" class="flex flex-wrap gap-3 items-end flex-1"></div>
-                    <button class="btn-secondary gap-2" id="btn-load-export">
-                        <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
-                        <span>Muat Data</span>
-                    </button>
+
+                    <!-- Baris Bawah: Parameter Filter Dinamis -->
+                    <div id="export-filters"></div>
                 </div>
-                <div class="flex flex-wrap gap-2 mb-4">
-                    <button class="btn-secondary gap-2" id="btn-csv">
-                        <i class="fa-solid fa-file-csv text-xs text-[#60a5fa]"></i>
-                        <span>Unduh CSV</span>
-                    </button>
-                    <button class="btn-primary gap-2" id="btn-pdf">
-                        <i class="fa-solid fa-file-pdf text-xs"></i>
-                        <span>Cetak PDF</span>
-                    </button>
-                </div>
+
                 <div id="ekspor-preview" class="table-container overflow-x-auto"></div>
             </section>
 
