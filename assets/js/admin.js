@@ -1190,38 +1190,21 @@ $(function () {
     let _exportRows = [];
     let _lastApiRes = null;
     const EXPORT_META = {
-        jurnal:       { action: 'get_jurnal_all',   title: 'Cashflow',               fileBase: 'laporan_cashflow',      filterTpl: 'range' },
-        kasminggu:    { action: 'export_kasminggu', title: 'Kas Mingguan Siswa',     fileBase: 'laporan_kas_mingguan',  filterTpl: 'month' },
-        kasbon:       { action: 'export_kasbon',    title: 'Dana Talangan (Kasbon)', fileBase: 'laporan_dana_talangan', filterTpl: 'month' },
-        bms:          { action: 'export_bms',       title: 'Kas BMS',                fileBase: 'laporan_kas_bms',       filterTpl: 'range' },
-        alokasi:      { action: 'export_alokasi',   title: 'Alokasi Dana',           fileBase: 'laporan_alokasi_dana',  filterTpl: 'range' },
+        kasminggu: { action: 'export_kasminggu', title: 'Kas Mingguan Siswa', fileBase: 'laporan_kas_mingguan', filterTpl: 'month' }
     };
 
     function buildExportFilter(type) {
-        const ft = EXPORT_META[type]?.filterTpl || 'range';
-        if (ft === 'range') {
-            return `
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Dari Tanggal</label>
-                    <input type="date" name="dari" class="input-linear">
-                </div>
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Sampai Tanggal</label>
-                    <input type="date" name="sampai" class="input-linear">
-                </div>`;
-        } else {
-            const bulanOpts = bulanList.map(b => `<option value="${b}">${b}</option>`).join('');
-            const tahunOpts = [now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option value="${y}" ${y===now.getFullYear()?'selected':''}>${y}</option>`).join('');
-            return `
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Bulan</label>
-                    <select name="bulan" class="input-linear w-full">${bulanOpts}</select>
-                </div>
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Tahun</label>
-                    <select name="tahun" class="input-linear w-full">${tahunOpts}</select>
-                </div>`;
-        }
+        const bulanOpts = bulanList.map(b => `<option value="${b}">${b}</option>`).join('');
+        const tahunOpts = [now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option value="${y}" ${y===now.getFullYear()?'selected':''}>${y}</option>`).join('');
+        return `
+            <div class="w-full sm:w-44">
+                <label class="eyebrow block mb-1">Bulan</label>
+                <select name="bulan" class="input-linear w-full">${bulanOpts}</select>
+            </div>
+            <div class="w-full sm:w-44">
+                <label class="eyebrow block mb-1">Tahun</label>
+                <select name="tahun" class="input-linear w-full">${tahunOpts}</select>
+            </div>`;
     }
 
     function loadExportData(cb) {
@@ -1252,90 +1235,29 @@ $(function () {
             return; 
         }
         let h = '<table class="table-linear"><thead><tr>';
-        let body = '';
-        switch(type) {
-            case 'jurnal':
-                h += '<th class="w-32">Tanggal</th><th>Keterangan</th><th class="w-32">Sumber</th><th class="w-28">Jenis</th><th class="text-right w-36">Nominal</th>';
-                body = rows.map(t => `<tr>
-                    <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
-                    <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}</td>
-                    <td class="text-xs text-[var(--ink-muted)]">${escapeHtml(t.source === 'kas_mingguan' ? 'Kas Mingguan' : (t.source === 'kasbon' ? 'Kasbon' : (t.storage_name || 'Manual')))}</td>
-                    <td><span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium"><i class="fa-solid ${t.jenis==='masuk'?'fa-arrow-trend-up':'fa-arrow-trend-down'} text-[10px]"></i> ${t.jenis==='masuk'?'Masuk':'Keluar'}</span></td>
-                    <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(t.nominal)}</td>
-                </tr>`).join('');
-                break;
-            case 'kasminggu': {
-                const tarif = Number(apiRes?.tarif) || 0;
-                h += '<th class="w-12 text-center">#</th><th class="w-12 text-center">Absen</th><th>Nama Siswa</th>'
-                    + '<th class="text-center w-14">M1</th><th class="text-center w-14">M2</th><th class="text-center w-14">M3</th><th class="text-center w-14">M4</th><th class="text-center w-14">M5</th>'
-                    + '<th class="text-right w-36">Total Bayar</th><th class="text-right w-36">Selisih</th>';
-                const checkCell = v => `<td class="text-center text-xs">${v ? '<i class="fa-solid fa-circle-check text-green-500" title="Sudah bayar"></i>' : '<span class="text-[var(--ink-muted)]">-</span>'}</td>`;
-                body = rows.map((r, i) => {
-                    const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
-                    const totalTarif = vals.filter(Boolean).length * tarif;
-                    const paid = +r.total_bayar || 0;
-                    const selisih = paid - totalTarif;
-                    return `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
-                        <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${escapeHtml(r.absen||'-')}</td>
-                        <td class="text-[var(--ink)] font-medium">${escapeHtml(r.nama)}</td>
-                        ${vals.map(checkCell).join('')}
-                        <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(paid)}</td>
-                        <td class="text-right font-mono-num ${selisih>=0?'text-green-500':'text-red-500'}">${fmt(Math.abs(selisih))}${selisih<0?' ↓':''}</td>
-                    </tr>`;
-                }).join('');
-                const sumAll = apiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
-                const countSiswa = apiRes?.totals?.count || rows.length;
-                body += `<tr class="font-bold"><td colspan="3" class="text-right pr-2">Total (${countSiswa} siswa):</td><td colspan="5"></td><td class="text-right font-mono-num">${fmt(sumAll)}</td><td></td></tr>`;
-                break;
-            }
-            case 'kasbon':
-                h += '<th class="w-32">Tanggal</th><th>Peminjam</th><th>Keterangan</th><th class="text-right w-36">Jumlah</th><th class="w-28">Status</th>';
-                body = rows.map(r => {
-                    const badge = r.status==='lunas'
-                        ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i> Lunas</span>'
-                        : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i> Belum Lunas</span>';
-                    const namaTampil = r.absen
-                        ? `${escapeHtml(r.nama)} <span class="ml-1 text-[10px] font-mono text-[var(--ink-muted)] bg-[var(--surface-2)] px-1 rounded">Absen ${escapeHtml(r.absen)}</span>`
-                        : escapeHtml(r.nama);
-                    return `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(r.tanggal)}</td>
-                        <td class="text-[var(--ink)]">${namaTampil}</td>
-                        <td class="text-[var(--ink-muted)]">${escapeHtml(r.keterangan)}</td>
-                        <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.jumlah)}</td>
-                        <td>${badge}</td>
-                    </tr>`;
-                }).join('');
-                break;
-            case 'bms':
-                h += '<th class="w-32">Tanggal</th><th>Keterangan</th><th class="w-28">Jenis</th><th class="text-right w-36">Jumlah</th>';
-                body = rows.map(r => `<tr>
-                    <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(r.tanggal)}</td>
-                    <td class="text-[var(--ink)]">${escapeHtml(r.keterangan)}</td>
-                    <td><span class="badge-status ${r.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">${r.jenis==='setor'?'Setor':'Tarik'}</span></td>
-                    <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.jumlah)}</td>
-                </tr>`).join('');
-                break;
-            case 'alokasi':
-                h += '<th class="w-32">Tanggal</th><th class="w-28">Sumber</th><th>Keterangan</th><th>Alokasi</th><th class="text-right w-36">Total</th>';
-                body = rows.map(r => `<tr>
-                    <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(r.tanggal)}</td>
-                    <td><span class="badge-neutral">${escapeHtml(r.ref_type)}</span></td>
-                    <td class="text-[var(--ink)]">${escapeHtml(r.keterangan||'-')}</td>
-                    <td class="text-xs text-[var(--ink-muted)]">${escapeHtml(r.lines_str||'-')}</td>
-                    <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.total_nominal)}</td>
-                </tr>`).join('');
-                const kpiAccounts = apiRes?.kpi?.accounts || [];
-                if (kpiAccounts.length) {
-                    h += '<thead><tr><th colspan="5" class="py-1 px-2 text-left font-semibold bg-[var(--surface-2)] text-[var(--ink)]">KPI Alokasi Dana</th></tr>';
-                    h += '<tr><th class="w-12">#</th><th>Nama Akun</th><th>Tipe</th><th></th><th class="text-right w-36">Total</th></tr></thead>';
-                    let totalKpi = 0;
-                    kpiAccounts.forEach((a, i) => { totalKpi += (a.saldo||0); h += `<tr><td class="font-mono text-xs text-[var(--ink-muted)]">${i+1}</td><td class="text-[var(--ink)]">${escapeHtml(a.name)}</td><td><span class="badge-neutral text-[10px]">${escapeHtml(a.type||'')}</span></td><td></td><td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(a.saldo)}</td></tr>`; });
-                    h += `<tr class="font-bold"><td colspan="4" class="text-right pr-2">Grand Total:</td><td class="text-right font-mono-num text-[var(--ink)]">${fmt(totalKpi)}</td></tr>`;
-                }
-                break;
-        }
-        h += '</thead><tbody>' + body + '</tbody></table>';
+        const tarif = Number(apiRes?.tarif) || 0;
+        h += '<th class="w-12 text-center">#</th><th class="w-12 text-center">Absen</th><th>Nama Siswa</th>'
+            + '<th class="text-center w-14">M1</th><th class="text-center w-14">M2</th><th class="text-center w-14">M3</th><th class="text-center w-14">M4</th><th class="text-center w-14">M5</th>'
+            + '<th class="text-right w-36">Total Bayar</th><th class="text-right w-36">Selisih</th></tr></thead><tbody>';
+        const checkCell = v => `<td class="text-center text-xs">${v ? '<i class="fa-solid fa-circle-check text-green-500" title="Sudah bayar"></i>' : '<span class="text-[var(--ink-muted)]">-</span>'}</td>`;
+        let body = rows.map((r, i) => {
+            const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
+            const totalTarif = vals.filter(Boolean).length * tarif;
+            const paid = +r.total_bayar || 0;
+            const selisih = paid - totalTarif;
+            return `<tr>
+                <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
+                <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${escapeHtml(r.absen||'-')}</td>
+                <td class="text-[var(--ink)] font-medium">${escapeHtml(r.nama)}</td>
+                ${vals.map(checkCell).join('')}
+                <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(paid)}</td>
+                <td class="text-right font-mono-num ${selisih>=0?'text-green-500':'text-red-500'}">${fmt(Math.abs(selisih))}${selisih<0?' ↓':''}</td>
+            </tr>`;
+        }).join('');
+        const sumAll = apiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
+        const countSiswa = apiRes?.totals?.count || rows.length;
+        body += `<tr class="font-bold"><td colspan="3" class="text-right pr-2">Total (${countSiswa} siswa):</td><td colspan="5"></td><td class="text-right font-mono-num">${fmt(sumAll)}</td><td></td></tr>`;
+        h += body + '</tbody></table>';
         $p.html(h);
     }
 
@@ -1344,37 +1266,17 @@ $(function () {
         e.preventDefault();
         const rows = _exportRows;
         if (!rows || !rows.length) { alert('Tidak ada data untuk diekspor.'); return; }
-        const type = $('#export-type').val();
-        const meta = EXPORT_META[type] || EXPORT_META.jurnal;
+        const meta = EXPORT_META.kasminggu;
         const sep = '\t'; // tab-separated → Excel opens nicely
-        let csv = '';
         const esc = s => `"${String(s||'').replace(/"/g,'""')}"`;
-        switch(type) {
-            case 'jurnal':
-                csv = ['Tanggal','Keterangan','Sumber','Jenis','Nominal'].join(sep) + '\n'
-                    + rows.map(r => [r.tanggal, esc(r.keterangan), r.source==='kas_mingguan'?'Kas Mingguan':(r.source==='kasbon'?'Kasbon':(r.storage_name||'Manual')), r.jenis, r.nominal].join(sep)).join('\n');
-                break;
-            case 'kasminggu':
-                csv = ['No','Absen','Nama Siswa','Minggu 1','Minggu 2','Minggu 3','Minggu 4','Minggu 5','Total Bayar'].join(sep) + '\n'
-                    + rows.map((r,i) => [i+1, r.absen||'-', esc(r.nama), r.m1?'✓':'-', r.m2?'✓':'-', r.m3?'✓':'-', r.m4?'✓':'-', r.m5?'✓':'-', r.total_bayar||0].join(sep)).join('\n');
-                break;
-            case 'kasbon':
-                csv = ['Tanggal','Peminjam','Absen','Keterangan','Jumlah','Status'].join(sep) + '\n'
-                    + rows.map(r => [r.tanggal, esc(r.nama), r.absen||'-', esc(r.keterangan), r.jumlah, r.status==='lunas'?'Lunas':'Belum Lunas'].join(sep)).join('\n');
-                break;
-            case 'bms':
-                csv = ['Tanggal','Keterangan','Jenis','Jumlah'].join(sep) + '\n'
-                    + rows.map(r => [r.tanggal, esc(r.keterangan), r.jenis==='setor'?'Setor':'Tarik', r.jumlah].join(sep)).join('\n');
-                break;
-            case 'alokasi':
-                csv = ['Tanggal','Sumber','Keterangan','Alokasi','Total'].join(sep) + '\n'
-                    + rows.map(r => [r.tanggal, r.ref_type, esc(r.keterangan||''), esc(r.lines_str||''), r.total_nominal].join(sep)).join('\n');
-                break;
-        }
+        const csv = ['No','Absen','Nama Siswa','Minggu 1','Minggu 2','Minggu 3','Minggu 4','Minggu 5','Total Bayar'].join(sep) + '\n'
+            + rows.map((r,i) => [i+1, r.absen||'-', esc(r.nama), r.m1?'✓':'-', r.m2?'✓':'-', r.m3?'✓':'-', r.m4?'✓':'-', r.m5?'✓':'-', r.total_bayar||0].join(sep)).join('\n');
         const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = meta.fileBase + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+        const bulan = $('#export-filters [name=bulan]').val() || 'semua';
+        const tahun = $('#export-filters [name=tahun]').val() || new Date().getFullYear();
+        a.download = `${meta.fileBase}_${bulan}_${tahun}.csv`;
         a.click();
     });
 
@@ -1384,135 +1286,41 @@ $(function () {
         if (!rows || !rows.length) { alert('Tidak ada data untuk diekspor.'); return; }
         if (typeof window.jspdf === 'undefined') { alert('jsPDF belum dimuat. Pastikan koneksi internet aktif atau tunggu sebentar.'); return; }
         const { jsPDF } = window.jspdf;
-        const type = $('#export-type').val();
-        const meta = EXPORT_META[type] || { title: 'Laporan', fileBase: 'laporan' };
+        const meta = EXPORT_META.kasminggu;
         const kelas = window.namaKelas || '';
+        const bulan = $('#export-filters [name=bulan]').val() || '';
+        const tahun = $('#export-filters [name=tahun]').val() || '';
         const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
         // Title and header info
         doc.setFontSize(14);
         doc.setTextColor(30, 30, 60);
-        doc.text(`Laporan ${meta.title}`, 14, 15);
+        doc.text(`Laporan ${meta.title} - ${bulan} ${tahun}`, 14, 15);
         doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
-        doc.text(`Cashflow ${kelas}  •  Dicetak: ${dateStr}`, 14, 21);
+        doc.text(`Kas Kelas ${kelas}  •  Dicetak: ${dateStr}`, 14, 21);
 
-        let tableHeaders = [];
-        let tableBody = [];
-        let tableFoot = [];
-
-        switch(type) {
-            case 'jurnal': {
-                tableHeaders = [['Tanggal', 'Keterangan', 'Sumber', 'Jenis', 'Nominal']];
-                tableBody = rows.map(r => [
-                    r.tanggal || '',
-                    r.keterangan || '',
-                    r.source === 'kas_mingguan' ? 'Kas Mingguan' : (r.source === 'kasbon' ? 'Kasbon' : (r.storage_name || 'Manual')),
-                    r.jenis === 'masuk' ? 'Masuk' : 'Keluar',
-                    fmt(r.nominal)
-                ]);
-                const totM = rows.filter(r => r.jenis === 'masuk').reduce((s, r) => s + (Number(r.nominal) || 0), 0);
-                const totK = rows.filter(r => r.jenis === 'keluar').reduce((s, r) => s + (Number(r.nominal) || 0), 0);
-                tableFoot = [[
-                    { content: `Total Masuk: ${fmt(totM)}  |  Total Keluar: ${fmt(totK)}  |  Saldo: ${fmt(totM - totK)}`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                break;
-            }
-            case 'kasminggu': {
-                const tarif = Number(_lastApiRes?.tarif) || 0;
-                tableHeaders = [['Absen', 'Nama Siswa', 'M1', 'M2', 'M3', 'M4', 'M5', 'Total Bayar']];
-                tableBody = rows.map((r, i) => {
-                    const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
-                    const cell = v => v ? fmt(tarif) : '-';
-                    return [
-                        r.absen || '-',
-                        r.nama || '',
-                        cell(vals[0]),
-                        cell(vals[1]),
-                        cell(vals[2]),
-                        cell(vals[3]),
-                        cell(vals[4]),
-                        fmt(+r.total_bayar || 0)
-                    ];
-                });
-                const sumAll = _lastApiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
-                tableFoot = [[
-                    { content: `Total Kas Mingguan (${rows.length} Siswa): ${fmt(sumAll)}`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                break;
-            }
-            case 'kasbon': {
-                tableHeaders = [['Tanggal', 'Peminjam', 'Keterangan', 'Jumlah', 'Status']];
-                tableBody = rows.map(r => [
-                    r.tanggal || '',
-                    (r.nama || '') + (r.absen ? ` (Absen ${r.absen})` : ''),
-                    r.keterangan || '-',
-                    fmt(r.jumlah),
-                    r.status === 'lunas' ? 'Lunas' : 'Belum Lunas'
-                ]);
-                const tot = rows.reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
-                const lunas = rows.filter(r => r.status === 'lunas').reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
-                tableFoot = [[
-                    { content: `Total Pinjaman: ${fmt(tot)} (Lunas: ${fmt(lunas)}, Belum Lunas: ${fmt(tot - lunas)})`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                break;
-            }
-            case 'bms': {
-                tableHeaders = [['Tanggal', 'Keterangan', 'Jenis', 'Jumlah']];
-                tableBody = rows.map(r => [
-                    r.tanggal || '',
-                    r.keterangan || '-',
-                    r.jenis === 'setor' ? 'Setor' : 'Tarik',
-                    fmt(r.jumlah)
-                ]);
-                const totSetor = rows.filter(r => r.jenis === 'setor').reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
-                const totTarik = rows.filter(r => r.jenis !== 'setor').reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
-                tableFoot = [[
-                    { content: `Total Setor: ${fmt(totSetor)}  |  Total Tarik: ${fmt(totTarik)}  |  Saldo: ${fmt(totSetor - totTarik)}`, colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                break;
-            }
-            case 'alokasi': {
-                tableHeaders = [['Tanggal', 'Sumber', 'Keterangan', 'Rincian Alokasi', 'Total']];
-                tableBody = rows.map(r => [
-                    r.tanggal || '',
-                    r.ref_type || '',
-                    r.keterangan || '-',
-                    r.lines_str || '-',
-                    fmt(r.total_nominal)
-                ]);
-                const tot = rows.reduce((s, r) => s + (Number(r.total_nominal) || 0), 0);
-                tableFoot = [[
-                    { content: `Total Alokasi: ${fmt(tot)}`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                const kpiAccounts = _lastApiRes?.kpi?.accounts || [];
-                if (kpiAccounts.length) {
-                    const yAfterTable = typeof doc.autoTable === 'function'
-                        ? (doc.lastAutoTable ? doc.lastAutoTable.final + 8 : 160)
-                        : 210;
-                    let yPos = yAfterTable;
-                    const sectionH = 5.5;
-                    if (yPos + sectionH > 190) { doc.addPage(); yPos = 15; }
-                    doc.setFontSize(9);
-                    doc.setTextColor(30, 30, 60);
-                    doc.text('KPI Alokasi Dana', 14, yPos);
-                    yPos += 1;
-                    doc.autoTable({
-                        startY: yPos,
-                        head: [['#', 'Nama Akun', 'Tipe', '', 'Total']],
-                        body: kpiAccounts.map((a, i) => [String(i+1), a.name||'', a.type||'', '', fmt(a.saldo)]),
-                        foot: [[{ content: `Grand Total: ${fmt(kpiAccounts.reduce((s,a)=>s+(a.saldo||0),0))}`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }]],
-                        theme: 'grid',
-                        headStyles: { fillColor: [40, 44, 52], textColor: [255,255,255], fontStyle: 'bold', fontSize: 8 },
-                        footStyles: { fillColor: [240,243,246], textColor: [30,30,60] },
-                        styles: { fontSize: 7.5, cellPadding: 2 },
-                        columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 16 }, 3: { cellWidth: 8 }, 4: { halign: 'right', cellWidth: 26 } },
-                    });
-                }
-                break;
-            }
-        }
+        const tarif = Number(_lastApiRes?.tarif) || 0;
+        const tableHeaders = [['Absen', 'Nama Siswa', 'M1', 'M2', 'M3', 'M4', 'M5', 'Total Bayar']];
+        const tableBody = rows.map(r => {
+            const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
+            const cell = v => v ? fmt(tarif) : '-';
+            return [
+                r.absen || '-',
+                r.nama || '',
+                cell(vals[0]),
+                cell(vals[1]),
+                cell(vals[2]),
+                cell(vals[3]),
+                cell(vals[4]),
+                fmt(+r.total_bayar || 0)
+            ];
+        });
+        const sumAll = _lastApiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
+        const tableFoot = [[
+            { content: `Total Kas Mingguan (${rows.length} Siswa): ${fmt(sumAll)}`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }
+        ]];
 
         if (typeof doc.autoTable === 'function') {
             doc.autoTable({
@@ -1534,22 +1342,17 @@ $(function () {
             });
         }
 
-        doc.save(`${meta.fileBase}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        doc.save(`${meta.fileBase}_${bulan}_${tahun}.pdf`);
     });
 
     // Init export filter events
     $('#export-type').on('change', function() {
-        const ft = EXPORT_META[this.value]?.filterTpl || 'range';
         $('#export-filters').html(buildExportFilter(this.value));
-        if (ft === 'month') {
-            $('#export-filters [name=bulan]').val(bulanList[now.getMonth()]);
-            $('#export-filters [name=tahun]').val(now.getFullYear());
-        } else {
-            const y = now.getFullYear();
-            const m = String(now.getMonth()+1).padStart(2,'0');
-            $('#export-filters [name=dari]').val(`${y}-${m}-01`);
-            $('#export-filters [name=sampai]').val(`${y}-${m}-${new Date(y, now.getMonth()+1,0).getDate()}`);
-        }
+        $('#export-filters [name=bulan]').val(bulanList[now.getMonth()]);
+        $('#export-filters [name=tahun]').val(now.getFullYear());
+        loadExportData();
+    });
+    $('#export-filters').on('change', 'select', function() {
         loadExportData();
     });
     $('#btn-load-export').on('click', function(e){ e.preventDefault(); loadExportData(); });

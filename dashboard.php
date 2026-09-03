@@ -288,14 +288,10 @@ try {
                 <h2 class="display-md mb-2">Ekspor Laporan</h2>
                 <p class="text-sm text-[var(--ink-muted)] mb-4">Pilih jenis laporan, atur filter, unduh CSV atau cetak PDF.</p>
                 <div class="card-linear p-4 mb-6 flex flex-col sm:flex-row gap-3 items-end">
-                    <div class="w-full sm:w-56">
+                    <div class="w-full sm:w-64">
                         <label class="eyebrow block mb-1">Jenis Laporan</label>
                         <select id="export-type" class="input-linear w-full">
-                            <option value="jurnal">Cashflow (Jurnal Kas)</option>
-                            <option value="kasminggu">Kas Mingguan per Siswa</option>
-                            <option value="kasbon">Dana Talangan (Kasbon)</option>
-                            <option value="bms">Kas BMS</option>
-                            <option value="alokasi">Alokasi Dana</option>
+                            <option value="kasminggu" selected>Kas Mingguan per Siswa</option>
                         </select>
                     </div>
                     <div id="export-filters" class="flex flex-wrap gap-3 items-end flex-1"></div>
