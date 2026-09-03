@@ -3,6 +3,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../lib/activity_log.php';
+require_once __DIR__ . '/../lib/FinanceEngine.php';
 
 if (empty($_SESSION['admin_logged'])) {
     http_response_code(403);
@@ -97,15 +98,20 @@ try {
                     ];
                 }
             }
-            // Hitung berapa unit baru yang baru dicentang (untuk nominal jurnal)
+            // Hitung delta centang baru (masuk) dan centang batal (keluar/koreksi)
             $newCheckedCount = 0;
+            $newUncheckedCount = 0;
             foreach ($changes as $c) {
                 $sid = (int)($c['siswa_id'] ?? 0); $m = (int)($c['minggu'] ?? 0); $chk = (int)($c['checked'] ?? 0);
                 if ($sid <= 0 || !in_array($m, [1,2,3,4,5], true)) continue;
                 $prev = $prevStates[$sid][$m] ?? 0;
                 if ($chk === 1 && $prev === 0) $newCheckedCount++;
+                if ($chk === 0 && $prev === 1) $newUncheckedCount++;
             }
-            $nominalBaru = $newCheckedCount * $tarif;
+            $netUnits = $newCheckedCount - $newUncheckedCount;
+            $netNominal = $netUnits * $tarif;
+            $queueId = null;
+
             $pdo->beginTransaction();
             try {
                 foreach ($changes as $c) {
@@ -125,24 +131,28 @@ try {
                         WHERE siswa_id=? AND bulan=? AND tahun=?
                     ")->execute([$tarif, $sid, $bulan, $tahun]);
                 }
-                // Otomatis catat ke Jurnal Kas & Tempat Penyimpanan jika dipilih
-                $jurnalKasId = null;
-                if ($catatJurnal && $nominalBaru > 0) {
-                    $pdo->prepare("INSERT INTO jurnal_kas (tanggal, keterangan, jenis, nominal, storage_account_id, source) VALUES (?,?,'masuk',?,?,?)")
-                        ->execute([$jurTgl, $jurKet, $nominalBaru, $storAccId ?: null, 'kas_mingguan']);
-                    $jurnalKasId = (int)$pdo->lastInsertId();
-                    if ($storAccId) {
-                        $pdo->prepare("INSERT INTO storage_transactions (account_id, tanggal, jenis, nominal, ref_type, ref_id, keterangan) VALUES (?,?,'masuk',?,'jurnal',?,?)")
-                            ->execute([$storAccId, $jurTgl, $nominalBaru, $jurnalKasId, $jurKet]);
-                    }
-                    log_activity($pdo, 'jurnal_kas', 'tambah', $jurnalKasId, "Auto-catat Kas Mingguan #$jurnalKasId: $jurKet (Rp " . number_format($nominalBaru, 0, ',', '.') . ")", [
-                        'source' => 'kas_mingguan', 'tanggal' => $jurTgl, 'nominal' => $nominalBaru, 'storage_account_id' => $storAccId
+
+                // Jika ada perubahan nominal bersih, otomatis catat ke antrean Uncategorized Cashflow
+                if ($netNominal != 0) {
+                    $qKet = $netNominal > 0
+                        ? "Penerimaan Kas Mingguan $bulan $tahun ($newCheckedCount baru)"
+                        : "Koreksi Pembatalan Kas Mingguan $bulan $tahun ($newUncheckedCount batal)";
+                    $qDetail = json_encode([
+                        'bulan' => $bulan,
+                        'tahun' => $tahun,
+                        'new_checked' => $newCheckedCount,
+                        'new_unchecked' => $newUncheckedCount,
+                        'net_nominal' => $netNominal
                     ]);
+                    $insQ = $pdo->prepare("INSERT INTO kas_mingguan_queue (bulan, tahun, nominal, keterangan, detail, status) VALUES (?, ?, ?, ?, ?, 'pending')");
+                    $insQ->execute([$bulan, $tahun, $netNominal, $qKet, $qDetail]);
+                    $queueId = (int)$pdo->lastInsertId();
                 }
+
                 $pdo->commit();
             } catch (Throwable $e) {
                 $pdo->rollBack();
-                http_response_code(500); echo json_encode(['error'=>'save failed']); break;
+                http_response_code(500); echo json_encode(['error'=>'save failed: ' . $e->getMessage()]); break;
             }
             $stmt = $pdo->prepare("SELECT siswa_id, total_bayar FROM kas_mingguan WHERE bulan=? AND tahun=?");
             $stmt->execute([$bulan, $tahun]);
@@ -193,12 +203,11 @@ try {
                 'tahun' => $tahun,
                 'total_perubahan' => $totalPerubahan,
                 'perubahan' => $perubahan,
-                'catat_jurnal' => $catatJurnal,
-                'nominal_baru' => $nominalBaru,
-                'jurnal_kas_id' => $jurnalKasId,
+                'net_nominal' => $netNominal,
+                'queue_id' => $queueId,
             ];
             log_activity($pdo, 'kas_mingguan', 'update_status', null, $ringkasan, $detail);
-            echo json_encode(['ok' => true, 'totals' => $totals, 'saved' => count($changes), 'nominal_baru' => $nominalBaru, 'jurnal_kas_id' => $jurnalKasId]);
+            echo json_encode(['ok' => true, 'totals' => $totals, 'saved' => count($changes), 'net_nominal' => $netNominal, 'queue_id' => $queueId]);
             break;
         }
         case 'add_jurnal': {
@@ -520,352 +529,206 @@ try {
             log_activity($pdo, 'kasbon', 'hapus', $id, $ringkasan, $detail);
             echo json_encode(['ok' => true]);
             break;
-        }
-        case 'add_bms': {
-            $tgl  = $_POST['tanggal'] ?? date('Y-m-d');
-            $ket  = trim($_POST['keterangan'] ?? '');
-            $jenis= $_POST['jenis'] ?? '';
-            $jml  = (float)($_POST['jumlah'] ?? 0);
-            if ($ket === '' || !in_array($jenis, ['setor','tarik'], true) || $jml <= 0) {
-                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
-            }
-            $pdo->prepare("INSERT INTO kas_bms (tanggal, keterangan, jenis, jumlah) VALUES (?,?,?,?)")
-                ->execute([$tgl, $ket, $jenis, $jml]);
-            $newId = (int)$pdo->lastInsertId();
-            $jenisLabel = $jenis === 'setor' ? 'Setor' : 'Tarik';
-            $ringkasan = "Tambah BMS ($jenisLabel) #$newId: $ket (Rp " . number_format($jml, 0, ',', '.') . ")";
-            $detail = ['tanggal' => $tgl, 'keterangan' => $ket, 'jenis' => $jenisLabel, 'jumlah' => $jml];
-            log_activity($pdo, 'kas_bms', 'tambah', $newId, $ringkasan, $detail);
-            echo json_encode(['ok' => true, 'id' => $newId]);
+        }        // ── CENTRALIZED MONEY TRACKER ENDPOINTS ───────────────────
+        case 'get_finance_overview': {
+            $summary = FinanceEngine::getSummary($pdo);
+            $categories = FinanceEngine::getCategories($pdo);
+            $pendingQueue = FinanceEngine::getKasQueue($pdo, 'pending');
+            echo json_encode([
+                'ok'            => true,
+                'summary'       => $summary,
+                'accounts'      => $summary['accounts'],
+                'categories'    => $categories,
+                'pending_queue' => $pendingQueue
+            ]);
             break;
         }
-        case 'update_bms': {
-            $id   = (int)($_POST['id'] ?? 0);
-            $tgl  = $_POST['tanggal'] ?? date('Y-m-d');
-            $ket  = trim($_POST['keterangan'] ?? '');
-            $jenis= $_POST['jenis'] ?? '';
-            $jml  = (float)($_POST['jumlah'] ?? 0);
-            if ($id <= 0 || $ket === '' || !in_array($jenis, ['setor','tarik'], true) || $jml <= 0) {
-                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
+        case 'get_transactions': {
+            $filters = [
+                'start_date'  => $_GET['start_date'] ?? null,
+                'end_date'    => $_GET['end_date'] ?? null,
+                'type'        => $_GET['type'] ?? null,
+                'account_id'  => $_GET['account_id'] ?? null,
+                'category_id' => $_GET['category_id'] ?? null,
+                'search'      => $_GET['search'] ?? null,
+                'limit'       => !empty($_GET['limit']) ? (int)$_GET['limit'] : 100,
+                'offset'      => !empty($_GET['offset']) ? (int)$_GET['offset'] : 0,
+            ];
+            $rows = FinanceEngine::getTransactions($pdo, $filters);
+            echo json_encode(['ok' => true, 'transactions' => $rows]);
+            break;
+        }
+        case 'add_transaction': {
+            $adminUser = $_SESSION['admin_user'] ?? $_SESSION['admin_username'] ?? 'admin';
+            $data = [
+                'date'          => $_POST['date'] ?? date('Y-m-d'),
+                'type'          => $_POST['type'] ?? '',
+                'account_id'    => $_POST['account_id'] ?? 0,
+                'to_account_id' => $_POST['to_account_id'] ?? null,
+                'category_id'   => $_POST['category_id'] ?? null,
+                'amount'        => (float)($_POST['amount'] ?? 0),
+                'description'   => trim($_POST['description'] ?? ''),
+                'ref_type'      => 'manual',
+                'created_by'    => $adminUser,
+            ];
+            try {
+                $txId = FinanceEngine::addTransaction($pdo, $data);
+                $typeLabel = $data['type'] === 'income' ? 'Pemasukan' : ($data['type'] === 'expense' ? 'Pengeluaran' : 'Transfer');
+                $ringkasan = "Catat $typeLabel #$txId: {$data['description']} (Rp " . number_format($data['amount'], 0, ',', '.') . ")";
+                log_activity($pdo, 'cashflow', 'tambah', $txId, $ringkasan, $data);
+                echo json_encode(['ok' => true, 'id' => $txId]);
+            } catch (Throwable $e) {
+                http_response_code(400);
+                echo json_encode(['error' => $e->getMessage()]);
             }
-            $pdo->prepare("UPDATE kas_bms SET tanggal=?, keterangan=?, jenis=?, jumlah=? WHERE id=?")
-                ->execute([$tgl, $ket, $jenis, $jml, $id]);
-            $jenisLabel = $jenis === 'setor' ? 'Setor' : 'Tarik';
-            $ringkasan = "Edit BMS #$id ($jenisLabel): $ket (Rp " . number_format($jml, 0, ',', '.') . ")";
-            $detail = ['id' => $id, 'tanggal' => $tgl, 'keterangan' => $ket, 'jenis' => $jenisLabel, 'jumlah' => $jml];
-            log_activity($pdo, 'kas_bms', 'edit', $id, $ringkasan, $detail);
+            break;
+        }
+        case 'update_transaction': {
+            $id = (int)($_POST['id'] ?? 0);
+            if ($id <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid id']); break; }
+            $data = [
+                'date'          => $_POST['date'] ?? date('Y-m-d'),
+                'type'          => $_POST['type'] ?? '',
+                'account_id'    => $_POST['account_id'] ?? 0,
+                'to_account_id' => $_POST['to_account_id'] ?? null,
+                'category_id'   => $_POST['category_id'] ?? null,
+                'amount'        => (float)($_POST['amount'] ?? 0),
+                'description'   => trim($_POST['description'] ?? ''),
+            ];
+            try {
+                FinanceEngine::updateTransaction($pdo, $id, $data);
+                log_activity($pdo, 'cashflow', 'edit', $id, "Edit transaksi #$id (Rp " . number_format($data['amount'], 0, ',', '.') . ")", $data);
+                echo json_encode(['ok' => true]);
+            } catch (Throwable $e) {
+                http_response_code(400);
+                echo json_encode(['error' => $e->getMessage()]);
+            }
+            break;
+        }
+        case 'delete_transaction': {
+            $id = (int)($_POST['id'] ?? 0);
+            if ($id <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid id']); break; }
+            FinanceEngine::deleteTransaction($pdo, $id);
+            log_activity($pdo, 'cashflow', 'hapus', $id, "Hapus transaksi #$id");
             echo json_encode(['ok' => true]);
             break;
         }
-        case 'delete_bms': {
-            $id = (int)($_REQUEST['id'] ?? 0);
-            if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'invalid id']); break; }
-            $bmsStmt = $pdo->prepare("SELECT tanggal, keterangan, jenis, jumlah FROM kas_bms WHERE id=?");
-            $bmsStmt->execute([$id]);
-            $rowBms = $bmsStmt->fetch(PDO::FETCH_ASSOC);
-            $ket = $rowBms['keterangan'] ?? '';
-            $tgl = $rowBms['tanggal'] ?? '';
-            $jenis = $rowBms['jenis'] ?? '';
-            $jml = (float)($rowBms['jumlah'] ?? 0);
-            $jenisLabel = $jenis === 'setor' ? 'Setor' : ($jenis === 'tarik' ? 'Tarik' : $jenis);
-            $ringkasan = "Hapus BMS #$id ($jenisLabel): $ket (Rp " . number_format($jml, 0, ',', '.') . ")";
-            $detail = ['id' => $id, 'tanggal' => $tgl, 'keterangan' => $ket, 'jenis' => $jenisLabel, 'jumlah' => $jml];
-            $pdo->prepare("DELETE FROM kas_bms WHERE id=?")->execute([$id]);
-            log_activity($pdo, 'kas_bms', 'hapus', $id, $ringkasan, $detail);
-            echo json_encode(['ok' => true]);
+        case 'manage_account': {
+            $sub = $_POST['sub_action'] ?? 'add';
+            if ($sub === 'add') {
+                $name = trim($_POST['name'] ?? '');
+                $type = $_POST['type'] ?? 'other';
+                $icon = trim($_POST['icon'] ?? 'fa-solid fa-wallet');
+                $init = (float)($_POST['initial_balance'] ?? 0);
+                $sort = (int)($_POST['sort_order'] ?? 0);
+                if ($name === '') { http_response_code(400); echo json_encode(['error'=>'Nama akun wajib']); break; }
+                $pdo->prepare("INSERT INTO accounts (name, type, icon, initial_balance, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)")
+                    ->execute([$name, $type, $icon, $init, $sort]);
+                $accId = (int)$pdo->lastInsertId();
+                log_activity($pdo, 'account', 'tambah', $accId, "Tambah dompet/akun: $name");
+                echo json_encode(['ok' => true, 'id' => $accId]);
+            } elseif ($sub === 'edit') {
+                $id   = (int)($_POST['id'] ?? 0);
+                $name = trim($_POST['name'] ?? '');
+                $type = $_POST['type'] ?? 'other';
+                $icon = trim($_POST['icon'] ?? 'fa-solid fa-wallet');
+                $init = (float)($_POST['initial_balance'] ?? 0);
+                $sort = (int)($_POST['sort_order'] ?? 0);
+                if ($id <= 0 || $name === '') { http_response_code(400); echo json_encode(['error'=>'invalid']); break; }
+                $pdo->prepare("UPDATE accounts SET name=?, type=?, icon=?, initial_balance=?, sort_order=? WHERE id=?")
+                    ->execute([$name, $type, $icon, $init, $sort, $id]);
+                log_activity($pdo, 'account', 'edit', $id, "Edit dompet/akun: $name");
+                echo json_encode(['ok' => true]);
+            } elseif ($sub === 'toggle_active') {
+                $id = (int)($_POST['id'] ?? 0);
+                $cur = (int)$pdo->query("SELECT is_active FROM accounts WHERE id = $id")->fetchColumn();
+                $new = $cur ? 0 : 1;
+                $pdo->prepare("UPDATE accounts SET is_active=? WHERE id=?")->execute([$new, $id]);
+                echo json_encode(['ok' => true, 'is_active' => (bool)$new]);
+            } elseif ($sub === 'delete') {
+                $id = (int)($_POST['id'] ?? 0);
+                $used = (int)$pdo->query("SELECT COUNT(*) FROM transactions WHERE account_id = $id OR to_account_id = $id")->fetchColumn();
+                if ($used > 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Akun memiliki riwayat transaksi dan tidak bisa dihapus. Silakan nonaktifkan.']);
+                    break;
+                }
+                $pdo->prepare("DELETE FROM accounts WHERE id=?")->execute([$id]);
+                log_activity($pdo, 'account', 'hapus', $id, "Hapus akun #$id");
+                echo json_encode(['ok' => true]);
+            }
+            break;
+        }
+        case 'manage_category': {
+            $sub = $_POST['sub_action'] ?? 'add';
+            if ($sub === 'add') {
+                $name  = trim($_POST['name'] ?? '');
+                $type  = $_POST['type'] ?? 'both';
+                $icon  = trim($_POST['icon'] ?? 'fa-solid fa-tag');
+                $color = trim($_POST['color'] ?? '#3b82f6');
+                if ($name === '') { http_response_code(400); echo json_encode(['error'=>'Nama kategori wajib']); break; }
+                $pdo->prepare("INSERT INTO categories (name, type, icon, color, is_active) VALUES (?, ?, ?, ?, 1)")
+                    ->execute([$name, $type, $icon, $color]);
+                $catId = (int)$pdo->lastInsertId();
+                log_activity($pdo, 'category', 'tambah', $catId, "Tambah kategori: $name");
+                echo json_encode(['ok' => true, 'id' => $catId]);
+            } elseif ($sub === 'edit') {
+                $id    = (int)($_POST['id'] ?? 0);
+                $name  = trim($_POST['name'] ?? '');
+                $type  = $_POST['type'] ?? 'both';
+                $icon  = trim($_POST['icon'] ?? 'fa-solid fa-tag');
+                $color = trim($_POST['color'] ?? '#3b82f6');
+                if ($id <= 0 || $name === '') { http_response_code(400); echo json_encode(['error'=>'invalid']); break; }
+                $pdo->prepare("UPDATE categories SET name=?, type=?, icon=?, color=? WHERE id=?")
+                    ->execute([$name, $type, $icon, $color, $id]);
+                log_activity($pdo, 'category', 'edit', $id, "Edit kategori: $name");
+                echo json_encode(['ok' => true]);
+            } elseif ($sub === 'delete') {
+                $id = (int)($_POST['id'] ?? 0);
+                $used = (int)$pdo->query("SELECT COUNT(*) FROM transactions WHERE category_id = $id")->fetchColumn();
+                if ($used > 0) {
+                    $pdo->prepare("UPDATE categories SET is_active=0 WHERE id=?")->execute([$id]);
+                    echo json_encode(['ok' => true, 'action' => 'deactivated']);
+                    break;
+                }
+                $pdo->prepare("DELETE FROM categories WHERE id=?")->execute([$id]);
+                log_activity($pdo, 'category', 'hapus', $id, "Hapus kategori #$id");
+                echo json_encode(['ok' => true]);
+            }
+            break;
+        }
+        case 'get_kas_queue': {
+            $status = $_GET['status'] ?? 'pending';
+            $rows = FinanceEngine::getKasQueue($pdo, $status ?: null);
+            echo json_encode(['ok' => true, 'queue' => $rows]);
+            break;
+        }
+        case 'claim_kas_queue': {
+            $queueId    = (int)($_POST['queue_id'] ?? 0);
+            $accountId  = (int)($_POST['account_id'] ?? 0);
+            $categoryId = (int)($_POST['category_id'] ?? 0);
+            $customDesc = trim($_POST['description'] ?? '');
+            $adminUser  = $_SESSION['admin_user'] ?? $_SESSION['admin_username'] ?? 'admin';
+
+            if ($queueId <= 0 || $accountId <= 0 || $categoryId <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Antrean, akun, dan kategori harus dipilih']);
+                break;
+            }
+
+            try {
+                $txId = FinanceEngine::claimKasQueue($pdo, $queueId, $accountId, $categoryId, $adminUser, $customDesc ?: null);
+                log_activity($pdo, 'cashflow', 'claim_kas', $txId, "Bukukan Kas Mingguan antrean #$queueId ke transaksi #$txId");
+                echo json_encode(['ok' => true, 'transaction_id' => $txId]);
+            } catch (Throwable $e) {
+                http_response_code(400);
+                echo json_encode(['error' => $e->getMessage()]);
+            }
             break;
         }
         case 'list_accounts': {
-            $rows = $pdo->query("SELECT id, name, type, icon, is_active, sort_order FROM storage_accounts WHERE is_active = 1 ORDER BY sort_order, id")->fetchAll(PDO::FETCH_ASSOC);
+            $rows = FinanceEngine::getAccountsWithBalances($pdo, true);
             echo json_encode($rows);
-            break;
-        }
-        case 'add_allocation': {
-            $tgl    = $_POST['tanggal'] ?? date('Y-m-d');
-            $refT   = $_POST['ref_type'] ?? '';
-            $ket    = trim($_POST['keterangan'] ?? '');
-            $total  = (float)($_POST['total_nominal'] ?? 0);
-            $lines  = json_decode($_POST['lines'] ?? '[]', true);
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl)) { http_response_code(400); echo json_encode(['error'=>'invalid tanggal']); break; }
-            if (!in_array($refT, ['bms_setor','bms_tarik','kas_mingguan','manual'], true)) { http_response_code(400); echo json_encode(['error'=>'invalid ref_type']); break; }
-            if ($total <= 0 || !is_array($lines) || empty($lines)) { http_response_code(400); echo json_encode(['error'=>'invalid total or lines']); break; }
-            // Validate lines: account exists+active, nominal > 0, sum matches
-            $sum = 0.0;
-            $ids = [];
-            foreach ($lines as $l) {
-                $aid = (int)($l['account_id'] ?? 0);
-                $nom = (float)($l['nominal'] ?? 0);
-                if ($aid <= 0 || $nom <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid line']); break 2; }
-                $ids[] = $aid;
-                $sum += $nom;
-            }
-            if (abs($sum - $total) > 0.01) { http_response_code(400); echo json_encode(['error'=>'lines sum mismatch', 'sum'=>$sum, 'total'=>$total]); break; }
-            $inClause = implode(',', array_fill(0, count($ids), '?'));
-            $check = $pdo->prepare("SELECT id FROM storage_accounts WHERE id IN ($inClause) AND is_active = 1");
-            $check->execute($ids);
-            $found = $check->fetchAll(PDO::FETCH_COLUMN, 0);
-            if (count($found) !== count(array_unique($ids))) { http_response_code(400); echo json_encode(['error'=>'unknown or inactive account']); break; }
-            $pdo->beginTransaction();
-            try {
-                $pdo->prepare("INSERT INTO storage_allocations (ref_type, tanggal, total_nominal, keterangan) VALUES (?,?,?,?)")
-                    ->execute([$refT, $tgl, $total, $ket]);
-                $newId = (int)$pdo->lastInsertId();
-                $ins = $pdo->prepare("INSERT INTO storage_transactions (account_id, tanggal, jenis, nominal, ref_type, ref_id, keterangan) VALUES (?,?,?,?,?,?,?)");
-                $lineSummary = [];
-                $namaMap = [];
-                $nm = $pdo->prepare("SELECT id, name FROM storage_accounts WHERE id IN ($inClause)");
-                $nm->execute($ids);
-                foreach ($nm->fetchAll(PDO::FETCH_ASSOC) as $r) $namaMap[(int)$r['id']] = $r['name'];
-                foreach ($lines as $l) {
-                    $aid = (int)$l['account_id'];
-                    $nom = (float)$l['nominal'];
-                    $ins->execute([$aid, $tgl, 'masuk', $nom, 'allocation', $newId, $ket]);
-                    $lineSummary[] = $namaMap[$aid] . ' (Rp ' . number_format($nom, 0, ',', '.') . ')';
-                }
-                $pdo->commit();
-            } catch (Throwable $e) {
-                $pdo->rollBack();
-                http_response_code(500); echo json_encode(['error'=>'save failed']); break;
-            }
-            $refLabel = ['bms_setor'=>'Setor BMS','bms_tarik'=>'Tarik BMS','kas_mingguan'=>'Kas Mingguan','manual'=>'Manual'][$refT];
-            $ringkasan = "Alokasi #$newId ($refLabel) Rp " . number_format($total, 0, ',', '.') . " → " . implode(', ', $lineSummary);
-            $detail = ['tanggal'=>$tgl, 'ref_type'=>$refT, 'total_nominal'=>$total, 'keterangan'=>$ket, 'lines'=>$lines];
-            log_activity($pdo, 'alokasi', 'tambah', $newId, $ringkasan, $detail);
-            echo json_encode(['ok'=>true, 'id'=>$newId]);
-            break;
-        }
-        case 'update_allocation': {
-            $id    = (int)($_POST['id'] ?? 0);
-            $tgl   = $_POST['tanggal'] ?? date('Y-m-d');
-            $refT  = $_POST['ref_type'] ?? '';
-            $ket   = trim($_POST['keterangan'] ?? '');
-            $total = (float)($_POST['total_nominal'] ?? 0);
-            $lines = json_decode($_POST['lines'] ?? '[]', true);
-            if ($id <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl) || !in_array($refT, ['bms_setor','bms_tarik','kas_mingguan','manual'], true) || $total <= 0 || !is_array($lines) || empty($lines)) {
-                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
-            }
-            $sum = 0.0; $ids = [];
-            foreach ($lines as $l) {
-                $aid = (int)($l['account_id'] ?? 0);
-                $nom = (float)($l['nominal'] ?? 0);
-                if ($aid <= 0 || $nom <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid line']); break 2; }
-                $ids[] = $aid; $sum += $nom;
-            }
-            if (abs($sum - $total) > 0.01) { http_response_code(400); echo json_encode(['error'=>'lines sum mismatch']); break; }
-            $inClause = implode(',', array_fill(0, count($ids), '?'));
-            $check = $pdo->prepare("SELECT id FROM storage_accounts WHERE id IN ($inClause) AND is_active = 1");
-            $check->execute($ids);
-            $found = $check->fetchAll(PDO::FETCH_COLUMN, 0);
-            if (count($found) !== count(array_unique($ids))) { http_response_code(400); echo json_encode(['error'=>'unknown or inactive account']); break; }
-            $pdo->beginTransaction();
-            try {
-                $pdo->prepare("UPDATE storage_allocations SET ref_type=?, tanggal=?, total_nominal=?, keterangan=? WHERE id=?")
-                    ->execute([$refT, $tgl, $total, $ket, $id]);
-                $pdo->prepare("DELETE FROM storage_transactions WHERE ref_type='allocation' AND ref_id=?")->execute([$id]);
-                $ins = $pdo->prepare("INSERT INTO storage_transactions (account_id, tanggal, jenis, nominal, ref_type, ref_id, keterangan) VALUES (?,?,?,?,?,?,?)");
-                $namaMap = [];
-                $nm = $pdo->prepare("SELECT id, name FROM storage_accounts WHERE id IN ($inClause)");
-                $nm->execute($ids);
-                foreach ($nm->fetchAll(PDO::FETCH_ASSOC) as $r) $namaMap[(int)$r['id']] = $r['name'];
-                foreach ($lines as $l) {
-                    $ins->execute([(int)$l['account_id'], $tgl, 'masuk', (float)$l['nominal'], 'allocation', $id, $ket]);
-                }
-                $pdo->commit();
-            } catch (Throwable $e) {
-                $pdo->rollBack();
-                http_response_code(500); echo json_encode(['error'=>'save failed']); break;
-            }
-            $ringkasan = "Edit alokasi #$id (Rp " . number_format($total, 0, ',', '.') . ")";
-            $detail = ['id'=>$id, 'tanggal'=>$tgl, 'ref_type'=>$refT, 'total_nominal'=>$total, 'keterangan'=>$ket, 'lines'=>$lines];
-            log_activity($pdo, 'alokasi', 'edit', $id, $ringkasan, $detail);
-            echo json_encode(['ok'=>true]);
-            break;
-        }
-        case 'delete_allocation': {
-            $id = (int)($_POST['id'] ?? 0);
-            if ($id <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid id']); break; }
-            $stmt = $pdo->prepare("SELECT tanggal, ref_type, total_nominal, keterangan FROM storage_allocations WHERE id=?");
-            $stmt->execute([$id]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$row) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
-            $pdo->beginTransaction();
-            try {
-                $pdo->prepare("DELETE FROM storage_transactions WHERE ref_type='allocation' AND ref_id=?")->execute([$id]);
-                $pdo->prepare("DELETE FROM storage_allocations WHERE id=?")->execute([$id]);
-                $pdo->commit();
-            } catch (Throwable $e) {
-                $pdo->rollBack();
-                http_response_code(500); echo json_encode(['error'=>'delete failed']); break;
-            }
-            $refLabel = ['bms_setor'=>'Setor BMS','bms_tarik'=>'Tarik BMS','kas_mingguan'=>'Kas Mingguan','manual'=>'Manual'][$row['ref_type']] ?? $row['ref_type'];
-            $ringkasan = "Hapus alokasi #$id ($refLabel Rp " . number_format($row['total_nominal'], 0, ',', '.') . ")";
-            $detail = ['id'=>$id, 'tanggal'=>$row['tanggal'], 'ref_type'=>$row['ref_type'], 'total_nominal'=>(float)$row['total_nominal'], 'keterangan'=>$row['keterangan']];
-            log_activity($pdo, 'alokasi', 'hapus', $id, $ringkasan, $detail);
-            echo json_encode(['ok'=>true]);
-            break;
-        }
-        case 'add_transfer': {
-            $tgl   = $_POST['tanggal'] ?? date('Y-m-d');
-            $from  = (int)($_POST['from_id'] ?? 0);
-            $to    = (int)($_POST['to_id']   ?? 0);
-            $nom   = (float)($_POST['nominal'] ?? 0);
-            $ket   = trim($_POST['keterangan'] ?? '');
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl) || $from <= 0 || $to <= 0 || $from === $to || $nom <= 0) {
-                http_response_code(400); echo json_encode(['error'=>'invalid']); break;
-            }
-            $check = $pdo->prepare("SELECT id, name FROM storage_accounts WHERE id IN (?, ?) AND is_active = 1");
-            $check->execute([$from, $to]);
-            $names = [];
-            foreach ($check->fetchAll(PDO::FETCH_ASSOC) as $r) $names[(int)$r['id']] = $r['name'];
-            if (count($names) !== 2) { http_response_code(400); echo json_encode(['error'=>'unknown or inactive account']); break; }
-            $pdo->beginTransaction();
-            try {
-                $outStmt = $pdo->prepare("INSERT INTO storage_transactions (account_id, tanggal, jenis, nominal, ref_type, keterangan) VALUES (?,?,?,?,?,?)");
-                $outStmt->execute([$from, $tgl, 'keluar', $nom, 'transfer_out', $ket]);
-                $outId = (int)$pdo->lastInsertId();
-                $outStmt->execute([$to, $tgl, 'masuk', $nom, 'transfer_in', $ket]);
-                $inId = (int)$pdo->lastInsertId();
-                $pdo->prepare("UPDATE storage_transactions SET transfer_pair_id=? WHERE id IN (?, ?)")->execute([$outId, $outId, $inId]);
-                $pdo->commit();
-            } catch (Throwable $e) {
-                $pdo->rollBack();
-                http_response_code(500); echo json_encode(['error'=>'save failed']); break;
-            }
-            $ringkasan = "Transfer $nom dari " . $names[$from] . " → " . $names[$to] . " (Rp " . number_format($nom, 0, ',', '.') . ")";
-            $detail = ['tanggal'=>$tgl, 'from_id'=>$from, 'to_id'=>$to, 'nominal'=>$nom, 'keterangan'=>$ket, 'transfer_pair_id'=>$outId];
-            log_activity($pdo, 'storage_transfer', 'tambah', $outId, $ringkasan, $detail);
-            echo json_encode(['ok'=>true, 'id'=>$outId]);
-            break;
-        }
-        case 'delete_transfer': {
-            $pairId = (int)($_POST['transfer_pair_id'] ?? 0);
-            if ($pairId <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid']); break; }
-            $stmt = $pdo->prepare("SELECT tanggal, nominal, keterangan, account_id FROM storage_transactions WHERE id=? OR transfer_pair_id=?");
-            $stmt->execute([$pairId, $pairId]);
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            if (count($rows) < 2) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
-            $nom = (float)$rows[0]['nominal'];
-            $tgl = $rows[0]['tanggal'];
-            $ket = $rows[0]['keterangan'];
-            $pdo->prepare("DELETE FROM storage_transactions WHERE id=? OR transfer_pair_id=?")->execute([$pairId, $pairId]);
-            $ringkasan = "Hapus transfer pair #$pairId (Rp " . number_format($nom, 0, ',', '.') . ")";
-            $detail = ['transfer_pair_id'=>$pairId, 'tanggal'=>$tgl, 'nominal'=>$nom, 'keterangan'=>$ket];
-            log_activity($pdo, 'storage_transfer', 'hapus', $pairId, $ringkasan, $detail);
-            echo json_encode(['ok'=>true]);
-            break;
-        }
-        case 'prune_riwayat': {
-            $sebelum = $_POST['sebelum'] ?? '';
-            if ($sebelum === '') {
-                http_response_code(400);
-                echo json_encode(['error' => 'sebelum required']);
-                break;
-            }
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $sebelum)) {
-                http_response_code(400);
-                echo json_encode(['error' => 'invalid date']);
-                break;
-            }
-            $maxDate = date('Y-m-d', strtotime('+30 days'));
-            if ($sebelum > $maxDate) {
-                http_response_code(400);
-                echo json_encode(['error' => 'sebelum cannot be future date > 30 days']);
-                break;
-            }
-            $stmt = $pdo->prepare("DELETE FROM activity_log WHERE created_at < ?");
-            $stmt->execute([$sebelum . ' 00:00:00']);
-            $deleted = $stmt->rowCount();
-            echo json_encode(['ok' => true, 'deleted' => $deleted]);
-            break;
-        }
-        // ── Kelola Tempat Penyimpanan (Storage Accounts CRUD) ──────────────
-        case 'list_storage_accounts_all': {
-            // Semua akun + statistik transaksi (digunakan admin)
-            $rows = $pdo->query("
-                SELECT a.id, a.name, a.type, a.parent_type, a.icon, a.is_active, a.sort_order,
-                       COALESCE(SUM(CASE WHEN t.jenis='masuk' THEN t.nominal ELSE -t.nominal END), 0) AS saldo,
-                       COUNT(DISTINCT t.id) AS tx_count
-                FROM storage_accounts a
-                LEFT JOIN storage_transactions t ON t.account_id = a.id
-                GROUP BY a.id
-                ORDER BY a.sort_order, a.id
-            ")->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($rows as &$r) {
-                $r['saldo']    = (float)$r['saldo'];
-                $r['tx_count'] = (int)$r['tx_count'];
-                $r['is_active'] = (bool)(int)$r['is_active'];
-            }
-            unset($r);
-            echo json_encode($rows);
-            break;
-        }
-        case 'add_storage_account': {
-            $name   = trim($_POST['name'] ?? '');
-            $type   = trim($_POST['type'] ?? 'other');
-            $ptype  = trim($_POST['parent_type'] ?? 'other');
-            $icon   = trim($_POST['icon'] ?? 'fa-solid fa-vault');
-            $sort   = (int)($_POST['sort_order'] ?? 99);
-            if ($name === '') { http_response_code(400); echo json_encode(['error'=>'name required']); break; }
-            // Cek duplikasi nama
-            $dup = $pdo->prepare("SELECT id FROM storage_accounts WHERE name = ?");
-            $dup->execute([$name]);
-            if ($dup->fetchColumn() !== false) { http_response_code(409); echo json_encode(['error'=>'Nama akun sudah ada']); break; }
-            $ins = $pdo->prepare("INSERT INTO storage_accounts (name, type, parent_type, icon, sort_order, is_active) VALUES (?,?,?,?,?,1)");
-            $ins->execute([$name, $type, $ptype, $icon, $sort]);
-            $newId = (int)$pdo->lastInsertId();
-            log_activity($pdo, 'storage_account', 'tambah', $newId, "Tambah tempat simpan: $name ($type)", ['name'=>$name,'type'=>$type,'parent_type'=>$ptype,'icon'=>$icon]);
-            echo json_encode(['ok'=>true, 'id'=>$newId]);
-            break;
-        }
-        case 'update_storage_account': {
-            $id    = (int)($_POST['id'] ?? 0);
-            $name  = trim($_POST['name'] ?? '');
-            $type  = trim($_POST['type'] ?? 'other');
-            $ptype = trim($_POST['parent_type'] ?? 'other');
-            $icon  = trim($_POST['icon'] ?? 'fa-solid fa-vault');
-            $sort  = (int)($_POST['sort_order'] ?? 99);
-            if ($id <= 0 || $name === '') { http_response_code(400); echo json_encode(['error'=>'id and name required']); break; }
-            // Cek duplikasi nama (selain diri sendiri)
-            $dup = $pdo->prepare("SELECT id FROM storage_accounts WHERE name = ? AND id <> ?");
-            $dup->execute([$name, $id]);
-            if ($dup->fetchColumn() !== false) { http_response_code(409); echo json_encode(['error'=>'Nama akun sudah ada']); break; }
-            $pdo->prepare("UPDATE storage_accounts SET name=?, type=?, parent_type=?, icon=?, sort_order=? WHERE id=?")->execute([$name, $type, $ptype, $icon, $sort, $id]);
-            log_activity($pdo, 'storage_account', 'ubah', $id, "Ubah tempat simpan #$id → $name", ['name'=>$name,'type'=>$type,'parent_type'=>$ptype,'icon'=>$icon]);
-            echo json_encode(['ok'=>true]);
-            break;
-        }
-        case 'toggle_storage_account': {
-            $id = (int)($_POST['id'] ?? 0);
-            if ($id <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid id']); break; }
-            $row = $pdo->prepare("SELECT name, is_active FROM storage_accounts WHERE id=?");
-            $row->execute([$id]);
-            $acc = $row->fetch(PDO::FETCH_ASSOC);
-            if (!$acc) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
-            $newState = $acc['is_active'] ? 0 : 1;
-            $pdo->prepare("UPDATE storage_accounts SET is_active=? WHERE id=?")->execute([$newState, $id]);
-            $label = $newState ? 'aktifkan' : 'nonaktifkan';
-            log_activity($pdo, 'storage_account', $label, $id, ucfirst($label) . " tempat simpan: {$acc['name']}", ['id'=>$id,'is_active'=>$newState]);
-            echo json_encode(['ok'=>true, 'is_active'=>(bool)$newState]);
-            break;
-        }
-        case 'delete_storage_account': {
-            $id = (int)($_POST['id'] ?? 0);
-            if ($id <= 0) { http_response_code(400); echo json_encode(['error'=>'invalid id']); break; }
-            // Cek apakah sudah pernah ada transaksi — kalau iya, tolak
-            $usedCheck = $pdo->prepare("SELECT COUNT(*) FROM storage_transactions WHERE account_id = ?");
-            $usedCheck->execute([$id]);
-            if ($usedCheck->fetchColumn() > 0) {
-                http_response_code(409);
-                echo json_encode(['error'=>'Akun sudah memiliki riwayat transaksi dan tidak bisa dihapus. Nonaktifkan saja.']);
-                break;
-            }
-            $row = $pdo->prepare("SELECT name FROM storage_accounts WHERE id=?");
-            $row->execute([$id]);
-            $name = $row->fetchColumn();
-            if (!$name) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
-            $pdo->prepare("DELETE FROM storage_accounts WHERE id=?")->execute([$id]);
-            log_activity($pdo, 'storage_account', 'hapus', $id, "Hapus tempat simpan: $name", ['id'=>$id,'name'=>$name]);
-            echo json_encode(['ok'=>true]);
             break;
         }
         case 'get_config': {
