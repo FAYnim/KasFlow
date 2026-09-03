@@ -49,7 +49,9 @@
     $('#btn-hamburger').on('click', () => $('#sidebar').toggleClass('-translate-x-full'));
     $('[data-tab]').on('click', function () { 
         activate($(this).data('tab')); 
-        $('#sidebar').addClass('-translate-x-full'); 
+        if ($(window).width() < 768) {
+            $('#sidebar').addClass('-translate-x-full'); 
+        }
     });
 
     const now = new Date();
@@ -100,8 +102,6 @@
                     <div class="text-2xl font-bold font-mono-num ${colorClass}">${v}</div>
                 </div>`
             ).join(''));
-
-            renderDonutChart(accounts);
         });
 
         $.getJSON('src/api/public.php', { action: 'get_jurnal' }, function (r) {
@@ -373,7 +373,7 @@
                 return;
             }
 
-            const rows = res.data || [];
+            const rows = res.data || res.transactions || [];
             let h = `<table class="table-linear">
                 <thead>
                     <tr>

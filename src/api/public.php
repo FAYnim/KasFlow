@@ -35,6 +35,9 @@ try {
             break;
         }
         case 'get_transactions_public': {
+            $page   = max(1, (int)($_GET['page'] ?? 1));
+            $limit  = max(5, min(100, (int)($_GET['limit'] ?? 15)));
+            $offset = ($page - 1) * $limit;
             $filters = [
                 'start_date'  => $_GET['start_date'] ?? null,
                 'end_date'    => $_GET['end_date'] ?? null,
@@ -42,11 +45,23 @@ try {
                 'account_id'  => $_GET['account_id'] ?? null,
                 'category_id' => $_GET['category_id'] ?? null,
                 'search'      => $_GET['search'] ?? null,
-                'limit'       => !empty($_GET['limit']) ? (int)$_GET['limit'] : 50,
-                'offset'      => !empty($_GET['offset']) ? (int)$_GET['offset'] : 0,
+                'limit'       => $limit,
+                'offset'      => $offset,
             ];
             $rows = FinanceEngine::getTransactions($pdo, $filters);
-            echo json_encode(['ok' => true, 'transactions' => $rows]);
+            $totalCount = FinanceEngine::countTransactions($pdo, $filters);
+            $totalPages = $totalCount > 0 ? (int)ceil($totalCount / $limit) : 1;
+            echo json_encode([
+                'ok'           => true,
+                'data'         => $rows,
+                'transactions' => $rows,
+                'pagination'   => [
+                    'page'          => $page,
+                    'limit'         => $limit,
+                    'total_records' => $totalCount,
+                    'total_pages'   => $totalPages
+                ]
+            ]);
             break;
         }
         case 'get_kas': {

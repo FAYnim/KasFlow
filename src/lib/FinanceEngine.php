@@ -365,6 +365,55 @@ class FinanceEngine
     }
 
     /**
+     * Count total transactions matching filters (for pagination).
+     */
+    public static function countTransactions(PDO $pdo, array $filters = []): int
+    {
+        $sql = "
+            SELECT COUNT(*)
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN categories c ON c.id = t.category_id
+            WHERE 1=1
+        ";
+
+        $params = [];
+
+        if (!empty($filters['start_date'])) {
+            $sql .= " AND t.date >= ?";
+            $params[] = $filters['start_date'];
+        }
+        if (!empty($filters['end_date'])) {
+            $sql .= " AND t.date <= ?";
+            $params[] = $filters['end_date'];
+        }
+        if (!empty($filters['type']) && in_array($filters['type'], ['income', 'expense', 'transfer'], true)) {
+            $sql .= " AND t.type = ?";
+            $params[] = $filters['type'];
+        }
+        if (!empty($filters['account_id'])) {
+            $sql .= " AND (t.account_id = ? OR t.to_account_id = ?)";
+            $params[] = (int)$filters['account_id'];
+            $params[] = (int)$filters['account_id'];
+        }
+        if (!empty($filters['category_id'])) {
+            $sql .= " AND t.category_id = ?";
+            $params[] = (int)$filters['category_id'];
+        }
+        if (!empty($filters['search'])) {
+            $sql .= " AND (t.description LIKE ? OR c.name LIKE ? OR a.name LIKE ?)";
+            $searchTerm = '%' . $filters['search'] . '%';
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /**
      * Get queue of uncategorized weekly cash items.
      */
     public static function getKasQueue(PDO $pdo, ?string $status = null): array

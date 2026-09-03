@@ -22,8 +22,8 @@ try {
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/print.css" media="print">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__ . '/assets/css/style.css') ?>">
+    <link rel="stylesheet" href="assets/css/print.css?v=<?= filemtime(__DIR__ . '/assets/css/print.css') ?>" media="print">
 </head>
 <body class="min-h-screen">
     <!-- Top Navigation Bar -->
@@ -231,6 +231,6 @@ try {
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="assets/js/public.js"></script>
+    <script src="assets/js/public.js?v=<?= filemtime(__DIR__ . '/assets/js/public.js') ?>"></script>
 </body>
 </html>
