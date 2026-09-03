@@ -150,13 +150,15 @@ class FinanceEngine
         $pendingQueueCount = (int)$queueCountStmt->fetchColumn();
 
         return [
-            'total_balance'        => $totalBalance,
-            'total_income'         => $totalIncome,
-            'total_expense'        => $totalExpense,
-            'total_pending_queue'  => $pendingQueueNominal,
-            'pending_queue_count'  => $pendingQueueCount,
-            'account_count'        => count($accounts),
-            'accounts'             => $accounts,
+            'total_balance'         => $totalBalance,
+            'total_saldo'           => $totalBalance,
+            'total_income'          => $totalIncome,
+            'total_expense'         => $totalExpense,
+            'total_pending_queue'   => $pendingQueueNominal,
+            'pending_queue_nominal' => $pendingQueueNominal,
+            'pending_queue_count'   => $pendingQueueCount,
+            'account_count'         => count($accounts),
+            'accounts'              => $accounts,
         ];
     }
 

@@ -265,14 +265,21 @@ $(function () {
         $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
             if (!res || !res.ok) return;
             const s = res.summary || {};
-            const queueText = s.pending_queue_count > 0 
-                ? `${s.pending_queue_count} antrean (${fmt(s.pending_queue_nominal)})` 
+            const queueNominal = (s.pending_queue_nominal !== undefined && s.pending_queue_nominal !== null)
+                ? s.pending_queue_nominal
+                : ((s.total_pending_queue !== undefined && s.total_pending_queue !== null) ? s.total_pending_queue : 0);
+            const queueCount = s.pending_queue_count ?? 0;
+            const queueText = queueCount > 0 
+                ? `${queueCount} antrean (${fmt(queueNominal)})` 
                 : '0 antrean';
+            const totalSaldo = (s.total_saldo !== undefined && s.total_saldo !== null)
+                ? s.total_saldo
+                : ((s.total_balance !== undefined && s.total_balance !== null) ? s.total_balance : 0);
             const cards = [
-                ['Total Saldo Kas', fmt(s.total_saldo), 'text-[var(--primary)]', '<i class="fa-solid fa-wallet text-sm"></i>'],
+                ['Total Saldo Kas', fmt(totalSaldo), 'text-[var(--primary)]', '<i class="fa-solid fa-wallet text-sm"></i>'],
                 ['Total Pemasukan', fmt(s.total_income), 'text-emerald-500', '<i class="fa-solid fa-arrow-trend-up text-sm"></i>'],
                 ['Total Pengeluaran', fmt(s.total_expense), 'text-rose-500', '<i class="fa-solid fa-arrow-trend-down text-sm"></i>'],
-                ['Antrean Kas Mingguan', queueText, s.pending_queue_count > 0 ? 'text-amber-500' : 'text-[var(--ink-muted)]', '<i class="fa-solid fa-bell text-sm"></i>'],
+                ['Antrean Kas Mingguan', queueText, queueCount > 0 ? 'text-amber-500' : 'text-[var(--ink-muted)]', '<i class="fa-solid fa-bell text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -467,7 +474,8 @@ $(function () {
                     lKas();
                     lDash();
                     if (r.queue_id) {
-                        alert('Perubahan kas mingguan tersimpan! Antrean baru telah dibuat di tab Cashflow & Dompet untuk dialokasikan.');
+                        const nomStr = r.net_nominal ? ` (${fmt(Math.abs(r.net_nominal))})` : '';
+                        alert(`Perubahan kas mingguan tersimpan! Antrean baru${nomStr} telah dibuat di tab Cashflow & Dompet untuk dialokasikan.`);
                     }
                 } else {
                     alert(r.error || 'Gagal menyimpan.');
@@ -576,7 +584,7 @@ $(function () {
                         <span class="eyebrow text-indigo-400">Total Saldo Kas Bersih</span>
                         <span class="text-indigo-400"><i class="fa-solid fa-vault text-base"></i></span>
                     </div>
-                    <div class="text-2xl font-bold font-mono-num text-[var(--ink)]">${fmt(s.total_saldo)}</div>
+                    <div class="text-2xl font-bold font-mono-num text-[var(--ink)]">${fmt(s.total_saldo ?? s.total_balance)}</div>
                     <div class="text-[11px] text-[var(--ink-muted)] mt-1 flex items-center justify-between">
                         <span>Masuk: <b class="text-emerald-500 font-mono">${fmt(s.total_income)}</b></span>
                         <span>Keluar: <b class="text-rose-500 font-mono">${fmt(s.total_expense)}</b></span>
@@ -605,8 +613,12 @@ $(function () {
             // 2. Render Uncategorized Queue Notification Banner
             const pending = res.pending_queue || [];
             if (pending.length > 0) {
+                const totalQueueNominal = pending.reduce((sum, item) => sum + parseFloat(item.nominal || 0), 0);
+                const displayNominal = (s.pending_queue_nominal !== undefined && s.pending_queue_nominal !== null)
+                    ? s.pending_queue_nominal
+                    : ((s.total_pending_queue !== undefined && s.total_pending_queue !== null) ? s.total_pending_queue : totalQueueNominal);
                 $('#queue-count-badge').text(pending.length);
-                $('#queue-nominal-badge').text(fmt(s.pending_queue_nominal));
+                $('#queue-nominal-badge').text(fmt(displayNominal));
                 $('#cashflow-queue-banner').removeClass('hidden');
             } else {
                 $('#cashflow-queue-banner').addClass('hidden');
