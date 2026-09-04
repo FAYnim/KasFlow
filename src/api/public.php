@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../lib/FinanceEngine.php';
 
 $action = $_GET['action'] ?? '';
 $pdo = db();
@@ -8,25 +9,58 @@ $pdo = db();
 try {
     switch ($action) {
         case 'get_summary': {
-            $totalKasMingguan    = (float)$pdo->query("SELECT COALESCE(SUM(total_bayar),0) FROM kas_mingguan")->fetchColumn();
-            // Hanya hitung jurnal masuk manual (sumber kas_mingguan sudah dihitung via total_bayar)
-            $jurnalMasuk         = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='masuk' AND source='manual'")->fetchColumn();
-            // Jurnal keluar (mencakup pengeluaran operasional & penggantian dana talangan yang sudah lunas/diganti)
-            $jurnalKeluar        = (float)$pdo->query("SELECT COALESCE(SUM(nominal),0) FROM jurnal_kas WHERE jenis='keluar' AND source='manual'")->fetchColumn();
-            // Total dana talangan yang belum diganti (kewajiban/tanggungan kas)
-            $totalKasbonBelumLunas = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kasbon WHERE status='belum_lunas'")->fetchColumn();
-            // Saldo awal dari config
-            $saldoAwal            = (float)$pdo->query("SELECT key_value FROM config WHERE key_name='saldo_awal'")->fetchColumn();
-            $totalKas             = $saldoAwal + ($totalKasMingguan + $jurnalMasuk) - $jurnalKeluar;
-
-            $sumSetor = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='setor'")->fetchColumn();
-            $sumTarik = (float)$pdo->query("SELECT COALESCE(SUM(jumlah),0) FROM kas_bms WHERE jenis='tarik'")->fetchColumn();
-            $saldoBms = $sumSetor - $sumTarik;
+            $summary = FinanceEngine::getSummary($pdo);
             echo json_encode([
-                'total_kas_terkumpul' => $totalKas,
-                'saldo_bms'           => $saldoBms,
-                'total_kasbon'        => $totalKasbonBelumLunas,
-                'saldo_awal'          => $saldoAwal,
+                'total_kas_terkumpul' => $summary['total_balance'],
+                'total_balance'       => $summary['total_balance'],
+                'total_income'        => $summary['total_income'],
+                'total_expense'       => $summary['total_expense'],
+                'total_pending_queue' => $summary['total_pending_queue'],
+                'accounts'            => $summary['accounts'],
+                'saldo_bms'           => 0,
+                'total_kasbon'        => 0,
+                'saldo_awal'          => 0,
+            ]);
+            break;
+        }
+        case 'get_finance_public': {
+            $summary = FinanceEngine::getSummary($pdo);
+            $categories = FinanceEngine::getCategories($pdo, null, true);
+            echo json_encode([
+                'ok'         => true,
+                'summary'    => $summary,
+                'accounts'   => $summary['accounts'],
+                'categories' => $categories
+            ]);
+            break;
+        }
+        case 'get_transactions_public': {
+            $page   = max(1, (int)($_GET['page'] ?? 1));
+            $limit  = max(5, min(100, (int)($_GET['limit'] ?? 15)));
+            $offset = ($page - 1) * $limit;
+            $filters = [
+                'start_date'  => $_GET['start_date'] ?? null,
+                'end_date'    => $_GET['end_date'] ?? null,
+                'type'        => $_GET['type'] ?? null,
+                'account_id'  => $_GET['account_id'] ?? null,
+                'category_id' => $_GET['category_id'] ?? null,
+                'search'      => $_GET['search'] ?? null,
+                'limit'       => $limit,
+                'offset'      => $offset,
+            ];
+            $rows = FinanceEngine::getTransactions($pdo, $filters);
+            $totalCount = FinanceEngine::countTransactions($pdo, $filters);
+            $totalPages = $totalCount > 0 ? (int)ceil($totalCount / $limit) : 1;
+            echo json_encode([
+                'ok'           => true,
+                'data'         => $rows,
+                'transactions' => $rows,
+                'pagination'   => [
+                    'page'          => $page,
+                    'limit'         => $limit,
+                    'total_records' => $totalCount,
+                    'total_pages'   => $totalPages
+                ]
             ]);
             break;
         }
@@ -57,43 +91,50 @@ try {
             $where = []; $args = [];
             if ($bulanIdx !== '') {
                 $bulanMap = ['Januari'=>1,'Februari'=>2,'Maret'=>3,'April'=>4,'Mei'=>5,'Juni'=>6,'Juli'=>7,'Agustus'=>8,'September'=>9,'Oktober'=>10,'November'=>11,'Desember'=>12];
-                if (isset($bulanMap[$bulanIdx])) { $where[] = 'MONTH(jk.tanggal) = ?'; $args[] = $bulanMap[$bulanIdx]; }
+                if (isset($bulanMap[$bulanIdx])) { $where[] = 'MONTH(t.date) = ?'; $args[] = $bulanMap[$bulanIdx]; }
             }
-            if ($tahun !== '') { $where[] = 'YEAR(jk.tanggal) = ?'; $args[] = (int)$tahun; }
+            if ($tahun !== '') { $where[] = 'YEAR(t.date) = ?'; $args[] = (int)$tahun; }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             // Total records for pagination meta
-            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM jurnal_kas jk $sqlWhere");
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM transactions t $sqlWhere");
             $stmtCount->execute($args);
             $totalRecords = (int)$stmtCount->fetchColumn();
             $totalPages   = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
-            // Paginated rows — include storage account info & source
+            // Paginated rows — include storage account info & category
             $stmt = $pdo->prepare("
-                SELECT jk.id, jk.tanggal, jk.keterangan, jk.jenis, jk.nominal,
-                       jk.source, jk.storage_account_id, sa.name AS storage_account_name
-                FROM jurnal_kas jk
-                LEFT JOIN storage_accounts sa ON sa.id = jk.storage_account_id
+                SELECT t.id, t.date AS tanggal, t.description AS keterangan,
+                       CASE t.type WHEN 'income' THEN 'masuk' WHEN 'expense' THEN 'keluar' ELSE 'transfer' END AS jenis,
+                       t.amount AS nominal,
+                       t.ref_type AS source, t.account_id AS storage_account_id,
+                       a.name AS storage_account_name, c.name AS category_name
+                FROM transactions t
+                LEFT JOIN accounts a ON a.id = t.account_id
+                LEFT JOIN categories c ON c.id = t.category_id
                 $sqlWhere
-                ORDER BY jk.tanggal DESC, jk.id DESC LIMIT $limit OFFSET $offset
+                ORDER BY t.date DESC, t.id DESC LIMIT $limit OFFSET $offset
             ");
             $stmt->execute($args);
             $rows = $stmt->fetchAll();
             // Line chart & donut use full (unpaged) dataset
-            // Inisialisasi saldo dari saldo_awal (konfigurasi) agar grafik tren merefleksikan saldo awal
             $saldoAwalChart = (float)$pdo->query("SELECT key_value FROM config WHERE key_name='saldo_awal'")->fetchColumn();
             $saldo = $saldoAwalChart;
             $line = [];
-            $allAsc = $pdo->query("SELECT tanggal, jenis, nominal FROM jurnal_kas ORDER BY tanggal ASC, id ASC")->fetchAll();
+            $allAsc = $pdo->query("SELECT date, type, amount FROM transactions ORDER BY date ASC, id ASC")->fetchAll();
             foreach ($allAsc as $r) {
-                $saldo += $r['jenis'] === 'masuk' ? (float)$r['nominal'] : -(float)$r['nominal'];
-                $line[] = ['tanggal' => $r['tanggal'], 'saldo' => $saldo];
+                if ($r['type'] === 'income') {
+                    $saldo += (float)$r['amount'];
+                } elseif ($r['type'] === 'expense') {
+                    $saldo -= (float)$r['amount'];
+                }
+                $line[] = ['tanggal' => $r['date'], 'saldo' => $saldo];
             }
             // Donut totals based on current filter (all pages)
-            $stmtAll = $pdo->prepare("SELECT jk.jenis, SUM(jk.nominal) AS total FROM jurnal_kas jk $sqlWhere GROUP BY jk.jenis");
+            $stmtAll = $pdo->prepare("SELECT t.type, SUM(t.amount) AS total FROM transactions t $sqlWhere GROUP BY t.type");
             $stmtAll->execute($args);
             $totMasuk = 0; $totKeluar = 0;
             foreach ($stmtAll->fetchAll() as $r) {
-                if ($r['jenis'] === 'masuk') $totMasuk = (float)$r['total'];
-                else $totKeluar = (float)$r['total'];
+                if ($r['type'] === 'income') $totMasuk = (float)$r['total'];
+                elseif ($r['type'] === 'expense') $totKeluar = (float)$r['total'];
             }
             echo json_encode([
                 'transaksi'  => $rows,
@@ -109,29 +150,67 @@ try {
             break;
         }
         case 'get_jurnal_all': {
-            $dari     = $_GET['dari'] ?? '';
-            $sampai   = $_GET['sampai'] ?? '';
-            $where    = [];
-            $args     = [];
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 'jk.tanggal >= ?'; $args[] = $dari; }
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 'jk.tanggal <= ?'; $args[] = $sampai; }
+            $dari       = $_GET['dari'] ?? '';
+            $sampai     = $_GET['sampai'] ?? '';
+            $type       = $_GET['type'] ?? '';
+            $accountId  = !empty($_GET['account_id']) ? (int)$_GET['account_id'] : null;
+            $categoryId = !empty($_GET['category_id']) ? (int)$_GET['category_id'] : null;
+
+            $where = [];
+            $args  = [];
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari))   { $where[] = 't.date >= ?'; $args[] = $dari; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) { $where[] = 't.date <= ?'; $args[] = $sampai; }
+            if (!empty($type)) {
+                $where[] = 't.type = ?';
+                $args[] = $type;
+            }
+            if ($accountId) {
+                $where[] = '(t.account_id = ? OR t.to_account_id = ?)';
+                $args[] = $accountId;
+                $args[] = $accountId;
+            }
+            if ($categoryId) {
+                $where[] = 't.category_id = ?';
+                $args[] = $categoryId;
+            }
+
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             $stmt = $pdo->prepare("
-                SELECT jk.id, jk.tanggal, jk.keterangan, jk.jenis, jk.nominal,
-                       COALESCE(jk.source,'manual') AS source, sa.name AS storage_name
-                FROM jurnal_kas jk
-                LEFT JOIN storage_accounts sa ON sa.id = jk.storage_account_id
+                SELECT t.id, t.date AS tanggal, t.type,
+                       t.description AS keterangan,
+                       CASE t.type WHEN 'income' THEN 'masuk' WHEN 'expense' THEN 'keluar' ELSE 'transfer' END AS jenis,
+                       t.amount AS nominal,
+                       COALESCE(t.ref_type, 'manual') AS source,
+                       a.name AS account_name,
+                       to_a.name AS to_account_name,
+                       c.name AS category_name
+                FROM transactions t
+                LEFT JOIN accounts a ON a.id = t.account_id
+                LEFT JOIN accounts to_a ON to_a.id = t.to_account_id
+                LEFT JOIN categories c ON c.id = t.category_id
                 $sqlWhere
-                ORDER BY jk.tanggal ASC, jk.id ASC
+                ORDER BY t.date ASC, t.id ASC
             ");
             $stmt->execute($args);
             $rows = array_map(function($r) {
                 $r['nominal'] = (float)$r['nominal'];
                 return $r;
-            }, $stmt->fetchAll());
-            $totMasuk = array_sum(array_column(array_filter($rows, fn($r)=>$r['jenis']==='masuk'), 'nominal'));
-            $totKeluar = array_sum(array_column(array_filter($rows, fn($r)=>$r['jenis']==='keluar'), 'nominal'));
-            echo json_encode(['rows' => $rows, 'totals' => ['masuk'=>$totMasuk, 'keluar'=>$totKeluar]]);
+            }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+
+            $totMasuk    = array_sum(array_column(array_filter($rows, fn($r)=>$r['type']==='income'), 'nominal'));
+            $totKeluar   = array_sum(array_column(array_filter($rows, fn($r)=>$r['type']==='expense'), 'nominal'));
+            $totTransfer = array_sum(array_column(array_filter($rows, fn($r)=>$r['type']==='transfer'), 'nominal'));
+
+            echo json_encode([
+                'rows'   => $rows,
+                'totals' => [
+                    'masuk'    => $totMasuk,
+                    'keluar'   => $totKeluar,
+                    'transfer' => $totTransfer,
+                    'net'      => $totMasuk - $totKeluar,
+                    'count'    => count($rows)
+                ]
+            ]);
             break;
         }
         case 'get_kasbon': {
@@ -197,64 +276,20 @@ try {
             ]);
             break;
         }
-        case 'get_storage_breakdown': {
-            $rows = $pdo->query("
-                SELECT a.id, a.name, a.type, a.parent_type, a.icon,
-                       COALESCE(SUM(CASE WHEN t.jenis='masuk' THEN t.nominal ELSE -t.nominal END), 0) AS saldo
-                FROM storage_accounts a
-                LEFT JOIN storage_transactions t ON t.account_id = a.id
-                WHERE a.is_active = 1
-                GROUP BY a.id
-                ORDER BY a.sort_order, a.id
-            ")->fetchAll(PDO::FETCH_ASSOC);
+        case 'get_storage_breakdown': {            $rows = FinanceEngine::getAccountsWithBalances($pdo, true);
             $total = 0.0;
-            foreach ($rows as &$r) {
-                $r['saldo'] = (float)$r['saldo'];
-                $total += $r['saldo'];
+            foreach ($rows as $r) {
+                $total += (float)$r['balance'];
             }
-            unset($r);
-            $recentAllocs = $pdo->query("
-                SELECT a.id, a.tanggal, a.ref_type, a.total_nominal, a.keterangan,
-                       GROUP_CONCAT(CONCAT(sa.name, ':', t.nominal) SEPARATOR '|') AS line_info
-                FROM storage_allocations a
-                LEFT JOIN storage_transactions t ON t.ref_type='allocation' AND t.ref_id = a.id
-                LEFT JOIN storage_accounts sa ON sa.id = t.account_id
-                GROUP BY a.id
-                ORDER BY a.tanggal DESC, a.id DESC
-                LIMIT 5
-            ")->fetchAll(PDO::FETCH_ASSOC);
-            $recentTransfers = $pdo->query("
-                SELECT t.id, t.tanggal, t.nominal, t.keterangan, t.transfer_pair_id,
-                       fa.name AS from_name, ta.name AS to_name
-                FROM storage_transactions t
-                JOIN storage_transactions t2 ON t2.transfer_pair_id = t.id AND t2.id <> t.id
-                JOIN storage_accounts fa ON fa.id = (SELECT account_id FROM storage_transactions WHERE id = t.id)
-                JOIN storage_accounts ta ON ta.id = t2.account_id
-                WHERE t.ref_type = 'transfer_out'
-                ORDER BY t.tanggal DESC, t.id DESC
-                LIMIT 5
-            ")->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode([
                 'accounts' => $rows,
                 'total'    => $total,
                 'donut'    => [
                     'labels' => array_map(fn($r) => $r['name'], $rows),
-                    'data'   => array_map(fn($r) => $r['saldo'], $rows),
+                    'data'   => array_map(fn($r) => max(0, (float)$r['balance']), $rows),
                 ],
-                'recent_allocations' => array_map(function($a) {
-                    $lines = [];
-                    if (!empty($a['line_info'])) foreach (explode('|', $a['line_info']) as $p) {
-                        [$n, $v] = explode(':', $p, 2) + [null, null];
-                        if ($n !== null) $lines[] = ['account' => $n, 'nominal' => (float)$v];
-                    }
-                    $a['total_nominal'] = (float)$a['total_nominal'];
-                    $a['lines'] = $lines;
-                    return $a;
-                }, $recentAllocs),
-                'recent_transfers' => array_map(function($t) {
-                    $t['nominal'] = (float)$t['nominal'];
-                    return $t;
-                }, $recentTransfers),
+                'recent_allocations' => [],
+                'recent_transfers'   => [],
             ]);
             break;
         }
@@ -396,6 +431,7 @@ try {
             $dari    = $_GET['dari']   ?? '';
             $sampai  = $_GET['sampai'] ?? '';
             $aksi    = $_GET['aksi']   ?? '';
+            $modul   = trim($_GET['modul'] ?? '');
             $page    = max(1, (int)($_GET['page']  ?? 1));
             $limit   = max(5, min(100, (int)($_GET['limit'] ?? 15)));
             $offset  = ($page - 1) * $limit;
@@ -407,9 +443,17 @@ try {
                 $where[] = 'created_at <= ?';
                 $args[]  = $sampai . ' 23:59:59';
             }
-            if (in_array($aksi, ['tambah', 'edit', 'hapus', 'update_status'], true)) {
+            if (in_array($aksi, ['tambah', 'edit', 'hapus', 'update_status', 'claim_kas'], true)) {
                 $where[] = 'aksi = ?';
                 $args[]  = $aksi;
+            }
+            if ($modul !== '') {
+                if ($modul === 'legacy') {
+                    $where[] = "modul IN ('alokasi', 'jurnal_kas', 'kasbon', 'kas_bms', 'storage_transfer', 'storage_account')";
+                } elseif (in_array($modul, ['cashflow', 'kas_mingguan', 'account', 'category', 'siswa', 'config'], true)) {
+                    $where[] = 'modul = ?';
+                    $args[]  = $modul;
+                }
             }
             $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
             // Total records for pagination meta

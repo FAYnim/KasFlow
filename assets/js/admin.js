@@ -47,18 +47,23 @@ $(function () {
     $('#btn-close-sidebar, #sidebar-overlay').on('click', closeSidebar);
 
     function loadEksporTab() {
-        $('#export-type').trigger('change');
+        if (!cfOverviewData.accounts || cfOverviewData.accounts.length === 0) {
+            $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
+                if (res && res.ok) cfOverviewData = res;
+                $('#export-type').trigger('change');
+            });
+        } else {
+            $('#export-type').trigger('change');
+        }
     }
 
     const loaders = {
         dashboard: lDash,
         siswa: lSiswa,
         kas: lKas,
-        jurnal: lJurnal,
-        kasbon: lKasbon,
+        jurnal: lCashflow,
+        accounts_categories: lMaster,
         ekspor: loadEksporTab,
-        bms: lBms,
-        alokasi: loadAlokasiAdmin,
         riwayat: loadRiwayatAdmin,
         pengaturan: loadPengaturanAdmin,
     };
@@ -264,11 +269,24 @@ $(function () {
     });
 
     function lDash() {
-        $.getJSON('src/api/public.php?action=get_summary', s => {
+        $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
+            if (!res || !res.ok) return;
+            const s = res.summary || {};
+            const queueNominal = (s.pending_queue_nominal !== undefined && s.pending_queue_nominal !== null)
+                ? s.pending_queue_nominal
+                : ((s.total_pending_queue !== undefined && s.total_pending_queue !== null) ? s.total_pending_queue : 0);
+            const queueCount = s.pending_queue_count ?? 0;
+            const queueText = queueCount > 0 
+                ? `${queueCount} antrean (${fmt(queueNominal)})` 
+                : '0 antrean';
+            const totalSaldo = (s.total_saldo !== undefined && s.total_saldo !== null)
+                ? s.total_saldo
+                : ((s.total_balance !== undefined && s.total_balance !== null) ? s.total_balance : 0);
             const cards = [
-                ['Total Kas', fmt(s.total_kas_terkumpul), 'text-[var(--primary)]', '<i class="fa-solid fa-vault text-sm"></i>'],
-                ['Saldo BMS', fmt(s.saldo_bms), 'text-[var(--accent-sky)]', '<i class="fa-solid fa-building-columns text-sm"></i>'],
-                ['Talangan Belum Diganti', fmt(s.total_kasbon), 'text-[var(--accent-orange)]', '<i class="fa-solid fa-handshake text-sm"></i>'],
+                ['Total Saldo Kas', fmt(totalSaldo), 'text-[var(--primary)]', '<i class="fa-solid fa-wallet text-sm"></i>'],
+                ['Total Pemasukan', fmt(s.total_income), 'text-emerald-500', '<i class="fa-solid fa-arrow-trend-up text-sm"></i>'],
+                ['Total Pengeluaran', fmt(s.total_expense), 'text-rose-500', '<i class="fa-solid fa-arrow-trend-down text-sm"></i>'],
+                ['Antrean Kas Mingguan', queueText, queueCount > 0 ? 'text-amber-500' : 'text-[var(--ink-muted)]', '<i class="fa-solid fa-bell text-sm"></i>'],
             ];
             $('#admin-summary').html(cards.map(([t, v, colorClass, icon]) =>
                 `<div class="card-linear">
@@ -461,7 +479,11 @@ $(function () {
                     Object.keys(kasState.pending).forEach(sid => { kasState.saved[sid] = { ...kasState.saved[sid], ...kasState.pending[sid] }; });
                     kasState.pending = {};
                     lKas();
-                    if (r.jurnal_kas_id) lJurnal();
+                    lDash();
+                    if (r.queue_id) {
+                        const nomStr = r.net_nominal ? ` (${fmt(Math.abs(r.net_nominal))})` : '';
+                        alert(`Perubahan kas mingguan tersimpan! Antrean baru${nomStr} telah dibuat di tab Cashflow & Dompet untuk dialokasikan.`);
+                    }
                 } else {
                     alert(r.error || 'Gagal menyimpan.');
                 }
@@ -482,70 +504,11 @@ $(function () {
         });
         if (changes.length === 0) return;
 
-        // Hitung nominal baru (hanya yang dicentang)
-        const tarif = kasState.tarif || 0;
-        let newCount = 0;
-        changes.forEach(c => { if (c.checked === 1 && (kasState.saved[c.siswa_id] || {})[c.minggu] !== 1) newCount++; });
-        const nominalBaru = newCount * tarif;
-
-        if (nominalBaru > 0) {
-            // Tampilkan modal konfirmasi integrasi
-            _kasConfirmChanges = changes;
-            const bulanTahun = `${kasState.bulan} ${kasState.tahun}`;
-            $('#kas-confirm-nominal').text(fmt(nominalBaru));
-            $('#kas-confirm-detail').text(`${newCount} pembayaran baru (${newCount} × ${fmt(tarif)})`);
-            $('#kas-confirm-ket').val(`Penerimaan Kas Mingguan ${bulanTahun}`);
-            $('#kas-confirm-tgl').val(new Date().toISOString().slice(0, 10));
-            // Populate storage dropdown
-            $.getJSON('src/api/admin.php?action=list_accounts', function (accs) {
-                const opts = '<option value="">— Tidak dicatat ke dompet —</option>' +
-                    accs.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
-                $('#kas-confirm-storage').html(opts);
-            });
-            $('#modal-kas-save-confirm').removeClass('hidden');
-        } else {
-            // Tidak ada pembayaran baru — simpan langsung
-            const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Menyimpan...</span>');
-            doSaveKas(changes, { catat_jurnal: 0 }, $btn);
-        }
+        const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Menyimpan...</span>');
+        doSaveKas(changes, {}, $btn);
     });
 
-    // Toggle jurnal opts visibility
-    $('#kas-confirm-catat').on('change', function () {
-        $('#kas-confirm-jurnal-opts').toggleClass('hidden', !this.checked);
-        $('#kas-confirm-save').prop('disabled', false);
-    });
 
-    // Tutup modal konfirmasi
-    $('#kas-confirm-close').on('click', () => {
-        $('#modal-kas-save-confirm').addClass('hidden');
-        _kasConfirmChanges = null;
-    });
-
-    // Simpan tanpa jurnal
-    $('#kas-confirm-skip').on('click', function () {
-        if (!_kasConfirmChanges) return;
-        $('#modal-kas-save-confirm').addClass('hidden');
-        doSaveKas(_kasConfirmChanges, { catat_jurnal: 0 }, null);
-        _kasConfirmChanges = null;
-    });
-
-    // Simpan + catat jurnal
-    $('#kas-confirm-save').on('click', function () {
-        if (!_kasConfirmChanges) return;
-        const $btn = $(this).prop('disabled', true);
-        const catatJurnal = $('#kas-confirm-catat').is(':checked') ? 1 : 0;
-        const extra = {
-            catat_jurnal: catatJurnal,
-            storage_account_id: catatJurnal ? $('#kas-confirm-storage').val() : '',
-            jurnal_keterangan: $('#kas-confirm-ket').val(),
-            jurnal_tanggal: $('#kas-confirm-tgl').val(),
-        };
-        $('#modal-kas-save-confirm').addClass('hidden');
-        doSaveKas(_kasConfirmChanges, extra, null);
-        _kasConfirmChanges = null;
-        $btn.prop('disabled', false);
-    });
 
 
     $('#kas-reset-btn').on('click', function () {
@@ -608,174 +571,697 @@ $(function () {
         });
     }
 
-    // Jurnal Modal & CRUD
-    $('#btn-add-jurnal').on('click', () => openJurnalModal());
-    $('#modal-close, #modal-close-btn').on('click', () => $('#modal-jurnal').addClass('hidden'));
+    // ══════════════════════════════════════════════════════════════════════════════
+    //  CENTRALIZED CASHFLOW & MONEY TRACKER
+    // ══════════════════════════════════════════════════════════════════════════════
+    let cfOverviewData = { accounts: [], categories: [], summary: {}, pending_queue: [] };
+    let cfPage = 1;
 
-    // Populate storage dropdown di form Jurnal saat modal dibuka
-    function populateJurnalStorageDropdown(selectedId) {
-        $.getJSON('src/api/admin.php?action=list_accounts', function (accs) {
-            const opts = '<option value="">— Tidak dicatat ke dompet —</option>' +
-                accs.map(a => `<option value="${a.id}"${a.id == selectedId ? ' selected' : ''}>${escapeHtml(a.name)}</option>`).join('');
-            $('#jurnal-storage-select').html(opts);
+    function lCashflow() {
+        $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
+            if (!res || !res.ok) return;
+            cfOverviewData = res;
+
+            // 1. Render Accounts & Total Balance Grid
+            const s = res.summary || {};
+            const accounts = res.accounts || [];
+            let accGridHtml = `
+                <div class="card-linear border-indigo-500/30 bg-indigo-500/5">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="eyebrow text-indigo-400">Total Saldo Kas Bersih</span>
+                        <span class="text-indigo-400"><i class="fa-solid fa-vault text-base"></i></span>
+                    </div>
+                    <div class="text-2xl font-bold font-mono-num text-[var(--ink)]">${fmt(s.total_saldo ?? s.total_balance)}</div>
+                    <div class="text-[11px] text-[var(--ink-muted)] mt-1 flex items-center justify-between">
+                        <span>Masuk: <b class="text-emerald-500 font-mono">${fmt(s.total_income)}</b></span>
+                        <span>Keluar: <b class="text-rose-500 font-mono">${fmt(s.total_expense)}</b></span>
+                    </div>
+                </div>
+            `;
+
+            accGridHtml += accounts.map(a => {
+                const icon = a.icon || 'fa-solid fa-wallet';
+                const bal = parseFloat(a.balance || 0);
+                const balClass = bal >= 0 ? 'text-[var(--ink)]' : 'text-rose-500';
+                return `
+                    <div class="card-linear">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="eyebrow">${escapeHtml(a.name)}</span>
+                            <span class="text-[var(--ink-muted)]"><i class="${escapeHtml(icon)} text-sm"></i></span>
+                        </div>
+                        <div class="text-2xl font-bold font-mono-num ${balClass}">${fmt(bal)}</div>
+                        <div class="text-[11px] text-[var(--ink-muted)] mt-1 capitalize">${escapeHtml(a.type || 'Akun')}</div>
+                    </div>
+                `;
+            }).join('');
+
+            $('#cashflow-accounts-grid').html(accGridHtml);
+
+            // 2. Render Uncategorized Queue Notification Banner
+            const pending = res.pending_queue || [];
+            if (pending.length > 0) {
+                const totalQueueNominal = pending.reduce((sum, item) => sum + parseFloat(item.nominal || 0), 0);
+                const displayNominal = (s.pending_queue_nominal !== undefined && s.pending_queue_nominal !== null)
+                    ? s.pending_queue_nominal
+                    : ((s.total_pending_queue !== undefined && s.total_pending_queue !== null) ? s.total_pending_queue : totalQueueNominal);
+                $('#queue-count-badge').text(pending.length);
+                $('#queue-nominal-badge').text(fmt(displayNominal));
+                $('#cashflow-queue-banner').removeClass('hidden');
+            } else {
+                $('#cashflow-queue-banner').addClass('hidden');
+            }
+
+            // 3. Populate Filter Dropdowns
+            const accFilterOpts = '<option value="">Semua Akun</option>' +
+                accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            $('#cf-filter-account').html(accFilterOpts);
+
+            const catFilterOpts = '<option value="">Semua Kategori</option>' +
+                (res.categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+            $('#cf-filter-category').html(catFilterOpts);
+
+            // 4. Load Transaction Table
+            loadTransactionsTable();
         });
     }
 
-    function openJurnalModal(t) {
-        $('#modal-jurnal').removeClass('hidden');
-        const f = $('#form-jurnal')[0];
-        f.reset();
-        populateJurnalStorageDropdown(t ? t.storage_account_id : null);
-        if (t) {
-            f.id.value = t.id;
-            f.tanggal.value = t.tanggal;
-            f.keterangan.value = t.keterangan;
-            f.jenis.value = t.jenis;
-            f.nominal.value = t.nominal;
+    function loadTransactionsTable(page) {
+        if (page !== undefined) cfPage = page;
+        const params = {
+            action: 'get_transactions',
+            page: cfPage,
+            limit: 15,
+            type: $('#cf-filter-type').val() || '',
+            account_id: $('#cf-filter-account').val() || '',
+            category_id: $('#cf-filter-category').val() || '',
+            start_date: $('#cf-filter-dari').val() || '',
+            end_date: $('#cf-filter-sampai').val() || '',
+            search: $('#cf-filter-search').val() || ''
+        };
+
+        $.getJSON('src/api/admin.php', params, res => {
+            if (!res || !res.ok) {
+                $('#cashflow-table-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat transaksi.</div>');
+                return;
+            }
+
+            const rows = res.data || [];
+            let h = `<table class="table-linear">
+                <thead>
+                    <tr>
+                        <th class="w-28">Tanggal</th>
+                        <th class="w-24">Tipe</th>
+                        <th class="w-36">Kategori</th>
+                        <th class="w-40">Dompet / Akun</th>
+                        <th>Keterangan</th>
+                        <th class="text-right w-36">Nominal</th>
+                        <th class="w-28 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            if (rows.length === 0) {
+                h += `<tr><td colspan="7" class="text-center py-6 text-[var(--ink-muted)]">Belum ada data transaksi sesuai filter.</td></tr>`;
+            } else {
+                h += rows.map(t => {
+                    let typeBadge = '';
+                    let nomColor = 'text-[var(--ink)]';
+                    let nomPrefix = '';
+
+                    if (t.type === 'income') {
+                        typeBadge = '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-down text-[9px]"></i> Masuk</span>';
+                        nomColor = 'text-emerald-500 font-semibold';
+                        nomPrefix = '+';
+                    } else if (t.type === 'expense') {
+                        typeBadge = '<span class="badge-status badge-danger font-medium"><i class="fa-solid fa-arrow-up text-[9px]"></i> Keluar</span>';
+                        nomColor = 'text-rose-500 font-semibold';
+                        nomPrefix = '-';
+                    } else if (t.type === 'transfer') {
+                        typeBadge = '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-arrow-right-arrow-left text-[9px]"></i> Transfer</span>';
+                        nomColor = 'text-indigo-400 font-semibold';
+                    }
+
+                    const catBadge = t.category_name 
+                        ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium" style="background:${escapeHtml(t.category_color || '#3b82f6')}15; color:${escapeHtml(t.category_color || '#3b82f6')}">
+                            <i class="${escapeHtml(t.category_icon || 'fa-solid fa-tag')} text-[9px]"></i>
+                            <span>${escapeHtml(t.category_name)}</span>
+                        </span>`
+                        : '<span class="text-[var(--ink-muted)] text-xs">—</span>';
+
+                    let accText = escapeHtml(t.account_name || '—');
+                    if (t.type === 'transfer' && t.to_account_name) {
+                        accText = `<div class="text-xs flex items-center gap-1"><span>${escapeHtml(t.account_name)}</span> <i class="fa-solid fa-arrow-right text-[10px] text-[var(--ink-muted)]"></i> <span>${escapeHtml(t.to_account_name)}</span></div>`;
+                    }
+
+                    const jsonAttr = escapeHtml(JSON.stringify(t));
+
+                    return `
+                        <tr>
+                            <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.date)}</td>
+                            <td>${typeBadge}</td>
+                            <td>${catBadge}</td>
+                            <td class="text-xs text-[var(--ink)]">${accText}</td>
+                            <td class="text-xs text-[var(--ink)]">${escapeHtml(t.description || '—')}</td>
+                            <td class="text-right font-mono-num text-xs ${nomColor}">${nomPrefix}${fmt(t.amount)}</td>
+                            <td class="text-right space-x-1">
+                                <button class="btn-secondary text-xs px-2 py-1 edit-tx-btn" data-tx='${jsonAttr}'>
+                                    <i class="fa-solid fa-pen text-[9px]"></i>
+                                </button>
+                                <button class="btn-danger text-xs px-2 py-1 del-tx-btn" data-id="${t.id}">
+                                    <i class="fa-solid fa-trash-can text-[9px]"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            h += '</tbody></table>';
+            $('#cashflow-table-wrap').html(h);
+            renderPagination('cashflow-pagination', res.pagination, p => loadTransactionsTable(p));
+        });
+    }
+
+    // Filter Listeners
+    $('#cf-filter-type, #cf-filter-account, #cf-filter-category, #cf-filter-dari, #cf-filter-sampai').on('change', () => {
+        cfPage = 1;
+        loadTransactionsTable();
+    });
+
+    let cfSearchTimer = null;
+    $('#cf-filter-search').on('input', function () {
+        clearTimeout(cfSearchTimer);
+        cfSearchTimer = setTimeout(() => {
+            cfPage = 1;
+            loadTransactionsTable();
+        }, 300);
+    });
+
+    $('#cf-filter-apply').on('click', () => {
+        cfPage = 1;
+        loadTransactionsTable();
+    });
+
+    $('#cf-filter-reset').on('click', () => {
+        $('#cf-filter-type').val('');
+        $('#cf-filter-account').val('');
+        $('#cf-filter-category').val('');
+        $('#cf-filter-dari').val('');
+        $('#cf-filter-sampai').val('');
+        $('#cf-filter-search').val('');
+        cfPage = 1;
+        loadTransactionsTable();
+    });
+
+    // Transaction Modal Helpers
+    function setTxType(type) {
+        $('#tx-type').val(type);
+        $('.tx-type-btn').removeClass('border-emerald-500 border-rose-500 border-indigo-500 bg-[var(--surface-2)]');
+        $(`.tx-type-btn[data-type="${type}"]`).addClass('bg-[var(--surface-2)]');
+
+        const accounts = cfOverviewData.accounts || [];
+        const categories = cfOverviewData.categories || [];
+
+        // Populate accounts
+        const accOpts = accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)} (Saldo: ${fmt(a.balance)})</option>`).join('');
+        $('#tx-account-id').html(accOpts);
+        $('#tx-to-account-id').html(accOpts);
+
+        // Filter categories by type
+        const catFiltered = categories.filter(c => c.type === 'both' || c.type === type);
+        const catOpts = catFiltered.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        $('#tx-category-id').html(catOpts);
+
+        if (type === 'transfer') {
+            $(`.tx-type-btn[data-type="transfer"]`).addClass('border-indigo-500');
+            $('#tx-account-label').text('Dari Dompet / Akun *');
+            $('#tx-to-account-group').removeClass('hidden');
+            $('#tx-category-group').addClass('hidden');
+        } else {
+            if (type === 'income') $(`.tx-type-btn[data-type="income"]`).addClass('border-emerald-500');
+            if (type === 'expense') $(`.tx-type-btn[data-type="expense"]`).addClass('border-rose-500');
+            $('#tx-account-label').text('Dompet / Akun *');
+            $('#tx-to-account-group').addClass('hidden');
+            $('#tx-category-group').removeClass('hidden');
         }
     }
 
-    $('#form-jurnal').on('submit', function (e) {
+    function openTxModal(tx, defaultType = 'income') {
+        $('#modal-transaction').removeClass('hidden');
+        const f = $('#form-transaction')[0];
+        f.reset();
+
+        const type = tx ? tx.type : defaultType;
+        setTxType(type);
+
+        if (tx) {
+            $('#modal-tx-title span').text('Edit Transaksi');
+            $('#tx-id').val(tx.id);
+            $('#tx-date').val(tx.date);
+            $('#tx-amount').val(tx.amount);
+            $('#tx-account-id').val(tx.account_id);
+            if (tx.to_account_id) $('#tx-to-account-id').val(tx.to_account_id);
+            if (tx.category_id) $('#tx-category-id').val(tx.category_id);
+            $('#tx-description').val(tx.description || '');
+        } else {
+            $('#modal-tx-title span').text('Catat Transaksi');
+            $('#tx-id').val('');
+            $('#tx-date').val(new Date().toISOString().slice(0, 10));
+            $('#tx-amount').val('');
+            $('#tx-description').val('');
+        }
+    }
+
+    // Modal Close
+    $('.btn-close-modal').on('click', function () {
+        $(this).closest('.modal-overlay').addClass('hidden');
+    });
+
+    // Quick Action Triggers
+    $('#btn-cashflow-income').on('click', () => openTxModal(null, 'income'));
+    $('#btn-cashflow-expense').on('click', () => openTxModal(null, 'expense'));
+    $('#btn-cashflow-transfer').on('click', () => openTxModal(null, 'transfer'));
+
+    $('.tx-type-btn').on('click', function () {
+        setTxType($(this).data('type'));
+    });
+
+    // Submit Transaction
+    $('#form-transaction').on('submit', function (e) {
         e.preventDefault();
-        const id = this.id.value;
-        const action = id ? 'update_jurnal' : 'add_jurnal';
-        $.post('src/api/admin.php?action=' + action, $(this).serialize(), r => {
-            if (r.ok) { 
-                $('#modal-jurnal').addClass('hidden'); 
-                lJurnal(); 
+        const id = $('#tx-id').val();
+        const type = $('#tx-type').val();
+        const accountId = $('#tx-account-id').val();
+        const toAccountId = $('#tx-to-account-id').val();
+        const categoryId = $('#tx-category-id').val();
+        const amount = parseFloat($('#tx-amount').val());
+
+        if (!amount || amount <= 0) {
+            alert('Nominal harus lebih dari 0.');
+            return;
+        }
+
+        if (type === 'transfer' && accountId == toAccountId) {
+            alert('Akun asal dan akun tujuan transfer tidak boleh sama.');
+            return;
+        }
+
+        const payload = {
+            id: id || undefined,
+            date: $('#tx-date').val(),
+            type: type,
+            account_id: accountId,
+            to_account_id: type === 'transfer' ? toAccountId : null,
+            category_id: type !== 'transfer' ? categoryId : null,
+            amount: amount,
+            description: $('#tx-description').val().trim()
+        };
+
+        const action = id ? 'update_transaction' : 'add_transaction';
+        const $btn = $('#btn-save-tx').prop('disabled', true).text('Menyimpan...');
+
+        $.post(`src/api/admin.php?action=${action}`, payload, res => {
+            $btn.prop('disabled', false).text('Simpan Transaksi');
+            if (res && res.ok) {
+                $('#modal-transaction').addClass('hidden');
+                lCashflow();
+                lDash();
             } else {
-                alert(r.error);
+                alert((res && res.error) || 'Gagal menyimpan transaksi.');
+            }
+        }, 'json').fail(() => {
+            $btn.prop('disabled', false).text('Simpan Transaksi');
+            alert('Terjadi kesalahan koneksi.');
+        });
+    });
+
+    // Edit & Delete Transaction
+    $(document).on('click', '.edit-tx-btn', function () {
+        const tx = $(this).data('tx');
+        openTxModal(tx);
+    });
+
+    $(document).on('click', '.del-tx-btn', function () {
+        const id = $(this).data('id');
+        if (!confirm('Hapus transaksi ini? Saldo akun akan dikembalikan secara otomatis.')) return;
+
+        $.post('src/api/admin.php?action=delete_transaction', { id }, res => {
+            if (res && res.ok) {
+                lCashflow();
+                lDash();
+            } else {
+                alert((res && res.error) || 'Gagal menghapus transaksi.');
             }
         }, 'json');
     });
 
-    function lJurnal(page) {
-        if (page !== undefined) adminJurnalPage = page;
-        const params = { action: 'get_jurnal', page: adminJurnalPage, limit: 15 };
-        const b = $('#jurnal-bulan').val();
-        const t = $('#jurnal-tahun').val();
-        if (b) params.bulan = b;
-        if (t) params.tahun = t;
-        $.getJSON('src/api/public.php', params, r => {
-            const SOURCE_LABELS = { manual: null, kas_mingguan: 'Kas Mingguan', kasbon: 'Dana Talangan' };
-            const SOURCE_COLORS = { kas_mingguan: 'text-emerald-400', kasbon: 'text-amber-400' };
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-32">Tanggal</th>
-                        <th>Keterangan</th>
-                        <th class="w-28">Jenis</th>
-                        <th class="w-36">Dompet / Sumber</th>
-                        <th class="text-right w-36">Nominal</th>
-                        <th class="w-36 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (!r.transaksi || r.transaksi.length === 0) {
-                h += `<tr><td colspan="6" class="text-center py-6 text-[var(--ink-muted)]">Belum ada jurnal transaksi.</td></tr>`;
+    // ══════════════════════════════════════════════════════════════════════════════
+    //  CLAIM KAS MINGGUAN QUEUE
+    // ══════════════════════════════════════════════════════════════════════════════
+    $('#btn-open-queue-modal').on('click', () => {
+        const pending = cfOverviewData.pending_queue || [];
+        if (pending.length === 0) {
+            alert('Tidak ada antrean kas mingguan.');
+            return;
+        }
+
+        const item = pending[0];
+        $('#claim-queue-id').val(item.id);
+        const isNeg = parseFloat(item.nominal) < 0;
+        $('#claim-queue-title').text(isNeg ? 'Koreksi Kas Mingguan (Pengurangan)' : `Penerimaan Kas Mingguan: ${escapeHtml(item.bulan)} ${item.tahun}`);
+        $('#claim-queue-nominal').text(fmt(Math.abs(item.nominal)));
+        $('#claim-queue-info').text(isNeg ? 'Pilih dompet yang akan dipotong untuk koreksi pembatalan kas.' : 'Pilih akun/dompet tempat fisik/digital uang ini disimpan.');
+        $('#claim-description').val(item.keterangan || `Penerimaan Kas Mingguan ${item.bulan} ${item.tahun}`);
+
+        // Accounts dropdown
+        const accOpts = (cfOverviewData.accounts || []).map(a => `<option value="${a.id}">${escapeHtml(a.name)} (Saldo: ${fmt(a.balance)})</option>`).join('');
+        $('#claim-account-id').html(accOpts);
+
+        // Categories dropdown
+        const targetType = isNeg ? 'expense' : 'income';
+        const cats = (cfOverviewData.categories || []).filter(c => c.type === 'both' || c.type === targetType);
+        const catOpts = cats.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        $('#claim-category-id').html(catOpts);
+
+        $('#modal-claim-queue').removeClass('hidden');
+    });
+
+    $('#form-claim-queue').on('submit', function (e) {
+        e.preventDefault();
+        const payload = {
+            queue_id: $('#claim-queue-id').val(),
+            account_id: $('#claim-account-id').val(),
+            category_id: $('#claim-category-id').val(),
+            description: $('#claim-description').val().trim()
+        };
+
+        const $btn = $('#btn-submit-claim').prop('disabled', true).text('Membukukan...');
+        $.post('src/api/admin.php?action=claim_kas_queue', payload, res => {
+            $btn.prop('disabled', false).text('Catat ke Akun');
+            if (res && res.ok) {
+                $('#modal-claim-queue').addClass('hidden');
+                alert('Antrean kas berhasil dibukukan ke dalam dompet akun!');
+                lCashflow();
+                lDash();
             } else {
-                h += r.transaksi.map(t => {
-                    const srcLabel = SOURCE_LABELS[t.source];
-                    const srcColor = SOURCE_COLORS[t.source] || '';
-                    const srcBadge = srcLabel
-                        ? `<span class="ml-1 text-[9px] font-semibold tracking-wide uppercase ${srcColor}">${escapeHtml(srcLabel)}</span>`
-                        : '';
-                    const dompetBadge = t.storage_account_name
-                        ? `<div class="flex items-center gap-1 text-[11px] text-[var(--ink-muted)] mt-0.5"><i class="fa-solid fa-vault text-[9px]"></i>${escapeHtml(t.storage_account_name)}</div>`
-                        : '<div class="text-[11px] text-[var(--ink-muted)] mt-0.5">—</div>';
-                    return `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
-                        <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}${srcBadge}</td>
-                        <td>
-                            <span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium">
-                                <i class="fa-solid ${t.jenis==='masuk' ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[10px]"></i>
-                                <span>${t.jenis==='masuk' ? 'Masuk' : 'Keluar'}</span>
-                            </span>
-                        </td>
-                        <td>${dompetBadge}</td>
-                        <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(t.nominal)}</td>
-                        <td class="text-right space-x-1">
-                            <button class="btn-secondary text-xs px-2.5 py-1 edit-j gap-1" data-id="${t.id}" data-t='${JSON.stringify({id:t.id,tanggal:t.tanggal,keterangan:t.keterangan,jenis:t.jenis,nominal:t.nominal,storage_account_id:t.storage_account_id||''})}' >
-                                <i class="fa-solid fa-pen text-[10px]"></i>
-                                <span>Edit</span>
-                            </button>
-                            <button class="btn-danger text-xs px-2.5 py-1 del-j gap-1" data-id="${t.id}">
-                                <i class="fa-solid fa-trash-can text-[10px]"></i>
-                                <span>Hapus</span>
-                            </button>
-                        </td>
-                    </tr>`;
+                alert((res && res.error) || 'Gagal membukukan antrean kas.');
+            }
+        }, 'json').fail(() => {
+            $btn.prop('disabled', false).text('Catat ke Akun');
+            alert('Terjadi kesalahan koneksi.');
+        });
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    //  KELOLA MASTER AKUN & KATEGORI
+    // ══════════════════════════════════════════════════════════════════════════════
+    function lMaster() {
+        $.getJSON('src/api/admin.php?action=get_finance_overview', res => {
+            if (!res || !res.ok) return;
+            cfOverviewData = res;
+
+            // 1. Render Master Accounts List
+            const accs = res.accounts || [];
+            $('#master-account-count').text(`${accs.length} akun`);
+            let accHtml = '';
+            if (accs.length === 0) {
+                accHtml = '<div class="text-xs text-[var(--ink-muted)] py-4 text-center">Belum ada akun dompet.</div>';
+            } else {
+                accHtml = accs.map(a => {
+                    const icon = a.icon || 'fa-solid fa-wallet';
+                    const activeBadge = parseInt(a.is_active) === 1
+                        ? '<span class="badge-status badge-success text-[10px]">Aktif</span>'
+                        : '<span class="badge-status badge-neutral text-[10px]">Non-aktif</span>';
+                    const jsonAttr = escapeHtml(JSON.stringify(a));
+                    return `
+                        <div class="card-linear p-3 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-[var(--surface-2)] flex items-center justify-center text-sm text-[var(--primary)]">
+                                    <i class="${escapeHtml(icon)}"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold text-xs text-[var(--ink)]">${escapeHtml(a.name)}</span>
+                                        ${activeBadge}
+                                    </div>
+                                    <div class="text-[11px] text-[var(--ink-muted)] capitalize">
+                                        ${escapeHtml(a.type || 'cash')} • Saldo: <b class="font-mono text-[var(--ink)]">${fmt(a.balance)}</b>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button class="btn-secondary text-xs px-2 py-1 toggle-acc-btn" data-id="${a.id}" data-active="${a.is_active}" title="Ubah status aktif">
+                                    <i class="fa-solid ${parseInt(a.is_active)===1 ? 'fa-eye-slash' : 'fa-eye'} text-[10px]"></i>
+                                </button>
+                                <button class="btn-secondary text-xs px-2 py-1 edit-acc-btn" data-acc='${jsonAttr}' title="Edit akun">
+                                    <i class="fa-solid fa-pen text-[10px]"></i>
+                                </button>
+                                <button class="btn-danger text-xs px-2 py-1 del-acc-btn" data-id="${a.id}" title="Hapus akun">
+                                    <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
                 }).join('');
             }
-            h += '</tbody></table>';
-            $('#jurnal-wrap').html(h);
-            renderPagination('jurnal-pagination', r.pagination, (p) => lJurnal(p));
+            $('#master-accounts-list').html(accHtml);
+
+            // 2. Render Master Categories List
+            const cats = res.categories || [];
+            $('#master-category-count').text(`${cats.length} kategori`);
+            let catHtml = '';
+            if (cats.length === 0) {
+                catHtml = '<div class="text-xs text-[var(--ink-muted)] py-4 text-center">Belum ada kategori.</div>';
+            } else {
+                catHtml = cats.map(c => {
+                    const color = c.color || '#3b82f6';
+                    const icon = c.icon || 'fa-solid fa-tag';
+                    const typeLabel = c.type === 'income' ? 'Pemasukan' : (c.type === 'expense' ? 'Pengeluaran' : 'Semua (Masuk/Keluar)');
+                    const jsonAttr = escapeHtml(JSON.stringify(c));
+                    return `
+                        <div class="card-linear p-3 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg flex items-center justify-center text-sm" style="background:${color}20; color:${color}">
+                                    <i class="${escapeHtml(icon)}"></i>
+                                </div>
+                                <div>
+                                    <span class="font-semibold text-xs text-[var(--ink)]">${escapeHtml(c.name)}</span>
+                                    <div class="text-[11px] text-[var(--ink-muted)]">${typeLabel}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button class="btn-secondary text-xs px-2 py-1 edit-cat-btn" data-cat='${jsonAttr}' title="Edit kategori">
+                                    <i class="fa-solid fa-pen text-[10px]"></i>
+                                </button>
+                                <button class="btn-danger text-xs px-2 py-1 del-cat-btn" data-id="${c.id}" title="Hapus kategori">
+                                    <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            $('#master-categories-list').html(catHtml);
         });
     }
 
-    $(document).on('click', '.edit-j', function () {
-        const t = $(this).data('t');
-        if (t) {
-            openJurnalModal(typeof t === 'string' ? JSON.parse(t) : t);
-        } else {
-            const id = $(this).data('id');
-            $.getJSON('src/api/public.php?action=get_jurnal', r => {
-                const found = (r.transaksi || []).find(x => x.id == id);
-                if (found) openJurnalModal(found);
-            });
-        }
+    // Master Account Modal Handlers
+    $('#btn-add-account-master').on('click', () => {
+        $('#form-account')[0].reset();
+        $('#acc-id').val('');
+        $('#modal-account-title').text('Tambah Dompet / Akun');
+        $('#acc-initial-balance').val(0);
+        $('#acc-sort').val(1);
+        $('#acc-icon').val('fa-solid fa-wallet');
+        $('#acc-icon-preview').html('<i class="fa-solid fa-wallet"></i>');
+        $('#modal-account').removeClass('hidden');
     });
 
-    $(document).on('click', '.del-j', function () {
-        if (!confirm('Hapus transaksi ini?')) return;
-        $.post('src/api/admin.php?action=delete_jurnal', { id: $(this).data('id') }, r => lJurnal(), 'json');
+    $('#acc-icon').on('input', function () {
+        $('#acc-icon-preview').html(`<i class="${escapeHtml($(this).val())}"></i>`);
+    });
+
+    $(document).on('click', '.edit-acc-btn', function () {
+        const a = $(this).data('acc');
+        $('#modal-account-title').text('Edit Dompet / Akun');
+        $('#acc-id').val(a.id);
+        $('#acc-name').val(a.name);
+        $('#acc-type').val(a.type || 'cash');
+        $('#acc-sort').val(a.sort_order || 1);
+        $('#acc-initial-balance').val(a.initial_balance || 0);
+        $('#acc-icon').val(a.icon || 'fa-solid fa-wallet');
+        $('#acc-icon-preview').html(`<i class="${escapeHtml(a.icon || 'fa-solid fa-wallet')}"></i>`);
+        $('#modal-account').removeClass('hidden');
+    });
+
+    $('#form-account').on('submit', function (e) {
+        e.preventDefault();
+        const id = $('#acc-id').val();
+        const payload = {
+            sub_action: id ? 'update' : 'add',
+            id: id || undefined,
+            name: $('#acc-name').val().trim(),
+            type: $('#acc-type').val(),
+            sort_order: parseInt($('#acc-sort').val()) || 1,
+            initial_balance: parseFloat($('#acc-initial-balance').val()) || 0,
+            icon: $('#acc-icon').val().trim()
+        };
+
+        $.post('src/api/admin.php?action=manage_account', payload, res => {
+            if (res && res.ok) {
+                $('#modal-account').addClass('hidden');
+                lMaster();
+            } else {
+                alert((res && res.error) || 'Gagal menyimpan akun.');
+            }
+        }, 'json');
+    });
+
+    $(document).on('click', '.toggle-acc-btn', function () {
+        const id = $(this).data('id');
+        $.post('src/api/admin.php?action=manage_account', { sub_action: 'toggle_active', id }, res => {
+            if (res && res.ok) lMaster();
+            else alert((res && res.error) || 'Gagal mengubah status akun.');
+        }, 'json');
+    });
+
+    $(document).on('click', '.del-acc-btn', function () {
+        const id = $(this).data('id');
+        if (!confirm('Hapus akun ini? Pastikan tidak ada transaksi yang terhubung dengan akun ini.')) return;
+        $.post('src/api/admin.php?action=manage_account', { sub_action: 'delete', id }, res => {
+            if (res && res.ok) lMaster();
+            else alert((res && res.error) || 'Gagal menghapus akun.');
+        }, 'json');
+    });
+
+    // Master Category Modal Handlers
+    $('#btn-add-category-master').on('click', () => {
+        $('#form-category')[0].reset();
+        $('#cat-id').val('');
+        $('#modal-category-title').text('Tambah Kategori');
+        $('#cat-type').val('both');
+        $('#cat-color').val('#3b82f6');
+        $('#cat-icon').val('fa-solid fa-tag');
+        $('#cat-icon-preview').html('<i class="fa-solid fa-tag"></i>');
+        $('#modal-category').removeClass('hidden');
+    });
+
+    $('#cat-icon').on('input', function () {
+        $('#cat-icon-preview').html(`<i class="${escapeHtml($(this).val())}"></i>`);
+    });
+
+    $(document).on('click', '.edit-cat-btn', function () {
+        const c = $(this).data('cat');
+        $('#modal-category-title').text('Edit Kategori');
+        $('#cat-id').val(c.id);
+        $('#cat-name').val(c.name);
+        $('#cat-type').val(c.type || 'both');
+        $('#cat-color').val(c.color || '#3b82f6');
+        $('#cat-icon').val(c.icon || 'fa-solid fa-tag');
+        $('#cat-icon-preview').html(`<i class="${escapeHtml(c.icon || 'fa-solid fa-tag')}"></i>`);
+        $('#modal-category').removeClass('hidden');
+    });
+
+    $('#form-category').on('submit', function (e) {
+        e.preventDefault();
+        const id = $('#cat-id').val();
+        const payload = {
+            sub_action: id ? 'update' : 'add',
+            id: id || undefined,
+            name: $('#cat-name').val().trim(),
+            type: $('#cat-type').val(),
+            color: $('#cat-color').val(),
+            icon: $('#cat-icon').val().trim()
+        };
+
+        $.post('src/api/admin.php?action=manage_category', payload, res => {
+            if (res && res.ok) {
+                $('#modal-category').addClass('hidden');
+                lMaster();
+            } else {
+                alert((res && res.error) || 'Gagal menyimpan kategori.');
+            }
+        }, 'json');
+    });
+
+    $(document).on('click', '.del-cat-btn', function () {
+        const id = $(this).data('id');
+        if (!confirm('Hapus kategori ini? Pastikan tidak ada transaksi yang terhubung dengan kategori ini.')) return;
+        $.post('src/api/admin.php?action=manage_category', { sub_action: 'delete', id }, res => {
+            if (res && res.ok) lMaster();
+            else alert((res && res.error) || 'Gagal menghapus kategori.');
+        }, 'json');
     });
 
     // ===== Ekspor Laporan =====
     let _exportRows = [];
     let _lastApiRes = null;
     const EXPORT_META = {
-        jurnal:       { action: 'get_jurnal_all',   title: 'Cashflow',               fileBase: 'laporan_cashflow',      filterTpl: 'range' },
-        kasminggu:    { action: 'export_kasminggu', title: 'Kas Mingguan Siswa',     fileBase: 'laporan_kas_mingguan',  filterTpl: 'month' },
-        kasbon:       { action: 'export_kasbon',    title: 'Dana Talangan (Kasbon)', fileBase: 'laporan_dana_talangan', filterTpl: 'month' },
-        bms:          { action: 'export_bms',       title: 'Kas BMS',                fileBase: 'laporan_kas_bms',       filterTpl: 'range' },
-        alokasi:      { action: 'export_alokasi',   title: 'Alokasi Dana',           fileBase: 'laporan_alokasi_dana',  filterTpl: 'range' },
+        kasminggu: { action: 'export_kasminggu', title: 'Kas Mingguan Siswa', fileBase: 'laporan_kas_mingguan', filterTpl: 'month' },
+        cashflow:  { action: 'get_jurnal_all',   title: 'Buku Kas & Transaksi', fileBase: 'laporan_buku_kas',       filterTpl: 'cashflow' }
     };
 
     function buildExportFilter(type) {
-        const ft = EXPORT_META[type]?.filterTpl || 'range';
-        if (ft === 'range') {
-            return `
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Dari Tanggal</label>
-                    <input type="date" name="dari" class="input-linear">
-                </div>
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Sampai Tanggal</label>
-                    <input type="date" name="sampai" class="input-linear">
-                </div>`;
-        } else {
+        if (type === 'kasminggu') {
             const bulanOpts = bulanList.map(b => `<option value="${b}">${b}</option>`).join('');
             const tahunOpts = [now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y => `<option value="${y}" ${y===now.getFullYear()?'selected':''}>${y}</option>`).join('');
             return `
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Bulan</label>
-                    <select name="bulan" class="input-linear w-full">${bulanOpts}</select>
-                </div>
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Tahun</label>
-                    <select name="tahun" class="input-linear w-full">${tahunOpts}</select>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                        <label class="eyebrow block mb-1">Bulan</label>
+                        <select name="bulan" class="input-linear w-full">${bulanOpts}</select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Tahun</label>
+                        <select name="tahun" class="input-linear w-full">${tahunOpts}</select>
+                    </div>
+                </div>`;
+        } else {
+            const accOpts = '<option value="">Semua Dompet / Rekening</option>' +
+                (cfOverviewData.accounts || []).map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            const catOpts = '<option value="">Semua Kategori</option>' +
+                (cfOverviewData.categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+            return `
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div>
+                        <label class="eyebrow block mb-1">Dari Tanggal</label>
+                        <input type="date" name="dari" class="input-linear w-full">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Sampai Tanggal</label>
+                        <input type="date" name="sampai" class="input-linear w-full">
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Tipe</label>
+                        <select name="type" class="input-linear w-full">
+                            <option value="">Semua Tipe</option>
+                            <option value="income">Pemasukan (+)</option>
+                            <option value="expense">Pengeluaran (-)</option>
+                            <option value="transfer">Transfer (⇄)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Dompet / Rekening</label>
+                        <select name="account_id" class="input-linear w-full">${accOpts}</select>
+                    </div>
+                    <div>
+                        <label class="eyebrow block mb-1">Kategori</label>
+                        <select name="category_id" class="input-linear w-full">${catOpts}</select>
+                    </div>
                 </div>`;
         }
     }
 
     function loadExportData(cb) {
         const type = $('#export-type').val();
-        const meta = EXPORT_META[type] || EXPORT_META.jurnal;
+        const meta = EXPORT_META[type] || EXPORT_META.kasminggu;
         const $f = $('#export-filters');
         const params = new URLSearchParams({ action: meta.action });
         $f.find('[name=dari]').each(function(){ if ($(this).val()) params.set('dari', $(this).val()); });
         $f.find('[name=sampai]').each(function(){ if ($(this).val()) params.set('sampai', $(this).val()); });
+        $f.find('[name=type]').each(function(){ if ($(this).val()) params.set('type', $(this).val()); });
+        $f.find('[name=account_id]').each(function(){ if ($(this).val()) params.set('account_id', $(this).val()); });
+        $f.find('[name=category_id]').each(function(){ if ($(this).val()) params.set('category_id', $(this).val()); });
         $f.find('[name=bulan]').each(function(){ if ($(this).val()) params.set('bulan', $(this).val()); });
         $f.find('[name=tahun]').each(function(){ if ($(this).val()) params.set('tahun', $(this).val()); });
         const q = params.toString();
@@ -798,89 +1284,84 @@ $(function () {
         }
         let h = '<table class="table-linear"><thead><tr>';
         let body = '';
-        switch(type) {
-            case 'jurnal':
-                h += '<th class="w-32">Tanggal</th><th>Keterangan</th><th class="w-32">Sumber</th><th class="w-28">Jenis</th><th class="text-right w-36">Nominal</th>';
-                body = rows.map(t => `<tr>
-                    <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
-                    <td class="text-[var(--ink)]">${escapeHtml(t.keterangan)}</td>
-                    <td class="text-xs text-[var(--ink-muted)]">${escapeHtml(t.source === 'kas_mingguan' ? 'Kas Mingguan' : (t.source === 'kasbon' ? 'Kasbon' : (t.storage_name || 'Manual')))}</td>
-                    <td><span class="badge-status ${t.jenis==='masuk'?'badge-success':'badge-danger'} font-medium"><i class="fa-solid ${t.jenis==='masuk'?'fa-arrow-trend-up':'fa-arrow-trend-down'} text-[10px]"></i> ${t.jenis==='masuk'?'Masuk':'Keluar'}</span></td>
-                    <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(t.nominal)}</td>
-                </tr>`).join('');
-                break;
-            case 'kasminggu': {
-                const tarif = Number(apiRes?.tarif) || 0;
-                h += '<th class="w-12 text-center">#</th><th class="w-12 text-center">Absen</th><th>Nama Siswa</th>'
-                    + '<th class="text-center w-14">M1</th><th class="text-center w-14">M2</th><th class="text-center w-14">M3</th><th class="text-center w-14">M4</th><th class="text-center w-14">M5</th>'
-                    + '<th class="text-right w-36">Total Bayar</th><th class="text-right w-36">Selisih</th>';
-                const checkCell = v => `<td class="text-center text-xs">${v ? '<i class="fa-solid fa-circle-check text-green-500" title="Sudah bayar"></i>' : '<span class="text-[var(--ink-muted)]">-</span>'}</td>`;
-                body = rows.map((r, i) => {
-                    const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
-                    const totalTarif = vals.filter(Boolean).length * tarif;
-                    const paid = +r.total_bayar || 0;
-                    const selisih = paid - totalTarif;
-                    return `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
-                        <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${escapeHtml(r.absen||'-')}</td>
-                        <td class="text-[var(--ink)] font-medium">${escapeHtml(r.nama)}</td>
-                        ${vals.map(checkCell).join('')}
-                        <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(paid)}</td>
-                        <td class="text-right font-mono-num ${selisih>=0?'text-green-500':'text-red-500'}">${fmt(Math.abs(selisih))}${selisih<0?' ↓':''}</td>
-                    </tr>`;
-                }).join('');
-                const sumAll = apiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
-                const countSiswa = apiRes?.totals?.count || rows.length;
-                body += `<tr class="font-bold"><td colspan="3" class="text-right pr-2">Total (${countSiswa} siswa):</td><td colspan="5"></td><td class="text-right font-mono-num">${fmt(sumAll)}</td><td></td></tr>`;
-                break;
-            }
-            case 'kasbon':
-                h += '<th class="w-32">Tanggal</th><th>Peminjam</th><th>Keterangan</th><th class="text-right w-36">Jumlah</th><th class="w-28">Status</th>';
-                body = rows.map(r => {
-                    const badge = r.status==='lunas'
-                        ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-circle-check text-[10px]"></i> Lunas</span>'
-                        : '<span class="badge-status badge-warning font-medium"><i class="fa-solid fa-clock text-[10px]"></i> Belum Lunas</span>';
-                    const namaTampil = r.absen
-                        ? `${escapeHtml(r.nama)} <span class="ml-1 text-[10px] font-mono text-[var(--ink-muted)] bg-[var(--surface-2)] px-1 rounded">Absen ${escapeHtml(r.absen)}</span>`
-                        : escapeHtml(r.nama);
-                    return `<tr>
-                        <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(r.tanggal)}</td>
-                        <td class="text-[var(--ink)]">${namaTampil}</td>
-                        <td class="text-[var(--ink-muted)]">${escapeHtml(r.keterangan)}</td>
-                        <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.jumlah)}</td>
-                        <td>${badge}</td>
-                    </tr>`;
-                }).join('');
-                break;
-            case 'bms':
-                h += '<th class="w-32">Tanggal</th><th>Keterangan</th><th class="w-28">Jenis</th><th class="text-right w-36">Jumlah</th>';
-                body = rows.map(r => `<tr>
-                    <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(r.tanggal)}</td>
-                    <td class="text-[var(--ink)]">${escapeHtml(r.keterangan)}</td>
-                    <td><span class="badge-status ${r.jenis==='setor'?'badge-success':'badge-neutral'} font-medium">${r.jenis==='setor'?'Setor':'Tarik'}</span></td>
-                    <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.jumlah)}</td>
-                </tr>`).join('');
-                break;
-            case 'alokasi':
-                h += '<th class="w-32">Tanggal</th><th class="w-28">Sumber</th><th>Keterangan</th><th>Alokasi</th><th class="text-right w-36">Total</th>';
-                body = rows.map(r => `<tr>
-                    <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(r.tanggal)}</td>
-                    <td><span class="badge-neutral">${escapeHtml(r.ref_type)}</span></td>
-                    <td class="text-[var(--ink)]">${escapeHtml(r.keterangan||'-')}</td>
-                    <td class="text-xs text-[var(--ink-muted)]">${escapeHtml(r.lines_str||'-')}</td>
-                    <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(r.total_nominal)}</td>
-                </tr>`).join('');
-                const kpiAccounts = apiRes?.kpi?.accounts || [];
-                if (kpiAccounts.length) {
-                    h += '<thead><tr><th colspan="5" class="py-1 px-2 text-left font-semibold bg-[var(--surface-2)] text-[var(--ink)]">KPI Alokasi Dana</th></tr>';
-                    h += '<tr><th class="w-12">#</th><th>Nama Akun</th><th>Tipe</th><th></th><th class="text-right w-36">Total</th></tr></thead>';
-                    let totalKpi = 0;
-                    kpiAccounts.forEach((a, i) => { totalKpi += (a.saldo||0); h += `<tr><td class="font-mono text-xs text-[var(--ink-muted)]">${i+1}</td><td class="text-[var(--ink)]">${escapeHtml(a.name)}</td><td><span class="badge-neutral text-[10px]">${escapeHtml(a.type||'')}</span></td><td></td><td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(a.saldo)}</td></tr>`; });
-                    h += `<tr class="font-bold"><td colspan="4" class="text-right pr-2">Grand Total:</td><td class="text-right font-mono-num text-[var(--ink)]">${fmt(totalKpi)}</td></tr>`;
+
+        if (type === 'cashflow') {
+            h += '<th class="w-12 text-center">#</th>'
+               + '<th class="w-28">Tanggal</th>'
+               + '<th class="w-28 text-center">Tipe</th>'
+               + '<th>Dompet / Rekening</th>'
+               + '<th>Kategori</th>'
+               + '<th>Keterangan</th>'
+               + '<th class="text-right w-36">Nominal</th>'
+               + '</tr></thead><tbody>';
+
+            body = rows.map((t, i) => {
+                let tipeBadge = '';
+                let akunTampil = escapeHtml(t.account_name || '-');
+                let katTampil = escapeHtml(t.category_name || '-');
+                let nomColor = 'text-[var(--ink)]';
+
+                if (t.type === 'income') {
+                    tipeBadge = '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-trend-up text-[10px]"></i> Masuk</span>';
+                    nomColor = 'text-emerald-500 font-semibold';
+                } else if (t.type === 'expense') {
+                    tipeBadge = '<span class="badge-status badge-danger font-medium"><i class="fa-solid fa-arrow-trend-down text-[10px]"></i> Keluar</span>';
+                    nomColor = 'text-rose-500 font-semibold';
+                } else if (t.type === 'transfer') {
+                    tipeBadge = '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-right-left text-[10px]"></i> Transfer</span>';
+                    akunTampil = `${escapeHtml(t.account_name || '-')} <i class="fa-solid fa-arrow-right text-[10px] mx-1 text-[var(--ink-muted)]"></i> ${escapeHtml(t.to_account_name || '-')}`;
+                    katTampil = '<span class="text-[var(--ink-muted)] italic">Transfer Antar Dompet</span>';
+                    nomColor = 'text-cyan-500 font-semibold';
                 }
-                break;
+
+                return `<tr>
+                    <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
+                    <td class="font-mono text-xs text-[var(--ink-muted)]">${escapeHtml(t.tanggal)}</td>
+                    <td class="text-center">${tipeBadge}</td>
+                    <td class="font-medium text-[var(--ink)]">${akunTampil}</td>
+                    <td class="text-xs text-[var(--ink-muted)]">${katTampil}</td>
+                    <td class="text-[var(--ink)]">${escapeHtml(t.keterangan || '-')}</td>
+                    <td class="text-right font-mono-num ${nomColor}">${fmt(t.nominal)}</td>
+                </tr>`;
+            }).join('');
+
+            const totals = apiRes?.totals || {};
+            body += `<tr class="font-bold border-t-2 border-[var(--hairline)]">
+                <td colspan="6" class="text-right pr-3 text-xs uppercase tracking-wide">
+                    Total Masuk: <span class="text-emerald-500 font-mono-num font-bold mr-3">${fmt(totals.masuk || 0)}</span>
+                    Total Keluar: <span class="text-rose-500 font-mono-num font-bold mr-3">${fmt(totals.keluar || 0)}</span>
+                    Net Arus Kas:
+                </td>
+                <td class="text-right font-mono-num ${(totals.net || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'} font-bold">
+                    ${fmt(totals.net || 0)}
+                </td>
+            </tr>`;
+        } else {
+            const tarif = Number(apiRes?.tarif) || 0;
+            h += '<th class="w-12 text-center">#</th><th class="w-12 text-center">Absen</th><th>Nama Siswa</th>'
+                + '<th class="text-center w-14">M1</th><th class="text-center w-14">M2</th><th class="text-center w-14">M3</th><th class="text-center w-14">M4</th><th class="text-center w-14">M5</th>'
+                + '<th class="text-right w-36">Total Bayar</th><th class="text-right w-36">Selisih</th></tr></thead><tbody>';
+            const checkCell = v => `<td class="text-center text-xs">${v ? '<i class="fa-solid fa-circle-check text-green-500" title="Sudah bayar"></i>' : '<span class="text-[var(--ink-muted)]">-</span>'}</td>`;
+            body = rows.map((r, i) => {
+                const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
+                const totalTarif = vals.filter(Boolean).length * tarif;
+                const paid = +r.total_bayar || 0;
+                const selisih = paid - totalTarif;
+                return `<tr>
+                    <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${i+1}</td>
+                    <td class="font-mono text-xs text-[var(--ink-muted)] text-center">${escapeHtml(r.absen||'-')}</td>
+                    <td class="text-[var(--ink)] font-medium">${escapeHtml(r.nama)}</td>
+                    ${vals.map(checkCell).join('')}
+                    <td class="text-right font-mono-num font-medium text-[var(--ink)]">${fmt(paid)}</td>
+                    <td class="text-right font-mono-num ${selisih>=0?'text-green-500':'text-red-500'}">${fmt(Math.abs(selisih))}${selisih<0?' ↓':''}</td>
+                </tr>`;
+            }).join('');
+            const sumAll = apiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
+            const countSiswa = apiRes?.totals?.count || rows.length;
+            body += `<tr class="font-bold"><td colspan="3" class="text-right pr-2">Total (${countSiswa} siswa):</td><td colspan="5"></td><td class="text-right font-mono-num">${fmt(sumAll)}</td><td></td></tr>`;
         }
-        h += '</thead><tbody>' + body + '</tbody></table>';
+
+        h += body + '</tbody></table>';
         $p.html(h);
     }
 
@@ -890,36 +1371,41 @@ $(function () {
         const rows = _exportRows;
         if (!rows || !rows.length) { alert('Tidak ada data untuk diekspor.'); return; }
         const type = $('#export-type').val();
-        const meta = EXPORT_META[type] || EXPORT_META.jurnal;
+        const meta = EXPORT_META[type] || EXPORT_META.kasminggu;
         const sep = '\t'; // tab-separated → Excel opens nicely
-        let csv = '';
         const esc = s => `"${String(s||'').replace(/"/g,'""')}"`;
-        switch(type) {
-            case 'jurnal':
-                csv = ['Tanggal','Keterangan','Sumber','Jenis','Nominal'].join(sep) + '\n'
-                    + rows.map(r => [r.tanggal, esc(r.keterangan), r.source==='kas_mingguan'?'Kas Mingguan':(r.source==='kasbon'?'Kasbon':(r.storage_name||'Manual')), r.jenis, r.nominal].join(sep)).join('\n');
-                break;
-            case 'kasminggu':
-                csv = ['No','Absen','Nama Siswa','Minggu 1','Minggu 2','Minggu 3','Minggu 4','Minggu 5','Total Bayar'].join(sep) + '\n'
-                    + rows.map((r,i) => [i+1, r.absen||'-', esc(r.nama), r.m1?'✓':'-', r.m2?'✓':'-', r.m3?'✓':'-', r.m4?'✓':'-', r.m5?'✓':'-', r.total_bayar||0].join(sep)).join('\n');
-                break;
-            case 'kasbon':
-                csv = ['Tanggal','Peminjam','Absen','Keterangan','Jumlah','Status'].join(sep) + '\n'
-                    + rows.map(r => [r.tanggal, esc(r.nama), r.absen||'-', esc(r.keterangan), r.jumlah, r.status==='lunas'?'Lunas':'Belum Lunas'].join(sep)).join('\n');
-                break;
-            case 'bms':
-                csv = ['Tanggal','Keterangan','Jenis','Jumlah'].join(sep) + '\n'
-                    + rows.map(r => [r.tanggal, esc(r.keterangan), r.jenis==='setor'?'Setor':'Tarik', r.jumlah].join(sep)).join('\n');
-                break;
-            case 'alokasi':
-                csv = ['Tanggal','Sumber','Keterangan','Alokasi','Total'].join(sep) + '\n'
-                    + rows.map(r => [r.tanggal, r.ref_type, esc(r.keterangan||''), esc(r.lines_str||''), r.total_nominal].join(sep)).join('\n');
-                break;
+        let csv = '';
+        let fileName = meta.fileBase;
+
+        if (type === 'cashflow') {
+            csv = ['No','Tanggal','Tipe','Dompet Sumber','Dompet Tujuan','Kategori','Keterangan','Nominal'].join(sep) + '\n'
+                + rows.map((r, i) => [
+                    i + 1,
+                    r.tanggal,
+                    r.type === 'income' ? 'Pemasukan' : (r.type === 'expense' ? 'Pengeluaran' : 'Transfer'),
+                    esc(r.account_name || '-'),
+                    esc(r.to_account_name || '-'),
+                    esc(r.category_name || '-'),
+                    esc(r.keterangan || '-'),
+                    r.nominal || 0
+                ].join(sep)).join('\n');
+            const totals = _lastApiRes?.totals || {};
+            csv += '\n' + ['', '', '', '', '', 'Total Masuk', totals.masuk || 0].join(sep);
+            csv += '\n' + ['', '', '', '', '', 'Total Keluar', totals.keluar || 0].join(sep);
+            csv += '\n' + ['', '', '', '', '', 'Mutasi Bersih', totals.net || 0].join(sep);
+            fileName += '_' + (new Date().toISOString().slice(0, 10));
+        } else {
+            csv = ['No','Absen','Nama Siswa','Minggu 1','Minggu 2','Minggu 3','Minggu 4','Minggu 5','Total Bayar'].join(sep) + '\n'
+                + rows.map((r,i) => [i+1, r.absen||'-', esc(r.nama), r.m1?'✓':'-', r.m2?'✓':'-', r.m3?'✓':'-', r.m4?'✓':'-', r.m5?'✓':'-', r.total_bayar||0].join(sep)).join('\n');
+            const bulan = $('#export-filters [name=bulan]').val() || 'semua';
+            const tahun = $('#export-filters [name=tahun]').val() || new Date().getFullYear();
+            fileName += `_${bulan}_${tahun}`;
         }
+
         const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = meta.fileBase + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+        a.download = `${fileName}.csv`;
         a.click();
     });
 
@@ -930,10 +1416,75 @@ $(function () {
         if (typeof window.jspdf === 'undefined') { alert('jsPDF belum dimuat. Pastikan koneksi internet aktif atau tunggu sebentar.'); return; }
         const { jsPDF } = window.jspdf;
         const type = $('#export-type').val();
-        const meta = EXPORT_META[type] || { title: 'Laporan', fileBase: 'laporan' };
+        const meta = EXPORT_META[type] || EXPORT_META.kasminggu;
         const kelas = window.namaKelas || '';
         const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+        let tableHeaders = [];
+        let tableBody = [];
+        let tableFoot = [];
+        let titleSub = '';
+        let fileName = meta.fileBase;
+
+        if (type === 'cashflow') {
+            const dari = $('#export-filters [name=dari]').val();
+            const sampai = $('#export-filters [name=sampai]').val();
+            const periodeStr = (dari || sampai) ? `Periode: ${dari || 'Awal'} s.d. ${sampai || 'Sekarang'}  •  ` : '';
+            titleSub = `${periodeStr}Kas Kelas ${kelas}  •  Dicetak: ${dateStr}`;
+            fileName += '_' + new Date().toISOString().slice(0, 10);
+
+            tableHeaders = [['#', 'Tanggal', 'Tipe', 'Dompet / Rekening', 'Kategori', 'Keterangan', 'Nominal']];
+            tableBody = rows.map((r, i) => {
+                let dompet = r.account_name || '-';
+                let kat = r.category_name || '-';
+                let tipeTampil = r.type === 'income' ? 'Masuk' : (r.type === 'expense' ? 'Keluar' : 'Transfer');
+                if (r.type === 'transfer') {
+                    dompet = `${r.account_name || '-'} -> ${r.to_account_name || '-'}`;
+                    kat = 'Transfer Antar Dompet';
+                }
+                return [
+                    String(i + 1),
+                    r.tanggal || '',
+                    tipeTampil,
+                    dompet,
+                    kat,
+                    r.keterangan || '-',
+                    fmt(r.nominal)
+                ];
+            });
+
+            const totals = _lastApiRes?.totals || {};
+            tableFoot = [[
+                { content: `Total Masuk: ${fmt(totals.masuk || 0)}   |   Total Keluar: ${fmt(totals.keluar || 0)}   |   Mutasi Bersih: ${fmt(totals.net || 0)}`, colSpan: 7, styles: { fontStyle: 'bold', halign: 'right' } }
+            ]];
+        } else {
+            const bulan = $('#export-filters [name=bulan]').val() || '';
+            const tahun = $('#export-filters [name=tahun]').val() || '';
+            titleSub = `Kas Mingguan ${bulan} ${tahun}  •  Kas Kelas ${kelas}  •  Dicetak: ${dateStr}`;
+            fileName += `_${bulan}_${tahun}`;
+
+            const tarif = Number(_lastApiRes?.tarif) || 0;
+            tableHeaders = [['Absen', 'Nama Siswa', 'M1', 'M2', 'M3', 'M4', 'M5', 'Total Bayar']];
+            tableBody = rows.map(r => {
+                const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
+                const cell = v => v ? fmt(tarif) : '-';
+                return [
+                    r.absen || '-',
+                    r.nama || '',
+                    cell(vals[0]),
+                    cell(vals[1]),
+                    cell(vals[2]),
+                    cell(vals[3]),
+                    cell(vals[4]),
+                    fmt(+r.total_bayar || 0)
+                ];
+            });
+            const sumAll = _lastApiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
+            tableFoot = [[
+                { content: `Total Kas Mingguan (${rows.length} Siswa): ${fmt(sumAll)}`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }
+            ]];
+        }
 
         // Title and header info
         doc.setFontSize(14);
@@ -941,123 +1492,7 @@ $(function () {
         doc.text(`Laporan ${meta.title}`, 14, 15);
         doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
-        doc.text(`Cashflow ${kelas}  •  Dicetak: ${dateStr}`, 14, 21);
-
-        let tableHeaders = [];
-        let tableBody = [];
-        let tableFoot = [];
-
-        switch(type) {
-            case 'jurnal': {
-                tableHeaders = [['Tanggal', 'Keterangan', 'Sumber', 'Jenis', 'Nominal']];
-                tableBody = rows.map(r => [
-                    r.tanggal || '',
-                    r.keterangan || '',
-                    r.source === 'kas_mingguan' ? 'Kas Mingguan' : (r.source === 'kasbon' ? 'Kasbon' : (r.storage_name || 'Manual')),
-                    r.jenis === 'masuk' ? 'Masuk' : 'Keluar',
-                    fmt(r.nominal)
-                ]);
-                const totM = rows.filter(r => r.jenis === 'masuk').reduce((s, r) => s + (Number(r.nominal) || 0), 0);
-                const totK = rows.filter(r => r.jenis === 'keluar').reduce((s, r) => s + (Number(r.nominal) || 0), 0);
-                tableFoot = [[
-                    { content: `Total Masuk: ${fmt(totM)}  |  Total Keluar: ${fmt(totK)}  |  Saldo: ${fmt(totM - totK)}`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                break;
-            }
-            case 'kasminggu': {
-                const tarif = Number(_lastApiRes?.tarif) || 0;
-                tableHeaders = [['Absen', 'Nama Siswa', 'M1', 'M2', 'M3', 'M4', 'M5', 'Total Bayar']];
-                tableBody = rows.map((r, i) => {
-                    const vals = [+r.m1, +r.m2, +r.m3, +r.m4, +r.m5];
-                    const cell = v => v ? fmt(tarif) : '-';
-                    return [
-                        r.absen || '-',
-                        r.nama || '',
-                        cell(vals[0]),
-                        cell(vals[1]),
-                        cell(vals[2]),
-                        cell(vals[3]),
-                        cell(vals[4]),
-                        fmt(+r.total_bayar || 0)
-                    ];
-                });
-                const sumAll = _lastApiRes?.totals?.sum || rows.reduce((s, r) => s + (+r.total_bayar || 0), 0);
-                tableFoot = [[
-                    { content: `Total Kas Mingguan (${rows.length} Siswa): ${fmt(sumAll)}`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                break;
-            }
-            case 'kasbon': {
-                tableHeaders = [['Tanggal', 'Peminjam', 'Keterangan', 'Jumlah', 'Status']];
-                tableBody = rows.map(r => [
-                    r.tanggal || '',
-                    (r.nama || '') + (r.absen ? ` (Absen ${r.absen})` : ''),
-                    r.keterangan || '-',
-                    fmt(r.jumlah),
-                    r.status === 'lunas' ? 'Lunas' : 'Belum Lunas'
-                ]);
-                const tot = rows.reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
-                const lunas = rows.filter(r => r.status === 'lunas').reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
-                tableFoot = [[
-                    { content: `Total Pinjaman: ${fmt(tot)} (Lunas: ${fmt(lunas)}, Belum Lunas: ${fmt(tot - lunas)})`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                break;
-            }
-            case 'bms': {
-                tableHeaders = [['Tanggal', 'Keterangan', 'Jenis', 'Jumlah']];
-                tableBody = rows.map(r => [
-                    r.tanggal || '',
-                    r.keterangan || '-',
-                    r.jenis === 'setor' ? 'Setor' : 'Tarik',
-                    fmt(r.jumlah)
-                ]);
-                const totSetor = rows.filter(r => r.jenis === 'setor').reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
-                const totTarik = rows.filter(r => r.jenis !== 'setor').reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
-                tableFoot = [[
-                    { content: `Total Setor: ${fmt(totSetor)}  |  Total Tarik: ${fmt(totTarik)}  |  Saldo: ${fmt(totSetor - totTarik)}`, colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                break;
-            }
-            case 'alokasi': {
-                tableHeaders = [['Tanggal', 'Sumber', 'Keterangan', 'Rincian Alokasi', 'Total']];
-                tableBody = rows.map(r => [
-                    r.tanggal || '',
-                    r.ref_type || '',
-                    r.keterangan || '-',
-                    r.lines_str || '-',
-                    fmt(r.total_nominal)
-                ]);
-                const tot = rows.reduce((s, r) => s + (Number(r.total_nominal) || 0), 0);
-                tableFoot = [[
-                    { content: `Total Alokasi: ${fmt(tot)}`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }
-                ]];
-                const kpiAccounts = _lastApiRes?.kpi?.accounts || [];
-                if (kpiAccounts.length) {
-                    const yAfterTable = typeof doc.autoTable === 'function'
-                        ? (doc.lastAutoTable ? doc.lastAutoTable.final + 8 : 160)
-                        : 210;
-                    let yPos = yAfterTable;
-                    const sectionH = 5.5;
-                    if (yPos + sectionH > 190) { doc.addPage(); yPos = 15; }
-                    doc.setFontSize(9);
-                    doc.setTextColor(30, 30, 60);
-                    doc.text('KPI Alokasi Dana', 14, yPos);
-                    yPos += 1;
-                    doc.autoTable({
-                        startY: yPos,
-                        head: [['#', 'Nama Akun', 'Tipe', '', 'Total']],
-                        body: kpiAccounts.map((a, i) => [String(i+1), a.name||'', a.type||'', '', fmt(a.saldo)]),
-                        foot: [[{ content: `Grand Total: ${fmt(kpiAccounts.reduce((s,a)=>s+(a.saldo||0),0))}`, colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } }]],
-                        theme: 'grid',
-                        headStyles: { fillColor: [40, 44, 52], textColor: [255,255,255], fontStyle: 'bold', fontSize: 8 },
-                        footStyles: { fillColor: [240,243,246], textColor: [30,30,60] },
-                        styles: { fontSize: 7.5, cellPadding: 2 },
-                        columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 16 }, 3: { cellWidth: 8 }, 4: { halign: 'right', cellWidth: 26 } },
-                    });
-                }
-                break;
-            }
-        }
+        doc.text(titleSub, 14, 21);
 
         if (typeof doc.autoTable === 'function') {
             doc.autoTable({
@@ -1079,17 +1514,16 @@ $(function () {
             });
         }
 
-        doc.save(`${meta.fileBase}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        doc.save(`${fileName}.pdf`);
     });
 
     // Init export filter events
     $('#export-type').on('change', function() {
-        const ft = EXPORT_META[this.value]?.filterTpl || 'range';
         $('#export-filters').html(buildExportFilter(this.value));
-        if (ft === 'month') {
+        if (this.value === 'kasminggu') {
             $('#export-filters [name=bulan]').val(bulanList[now.getMonth()]);
             $('#export-filters [name=tahun]').val(now.getFullYear());
-        } else {
+        } else if (this.value === 'cashflow') {
             const y = now.getFullYear();
             const m = String(now.getMonth()+1).padStart(2,'0');
             $('#export-filters [name=dari]').val(`${y}-${m}-01`);
@@ -1097,112 +1531,11 @@ $(function () {
         }
         loadExportData();
     });
+    $('#export-filters').on('change', 'select, input[type=date]', function() {
+        loadExportData();
+    });
     $('#btn-load-export').on('click', function(e){ e.preventDefault(); loadExportData(); });
 
-    // Kas BMS
-    function lBms() {
-        $.getJSON('src/api/public.php?action=get_bms', function(data) {
-            const rows = (data && data.rows) || [];
-            let h = `<table class="table-linear">
-                <thead>
-                    <tr>
-                        <th class="w-16">#</th>
-                        <th class="w-32">Tanggal</th>
-                        <th>Keterangan</th>
-                        <th class="w-28">Jenis</th>
-                        <th class="text-right w-36">Jumlah</th>
-                        <th class="w-28 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            if (rows.length === 0) {
-                h += `<tr><td colspan="6" class="text-center py-6 text-[var(--ink-muted)]">Belum ada data kas BMS.</td></tr>`;
-            } else {
-                h += rows.map(function(r, i) {
-                    const badge = r.jenis === 'setor'
-                        ? '<span class="badge-status badge-success font-medium"><i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i> <span>Setor</span></span>'
-                        : '<span class="badge-status badge-neutral font-medium"><i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i> <span>Tarik</span></span>';
-                    return '<tr>' +
-                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + (i + 1) + '</td>' +
-                        '<td class="font-mono text-xs text-[var(--ink-muted)]">' + escapeHtml(r.tanggal) + '</td>' +
-                        '<td class="text-[var(--ink)]">' + escapeHtml(r.keterangan) + '</td>' +
-                        '<td>' + badge + '</td>' +
-                        '<td class="text-right font-mono-num font-medium text-[var(--ink)]">' + fmt(r.jumlah) + '</td>' +
-                        '<td class="text-right space-x-1">' +
-                            '<button class="btn-secondary text-xs px-2.5 py-1 edit-bms gap-1" data-id="' + r.id + '" data-tanggal="' + escapeHtml(r.tanggal) + '" data-keterangan="' + escapeHtml(r.keterangan) + '" data-jenis="' + escapeHtml(r.jenis) + '" data-jumlah="' + r.jumlah + '">' +
-                                '<i class="fa-solid fa-pen text-[10px]"></i> <span>Edit</span>' +
-                            '</button>' +
-                            '<button class="btn-danger text-xs px-2.5 py-1 del-bms gap-1" data-id="' + r.id + '">' +
-                                '<i class="fa-solid fa-trash-can text-[10px]"></i> <span>Hapus</span>' +
-                            '</button>' +
-                        '</td>' +
-                    '</tr>';
-                }).join('');
-            }
-            h += '</tbody></table>';
-            $('#bms-wrap').html(h);
-        }).fail(function() {
-            $('#bms-wrap').html('<div class="text-center py-6 text-[var(--ink-muted)]">Gagal memuat data kas BMS.</div>');
-        });
-    }
-
-    // Open modal in add mode
-    $('#bms-add-btn').on('click', function () {
-        $('#bms-edit-id').val('');
-        $('#bms-form')[0].reset();
-        $('#bms-tanggal').val(new Date().toISOString().slice(0, 10));
-        $('input[name="bms-jenis"][value="setor"]').prop('checked', true);
-        $('#bms-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Simpan</span>');
-        $('#bms-modal').removeClass('hidden');
-    });
-
-    $('#bms-modal-close, #bms-cancel-btn').on('click', function () {
-        $('#bms-modal').addClass('hidden');
-    });
-
-    $(document).on('click', '.edit-bms', function () {
-        const $btn = $(this);
-        $('#bms-edit-id').val($btn.data('id'));
-        $('#bms-tanggal').val($btn.data('tanggal'));
-        $('#bms-keterangan').val($btn.data('keterangan'));
-        $('#bms-jumlah').val($btn.data('jumlah'));
-        $('input[name="bms-jenis"][value="' + $btn.data('jenis') + '"]').prop('checked', true);
-        $('#bms-submit-btn').html('<i class="fa-solid fa-floppy-disk text-xs"></i> <span>Update</span>');
-        $('#bms-modal').removeClass('hidden');
-    });
-
-    $('#bms-form').on('submit', function (e) {
-        e.preventDefault();
-        const id = $('#bms-edit-id').val();
-        const payload = {
-            tanggal:     $('#bms-tanggal').val(),
-            keterangan:  $('#bms-keterangan').val(),
-            jenis:       $('input[name="bms-jenis"]:checked').val(),
-            jumlah:      $('#bms-jumlah').val(),
-        };
-        const action = id ? 'update_bms' : 'add_bms';
-        if (id) payload.id = id;
-        $.post('src/api/admin.php?action=' + action, payload, function (res) {
-            if (res && res.ok) {
-                $('#bms-modal').addClass('hidden');
-                lBms();
-            } else {
-                alert('Gagal menyimpan: ' + (res && res.error ? res.error : 'unknown'));
-            }
-        }, 'json').fail(function (xhr) {
-            alert('Gagal menyimpan (HTTP ' + xhr.status + ').');
-        });
-    });
-
-    $(document).on('click', '.del-bms', function () {
-        if (!confirm('Hapus transaksi kas BMS ini?')) return;
-        const id = $(this).data('id');
-        $.post('src/api/admin.php?action=delete_bms', { id: id }, function () {
-            lBms();
-        }, 'json').fail(function () {
-            alert('Gagal menghapus.');
-        });
-    });
 
     // ── Alokasi Dana (admin) ────────────────────────────────────────────
     let alokasiPage = 1, transferPage = 1;
@@ -1524,9 +1857,11 @@ $(function () {
     function loadRiwayatAdmin(page) {
         if (page !== undefined) adminRiwayatPage = page;
         const params = new URLSearchParams({ action: 'get_riwayat', page: adminRiwayatPage, limit: 15 });
+        const modul  = $('#riwayat-modul').val();
         const aksi   = $('#riwayat-aksi').val();
         const dari   = $('#riwayat-dari').val();
         const sampai = $('#riwayat-sampai').val();
+        if (modul)  params.set('modul', modul);
         if (aksi)   params.set('aksi', aksi);
         if (dari)   params.set('dari', dari);
         if (sampai) params.set('sampai', sampai);
@@ -1559,12 +1894,14 @@ $(function () {
                                     const labels = {
                                         nama: 'Nama', absen: 'No. Absen', tanggal: 'Tanggal',
                                         keterangan: 'Keterangan', jenis: 'Jenis', nominal: 'Nominal',
-                                        jumlah: 'Jumlah', status: 'Status', id: 'ID Entitas'
+                                        amount: 'Nominal', jumlah: 'Jumlah', status: 'Status', id: 'ID Entitas',
+                                        akun: 'Dompet / Akun', kategori: 'Kategori', ke_akun: 'Tujuan Transfer',
+                                        account_id: 'ID Akun', to_account_id: 'ID Akun Tujuan', category_id: 'ID Kategori'
                                     };
                                     const list = keys.map(k => {
                                         let val = d[k];
-                                        if ((k === 'nominal' || k === 'jumlah') && typeof val === 'number') {
-                                            val = 'Rp ' + val.toLocaleString('id-ID');
+                                        if ((k === 'nominal' || k === 'jumlah' || k === 'amount') && (typeof val === 'number' || !isNaN(parseFloat(val)))) {
+                                            val = 'Rp ' + Math.round(parseFloat(val)).toLocaleString('id-ID');
                                         }
                                         const label = labels[k] || k;
                                         return `• <b>${escapeHtml(label)}:</b> ${escapeHtml(val)}`;
@@ -1575,10 +1912,27 @@ $(function () {
                         }
                     } catch(e) {}
                 }
+
+                let modulBadge = '<span class="badge-neutral">' + escapeHtml(r.modul) + '</span>';
+                if (r.modul === 'cashflow') {
+                    modulBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30"><i class="fa-solid fa-money-bill-transfer text-[10px] mr-1"></i>cashflow</span>';
+                } else if (r.modul === 'kas_mingguan') {
+                    modulBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"><i class="fa-solid fa-coins text-[10px] mr-1"></i>kas mingguan</span>';
+                } else if (r.modul === 'account') {
+                    modulBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30"><i class="fa-solid fa-wallet text-[10px] mr-1"></i>akun</span>';
+                } else if (r.modul === 'category') {
+                    modulBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30"><i class="fa-solid fa-tag text-[10px] mr-1"></i>kategori</span>';
+                }
+
+                let aksiBadge = '<span class="badge-' + escapeHtml(r.aksi) + '">' + escapeHtml(r.aksi) + '</span>';
+                if (r.aksi === 'claim_kas') {
+                    aksiBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-500/15 text-teal-400 border border-teal-500/30">klaim kas</span>';
+                }
+
                 html += '<tr>'
                     + '<td class="text-xs text-[var(--ink-muted)] whitespace-nowrap">' + formatDateTime(r.created_at) + '</td>'
-                    + '<td><span class="badge-neutral">' + escapeHtml(r.modul) + '</span></td>'
-                    + '<td><span class="badge-' + escapeHtml(r.aksi) + '">' + escapeHtml(r.aksi) + '</span></td>'
+                    + '<td>' + modulBadge + '</td>'
+                    + '<td>' + aksiBadge + '</td>'
                     + '<td>' + cellRingkasan + '</td>'
                     + '<td class="text-sm">' + escapeHtml(r.admin_nama || r.admin_username || '-') + '</td>'
                     + '</tr>';
@@ -1592,6 +1946,7 @@ $(function () {
     }
     $('#riwayat-apply').on('click', () => { adminRiwayatPage = 1; loadRiwayatAdmin(); });
     $('#riwayat-reset').on('click', function() {
+        $('#riwayat-modul').val('');
         $('#riwayat-aksi').val('');
         $('#riwayat-dari').val('');
         $('#riwayat-sampai').val('');

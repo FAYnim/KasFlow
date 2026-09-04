@@ -22,8 +22,8 @@ try {
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/print.css" media="print">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__ . '/assets/css/style.css') ?>">
+    <link rel="stylesheet" href="assets/css/print.css?v=<?= filemtime(__DIR__ . '/assets/css/print.css') ?>" media="print">
 </head>
 <body class="min-h-screen">
     <!-- Top Navigation Bar -->
@@ -55,21 +55,9 @@ try {
                     <i class="fa-solid fa-money-bill-wave w-4 text-center"></i>
                     <span>Kas Kelas</span>
                 </a>
-                <a data-tab="bms" class="sidebar-nav-item">
-                    <i class="fa-solid fa-sack-dollar w-4 text-center"></i>
-                    <span>Kas BMS</span>
-                </a>
-                <a data-tab="alokasi" class="sidebar-nav-item">
-                    <i class="fa-solid fa-vault w-4 text-center"></i>
-                    <span>Alokasi Dana</span>
-                </a>
-                <a data-tab="kasbon" class="sidebar-nav-item">
-                    <i class="fa-solid fa-hand-holding-dollar w-4 text-center"></i>
-                    <span>Dana Talangan</span>
-                </a>
                 <a data-tab="jurnal" class="sidebar-nav-item">
-                    <i class="fa-solid fa-receipt w-4 text-center"></i>
-                    <span>Cashflow</span>
+                    <i class="fa-solid fa-wallet w-4 text-center"></i>
+                    <span>Cashflow & Saldo</span>
                 </a>
                 <a data-tab="dashboard" class="sidebar-nav-item">
                     <i class="fa-solid fa-gauge w-4 text-center"></i>
@@ -140,120 +128,52 @@ try {
             </div>
         </section>
 
-        <!-- Cashflow Section -->
+        <!-- Cashflow & Dompet Section -->
         <section data-tab-content="jurnal" class="tab-content hidden">
             <div class="mb-6">
-                <h2 class="display-md mb-1">Cashflow</h2>
+                <h2 class="display-md mb-1">Cashflow & Saldo Dompet</h2>
+                <p class="text-sm text-[var(--ink-muted)]">Transparansi arus kas kelas, dompet penyimpanan, dan riwayat transaksi.</p>
             </div>
-            <div class="flex flex-wrap gap-2 mb-4 items-end">
-                <div class="w-full sm:w-44">
-                    <label class="eyebrow block mb-1">Bulan</label>
-                    <select id="jurnal-bulan" class="input-linear"></select>
-                </div>
-                <div class="w-full sm:w-32">
-                    <label class="eyebrow block mb-1">Tahun</label>
-                    <select id="jurnal-tahun" class="input-linear"></select>
-                </div>
-                <button id="jurnal-reset" type="button" class="btn-secondary text-xs gap-2">
-                    <i class="fa-solid fa-rotate-left text-[10px]"></i>
-                    <span>Semua Periode</span>
-                </button>
-            </div>
-            <div class="table-container overflow-x-auto" id="jurnal-table-wrap"></div>
-            <div id="jurnal-pagination"></div>
-        </section>
 
-        <!-- Kasbon Section -->
-        <section data-tab-content="kasbon" class="tab-content hidden">
-            <div class="flex items-center justify-between mb-6">
-                <div>
-                    <h2 class="display-md mb-1">Dana Talangan / Reimbursement</h2>
-                </div>
-                <div class="flex items-center gap-2">
-                    <select id="kasbon-bulan" class="input-linear"></select>
-                    <select id="kasbon-tahun" class="input-linear"></select>
-                </div>
-            </div>
-            <div class="table-container overflow-x-auto">
-                <table class="table-linear w-full">
-                    <thead>
-                        <tr>
-                            <th class="w-12 text-center">#</th>
-                            <th>Tanggal</th>
-                            <th>Nama</th>
-                            <th>Keterangan</th>
-                            <th class="text-right">Jumlah</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="kasbon-table-body">
-                        <tr><td colspan="6" class="text-center py-6 text-subtle">Memuat data...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Kas BMS Section -->
-        <section data-tab-content="bms" class="tab-content hidden">
+            <!-- Public Account Balances Grid -->
             <div class="mb-6">
-                <h2 class="display-md mb-1">Kas BMS</h2>
+                <div class="eyebrow mb-2">Sebaran Saldo Dompet / Rekening</div>
+                <div id="public-accounts-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4"></div>
             </div>
 
-            <div id="bms-summary-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"></div>
-
-            <div class="flex flex-wrap items-end gap-3 mb-4">
-                <label class="text-xs text-subtle">
-                    <span class="block mb-1">Dari</span>
-                    <input type="date" id="bms-dari" class="input-linear">
-                </label>
-                <label class="text-xs text-subtle">
-                    <span class="block mb-1">Sampai</span>
-                    <input type="date" id="bms-sampai" class="input-linear">
-                </label>
-                <button id="bms-apply" class="btn-primary text-xs gap-2">
-                    <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
-                </button>
-                <button id="bms-reset" class="btn-secondary text-xs gap-2">
-                    <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
-                </button>
-            </div>
-
-            <div id="bms-wrap" class="table-container overflow-x-auto"></div>
-        </section>
-
-        <!-- Alokasi Dana Section -->
-        <section data-tab-content="alokasi" class="tab-content hidden">
-            <div class="mb-6">
-                <h2 class="display-md mb-1">Alokasi Dana</h2>
-                <p class="text-sm text-subtle">Sebaran saldo kas kelas ke beberapa tempat simpan (cash, e-wallet, bank).</p>
-            </div>
-
-            <div id="alokasi-accounts" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6"></div>
-
-            <div class="card-linear p-4 mb-3">
-                <div class="flex flex-wrap gap-2 items-end">
+            <!-- Filter Bar -->
+            <div class="card-linear p-4 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
                     <div>
-                        <span class="eyebrow block mb-1">Dari</span>
-                        <input type="date" id="alokasi-dari" class="input-linear">
+                        <label class="eyebrow block mb-1">Tipe</label>
+                        <select id="pub-filter-type" class="input-linear w-full">
+                            <option value="">Semua Tipe</option>
+                            <option value="income">Pemasukan (+)</option>
+                            <option value="expense">Pengeluaran (-)</option>
+                            <option value="transfer">Transfer (⇄)</option>
+                        </select>
                     </div>
                     <div>
-                        <span class="eyebrow block mb-1">Sampai</span>
-                        <input type="date" id="alokasi-sampai" class="input-linear">
+                        <label class="eyebrow block mb-1">Dompet / Akun</label>
+                        <select id="pub-filter-account" class="input-linear w-full">
+                            <option value="">Semua Akun</option>
+                        </select>
                     </div>
-                    <div class="flex-1 min-w-[160px]">
-                        <span class="eyebrow block mb-1">Keterangan</span>
-                        <input type="text" id="alokasi-keterangan-search" placeholder="Cari keterangan…" class="input-linear w-full">
+                    <div>
+                        <label class="eyebrow block mb-1">Kategori</label>
+                        <select id="pub-filter-category" class="input-linear w-full">
+                            <option value="">Semua Kategori</option>
+                        </select>
                     </div>
-                    <button id="alokasi-apply" class="btn-primary text-xs gap-2">
-                        <i class="fa-solid fa-filter text-[10px]"></i> <span>Terapkan</span>
-                    </button>
-                    <button id="alokasi-reset" class="btn-secondary text-xs gap-2">
-                        <i class="fa-solid fa-rotate-left text-[10px]"></i> <span>Reset</span>
-                    </button>
+                    <div>
+                        <input type="text" id="pub-filter-search" placeholder="Cari keterangan..." class="input-linear w-full text-xs">
+                    </div>
                 </div>
             </div>
-            <div id="alokasi-allocations-wrap" class="table-container overflow-x-auto"></div>
-            <div id="alokasi-allocations-pagination"></div>
+
+            <!-- Transactions Table -->
+            <div class="table-container overflow-x-auto mb-4" id="public-cashflow-wrap"></div>
+            <div id="public-cashflow-pagination"></div>
         </section>
 
         <!-- Riwayat Section -->
@@ -264,13 +184,27 @@ try {
             </div>
             <div class="flex flex-wrap gap-2 mb-4 items-end">
                 <label class="text-xs text-subtle">
+                    <span class="block mb-1">Modul</span>
+                    <select id="riwayat-modul" class="input-linear">
+                        <option value="">Semua Modul</option>
+                        <option value="cashflow">Cashflow (Transaksi)</option>
+                        <option value="kas_mingguan">Kas Mingguan</option>
+                        <option value="account">Dompet / Akun</option>
+                        <option value="category">Kategori</option>
+                        <option value="siswa">Data Siswa</option>
+                        <option value="config">Pengaturan</option>
+                        <option value="legacy">Riwayat Lama (Arsip)</option>
+                    </select>
+                </label>
+                <label class="text-xs text-subtle">
                     <span class="block mb-1">Aksi</span>
                     <select id="riwayat-aksi" class="input-linear">
-                        <option value="">Semua</option>
+                        <option value="">Semua Aksi</option>
                         <option value="tambah">Tambah</option>
                         <option value="edit">Edit</option>
                         <option value="hapus">Hapus</option>
                         <option value="update_status">Update Status</option>
+                        <option value="claim_kas">Klaim Kas</option>
                     </select>
                 </label>
                 <label class="text-xs text-subtle">
@@ -297,6 +231,6 @@ try {
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="assets/js/public.js"></script>
+    <script src="assets/js/public.js?v=<?= filemtime(__DIR__ . '/assets/js/public.js') ?>"></script>
 </body>
 </html>
