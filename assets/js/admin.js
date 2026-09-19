@@ -933,6 +933,43 @@ $(function () {
         $('#claim-queue-info').text(isNeg ? 'Pilih dompet yang akan dipotong untuk koreksi pembatalan kas.' : 'Pilih akun/dompet tempat fisik/digital uang ini disimpan.');
         $('#claim-description').val(item.keterangan || `Penerimaan Kas Mingguan ${item.bulan} ${item.tahun}`);
 
+        // Render Student Breakdown
+        const detail = (typeof item.detail === 'object' && item.detail !== null) ? item.detail : {};
+        const students = Array.isArray(detail.students) ? detail.students : [];
+        const $studentsContainer = $('#claim-queue-students-container');
+        const $studentsList = $('#claim-queue-students-list');
+
+        if (students.length > 0) {
+            $('#claim-queue-students-count').text(`${students.length} Catatan`);
+            const studentRows = students.map(s => {
+                const isBatal = s.action === 'batal' || (s.nominal && s.nominal < 0);
+                const badgeColor = isBatal ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+                const sign = isBatal ? '-' : '+';
+                const nomText = s.nominal ? `${sign}${fmt(Math.abs(s.nominal))}` : '';
+                return `
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-[var(--surface-elevated)] border border-[var(--hairline)]">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <span class="w-6 h-6 rounded-md bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-[10px] shrink-0">
+                                M${s.minggu}
+                            </span>
+                            <div class="truncate">
+                                <span class="font-medium text-[var(--ink)]">${escapeHtml(s.nama || '#'+s.siswa_id)}</span>
+                                <span class="text-[10px] text-[var(--ink-muted)] block">Minggu ${s.minggu} • ${isBatal ? 'Batal Bayar' : 'Bayar Kas'}</span>
+                            </div>
+                        </div>
+                        <span class="font-mono text-[11px] font-semibold px-2 py-0.5 rounded border ${badgeColor} shrink-0">
+                            ${nomText}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+            $studentsList.html(studentRows);
+            $studentsContainer.removeClass('hidden');
+        } else {
+            $studentsContainer.addClass('hidden');
+            $studentsList.empty();
+        }
+
         // Accounts dropdown
         const accOpts = (cfOverviewData.accounts || []).map(a => `<option value="${a.id}">${escapeHtml(a.name)} (Saldo: ${fmt(a.balance)})</option>`).join('');
         $('#claim-account-id').html(accOpts);
