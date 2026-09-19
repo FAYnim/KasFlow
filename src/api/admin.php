@@ -98,15 +98,58 @@ try {
                     ];
                 }
             }
-            // Hitung delta centang baru (masuk) dan centang batal (keluar/koreksi)
+            // Ambil daftar nama siswa untuk rincian antrean dan log
+            $namaMap = [];
+            $sids = array_unique(array_filter(array_map(fn($c) => (int)($c['siswa_id'] ?? 0), $changes)));
+            if (!empty($sids)) {
+                $inClause = implode(',', array_fill(0, count($sids), '?'));
+                $stmtSiswa = $pdo->prepare("SELECT id, nama FROM siswa WHERE id IN ($inClause)");
+                $stmtSiswa->execute(array_values($sids));
+                while ($row = $stmtSiswa->fetch()) {
+                    $namaMap[(int)$row['id']] = $row['nama'];
+                }
+            }
+
+            // Hitung delta centang baru (masuk) dan centang batal (keluar/koreksi) beserta rincian siswanya
             $newCheckedCount = 0;
             $newUncheckedCount = 0;
+            $studentsDetail = [];
+            $summaryItems = [];
+            $perubahan = [];
+
             foreach ($changes as $c) {
                 $sid = (int)($c['siswa_id'] ?? 0); $m = (int)($c['minggu'] ?? 0); $chk = (int)($c['checked'] ?? 0);
                 if ($sid <= 0 || !in_array($m, [1,2,3,4,5], true)) continue;
                 $prev = $prevStates[$sid][$m] ?? 0;
-                if ($chk === 1 && $prev === 0) $newCheckedCount++;
-                if ($chk === 0 && $prev === 1) $newUncheckedCount++;
+                $namaSiswa = $namaMap[$sid] ?? ("#" . $sid);
+
+                if ($chk === 1 && $prev === 0) {
+                    $newCheckedCount++;
+                    $studentsDetail[] = [
+                        'siswa_id' => $sid,
+                        'nama'     => $namaSiswa,
+                        'minggu'   => $m,
+                        'action'   => 'bayar',
+                        'nominal'  => $tarif
+                    ];
+                } elseif ($chk === 0 && $prev === 1) {
+                    $newUncheckedCount++;
+                    $studentsDetail[] = [
+                        'siswa_id' => $sid,
+                        'nama'     => $namaSiswa,
+                        'minggu'   => $m,
+                        'action'   => 'batal',
+                        'nominal'  => -$tarif
+                    ];
+                }
+
+                $perubahan[] = [
+                    'siswa_id' => $sid,
+                    'nama'     => $namaSiswa,
+                    'minggu'   => $m,
+                    'status'   => $chk ? 'lunas' : 'batal'
+                ];
+                $summaryItems[] = "$namaSiswa (M$m: " . ($chk ? 'Lunas' : 'Batal') . ")";
             }
             $netUnits = $newCheckedCount - $newUncheckedCount;
             $netNominal = $netUnits * $tarif;
@@ -134,15 +177,31 @@ try {
 
                 // Jika ada perubahan nominal bersih, otomatis catat ke antrean Uncategorized Cashflow
                 if ($netNominal != 0) {
+                    // Buat ringkasan nama siswa untuk keterangan transaksi
+                    $studentNamesSummary = [];
+                    foreach ($studentsDetail as $sd) {
+                        $studentNamesSummary[] = "{$sd['nama']} (M{$sd['minggu']})";
+                    }
+                    $studentNamesStr = "";
+                    if (!empty($studentNamesSummary)) {
+                        $firstTwo = array_slice($studentNamesSummary, 0, 2);
+                        $studentNamesStr = ": " . implode(', ', $firstTwo);
+                        if (count($studentNamesSummary) > 2) {
+                            $studentNamesStr .= " + " . (count($studentNamesSummary) - 2) . " lainnya";
+                        }
+                    }
+
                     $qKet = $netNominal > 0
-                        ? "Penerimaan Kas Mingguan $bulan $tahun ($newCheckedCount baru)"
-                        : "Koreksi Pembatalan Kas Mingguan $bulan $tahun ($newUncheckedCount batal)";
+                        ? "Penerimaan Kas $bulan $tahun$studentNamesStr"
+                        : "Koreksi Pembatalan Kas $bulan $tahun$studentNamesStr";
+
                     $qDetail = json_encode([
                         'bulan' => $bulan,
                         'tahun' => $tahun,
                         'new_checked' => $newCheckedCount,
                         'new_unchecked' => $newUncheckedCount,
-                        'net_nominal' => $netNominal
+                        'net_nominal' => $netNominal,
+                        'students' => $studentsDetail
                     ]);
                     $insQ = $pdo->prepare("INSERT INTO kas_mingguan_queue (bulan, tahun, nominal, keterangan, detail, status) VALUES (?, ?, ?, ?, ?, 'pending')");
                     $insQ->execute([$bulan, $tahun, $netNominal, $qKet, $qDetail]);
@@ -157,35 +216,6 @@ try {
             $stmt = $pdo->prepare("SELECT siswa_id, total_bayar FROM kas_mingguan WHERE bulan=? AND tahun=?");
             $stmt->execute([$bulan, $tahun]);
             foreach ($stmt as $r) $totals[(int)$r['siswa_id']] = (float)$r['total_bayar'];
-
-            // Build detailed log
-            $namaMap = [];
-            $sids = array_unique(array_filter(array_map(fn($c) => (int)($c['siswa_id'] ?? 0), $changes)));
-            if (!empty($sids)) {
-                $inClause = implode(',', array_fill(0, count($sids), '?'));
-                $stmtSiswa = $pdo->prepare("SELECT id, nama FROM siswa WHERE id IN ($inClause)");
-                $stmtSiswa->execute(array_values($sids));
-                while ($row = $stmtSiswa->fetch()) {
-                    $namaMap[(int)$row['id']] = $row['nama'];
-                }
-            }
-
-            $perubahan = [];
-            $summaryItems = [];
-            foreach ($changes as $c) {
-                $sid = (int)($c['siswa_id'] ?? 0);
-                $m   = (int)($c['minggu'] ?? 0);
-                $chk = (int)($c['checked'] ?? 0);
-                if ($sid <= 0 || !in_array($m, [1,2,3,4,5], true)) continue;
-                $namaSiswa = $namaMap[$sid] ?? ("#" . $sid);
-                $perubahan[] = [
-                    'siswa_id' => $sid,
-                    'nama' => $namaSiswa,
-                    'minggu' => $m,
-                    'status' => $chk ? 'lunas' : 'batal'
-                ];
-                $summaryItems[] = "$namaSiswa (M$m: " . ($chk ? 'Lunas' : 'Batal') . ")";
-            }
 
             $totalPerubahan = count($perubahan);
             $summaryStr = "";
@@ -544,6 +574,9 @@ try {
             break;
         }
         case 'get_transactions': {
+            $page   = max(1, (int)($_GET['page'] ?? 1));
+            $limit  = !empty($_GET['limit']) ? max(5, min(100, (int)$_GET['limit'])) : 15;
+            $offset = ($page - 1) * $limit;
             $filters = [
                 'start_date'  => $_GET['start_date'] ?? null,
                 'end_date'    => $_GET['end_date'] ?? null,
@@ -551,11 +584,23 @@ try {
                 'account_id'  => $_GET['account_id'] ?? null,
                 'category_id' => $_GET['category_id'] ?? null,
                 'search'      => $_GET['search'] ?? null,
-                'limit'       => !empty($_GET['limit']) ? (int)$_GET['limit'] : 100,
-                'offset'      => !empty($_GET['offset']) ? (int)$_GET['offset'] : 0,
+                'limit'       => $limit,
+                'offset'      => $offset,
             ];
             $rows = FinanceEngine::getTransactions($pdo, $filters);
-            echo json_encode(['ok' => true, 'transactions' => $rows]);
+            $totalCount   = FinanceEngine::countTransactions($pdo, $filters);
+            $totalPages   = $totalCount > 0 ? (int)ceil($totalCount / $limit) : 1;
+            echo json_encode([
+                'ok'           => true,
+                'data'         => $rows,
+                'transactions' => $rows,
+                'pagination'   => [
+                    'page'          => $page,
+                    'limit'         => $limit,
+                    'total_records' => $totalCount,
+                    'total_pages'   => $totalPages,
+                ],
+            ]);
             break;
         }
         case 'add_transaction': {
