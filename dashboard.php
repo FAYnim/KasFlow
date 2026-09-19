@@ -612,6 +612,21 @@ try {
                 <div class="text-2xl font-bold font-mono text-[var(--ink)]" id="claim-queue-nominal">Rp 0</div>
                 <div class="text-[var(--ink-muted)] mt-1" id="claim-queue-info">Pilih dompet tempat fisik/digital uang ini disimpan.</div>
             </div>
+
+            <!-- Student Breakdown Card -->
+            <div id="claim-queue-students-container" class="mb-4 p-3 rounded-xl border border-[var(--hairline)] bg-[var(--surface-sunken)] hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="eyebrow flex items-center gap-1.5 text-xs text-[var(--ink)]">
+                        <i class="fa-solid fa-users-viewfinder text-amber-500"></i>
+                        <span>Rincian Pembayar Kas</span>
+                    </span>
+                    <span id="claim-queue-students-count" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 font-mono">0 Data</span>
+                </div>
+                <div id="claim-queue-students-list" class="space-y-1.5 max-h-36 overflow-y-auto pr-1 text-xs">
+                    <!-- Student items rendered dynamically -->
+                </div>
+            </div>
+
             <div class="space-y-3">
                 <div>
                     <label class="eyebrow block mb-1">Masukkan ke Akun / Dompet *</label>
